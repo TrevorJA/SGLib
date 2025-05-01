@@ -6,8 +6,9 @@ common_default_kwargs = {
     'log_transform': False,
     'n_realizations': 1,
     'n_timesteps': 100,
-    'timestep': 1,
+    'timestep': 'MS',
     '_is_fit': False,
+    '_is_preprocessed': False,
     'verbose': False,
 }
 

@@ -39,6 +39,9 @@ def get_drought_metrics(df, window=12, aggregate = None):
     Returns:
         pd.DataFrame: DataFrame containing all drought metrics for each drought period.
     """
+    if len(np.shape(df)) == 1:
+        df = pd.DataFrame(df)
+
     realizations = df.columns
     ssi = calculate_ssi_values(df, window = window, aggregate = aggregate)
     drought_data = {}
@@ -49,27 +52,35 @@ def get_drought_metrics(df, window=12, aggregate = None):
         # Reset counters
         in_critical_drought = False
         drought_days = [] 
-        
+        start_drought = None
+        end_drought = None
         for ind in range(len(ssi_i)):
         
             if ssi_i.values[ind] < 0:
                 drought_days.append(ind)
                 if ssi_i.values[ind] <= -1:
                     in_critical_drought = True
+                    start_drought = ssi_i.index[ind]
+                    
             else:
                 # Record drought info once it ends
                 if in_critical_drought:
+                    end_drought = ssi_i.index[ind - 1]
                     drought_counter += 1
                     drought_data[drought_counter] = {
                         'realization': realization,
                         'duration': len(drought_days),
                         'magnitude': sum(ssi_i.values[drought_days]),
-                        'severity': min(ssi_i.values[drought_days])
+                        'severity': min(ssi_i.values[drought_days]),
+                        'start': start_drought,
+                        'end': end_drought
                     }
-                
+
                 # Reset counters
                 in_critical_drought = False
                 drought_days = [] 
+                start_drought = None
+                end_drought = None
 
     drought_metrics = pd.DataFrame(drought_data).transpose()
     return drought_metrics

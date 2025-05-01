@@ -36,7 +36,7 @@ def _validate_kwargs(self, default_kwargs, **kwargs):
     for key, value in kwargs.items():
         if key in default_kwargs.keys():
             if type(value) != type(default_kwargs[key]):
-                raise TypeError("Invalid type for keyword argument {}.".format(key))
+                raise TypeError(f"Invalid type for kwarg {key}. Expected type {type(default_kwargs[key])}.")
         else:
             
             raise KeyError(f"Invalid keyword argument {key}. Options: {default_kwargs.keys()}")

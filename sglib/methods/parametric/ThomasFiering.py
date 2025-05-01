@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.stats import pearsonr
 
 from sglib.core.base import Generator
 
@@ -12,6 +13,7 @@ def calculate_lower_bound(df):
     qmin = df.min()
     qmedian = df.median()
     tau = (qmax*qmin - qmedian**2) / (qmax + qmin - 2*qmedian)
+    tau = tau if tau > 0 else 0
     return tau
 
 
@@ -61,8 +63,6 @@ class ThomasFieringGenerator(Generator):
         if Q.index.freq not in ['MS', 'M']:
             if Q.index.freq in ['D', 'W']:
                 Q = Q.resample('MS').sum()
-            else:
-                raise ValueError('Q must be daily or monthly')
         
         self.Q_obs_monthly = Q 
         
@@ -81,7 +81,21 @@ class ThomasFieringGenerator(Generator):
         self.sigma_monthly = self.Q_norm.groupby(self.Q_norm.index.month).std()
         
         # monthly correlation between month m and m+1
-        self.rho_monthly = self.Q_norm.groupby(self.Q_norm.index.month).apply(lambda x: x.autocorr(1))
+        self.rho_monthly = self.mu_monthly.copy()
+        for i in range(1, 13):
+            first_month = i
+            second_month = i+1 if i < 12 else 1
+            first_month_flows = self.Q_norm[self.Q_norm.index.month == first_month]
+            second_month_flows = self.Q_norm[self.Q_norm.index.month == second_month]
+            if len(first_month_flows) > len(second_month_flows):
+                first_month_flows = first_month_flows.iloc[1:]
+            elif len(first_month_flows) < len(second_month_flows):
+                second_month_flows = second_month_flows.iloc[:-1]
+            lag1_r = pearsonr(first_month_flows.values, 
+                              second_month_flows.values)
+            
+            self.rho_monthly[i] = lag1_r[0]
+            
         self.is_fit = True
     
     def _generate(self, n_years, **kwargs):
@@ -106,8 +120,10 @@ class ThomasFieringGenerator(Generator):
                                                 np.sqrt(1-self.rho_monthly[month]**2)*self.sigma_monthly[month]*e_rand
                         
         # convert to df
+        syn_start_year = self.Q_obs_monthly.index[0].year
+        syn_start_date = f'{syn_start_year}-01-01'
         self.x_syn = pd.DataFrame(self.x_syn, 
-                                index=pd.date_range(start=self.Q_obs_monthly.index[0], 
+                                index=pd.date_range(start=syn_start_date, 
                                                     periods=len(self.x_syn), freq='MS'))
         self.x_syn[self.x_syn < 0] = self.Q_norm.min()
         
@@ -128,7 +144,8 @@ class ThomasFieringGenerator(Generator):
             if i == 0:
                 self.Q_syn_df = Q_syn
             else:
-                self.Q_syn_df = pd.concat([self.Q_syn_df, Q_syn], axis=1, ignore_index=True)
+                self.Q_syn_df = pd.concat([self.Q_syn_df, Q_syn], 
+                                          axis=1, ignore_index=True)
     
         return self.Q_syn_df
     

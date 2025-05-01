@@ -58,6 +58,7 @@ def plot_flow_ranges(Qh, Qs,
     ## Plotting  
     fig, ax = plt.subplots(figsize = figsize, dpi=150)
     xs = h_max.index
+    print(f'xs: {xs} \n\n s_min: {s_min} \n\n')
     ax.fill_between(xs, s_min, s_max, color = colors[1], label = 'Synthetic Range', alpha = 0.5)
     ax.plot(xs, s_median, color = colors[1], label = 'Synthetic Median')
     ax.fill_between(xs, h_min, h_max, color = colors[0], label = 'Historic Range', alpha = 0.3)
@@ -195,7 +196,7 @@ def plot_autocorrelation(Qh, Qs, lag_range,
         autocorr_h[i] = h_corr[0]
         confidence_autocorr_h[0,i] = h_corr[0] - h_corr.confidence_interval().low
         confidence_autocorr_h[1,i] = h_corr.confidence_interval().high - h_corr[0]
-     
+    print(confidence_autocorr_h)
     autocorr_s = np.zeros((Qs.shape[1], len(lag_range)))
     for i, realization in enumerate(Qs.columns):
         autocorr_s[i] = [pearsonr(Qs[realization].values[:-lag], Qs[realization].values[lag:])[0] for lag in lag_range]

@@ -12,7 +12,7 @@ from pygeohydro import NWIS
 bbox = (-77, 42, -76.0, 43)
 
 # Specify time period of interest
-dates = ('1930-01-01', '2022-12-31')
+dates = ('1900-01-01', '2022-12-31')
 
 # Make query and search for gauges
 nwis = NWIS()
@@ -26,13 +26,21 @@ query_result = query_result.query("site_tp_cd in ('ST','ST-TS')")
 query_result = query_result[query_result.parm_cd == '00060']  # https://help.waterdata.usgs.gov/parameter_cd?group_cd=PHY
 query_result = query_result.reset_index(drop = True)
 stations = list(set(query_result.site_no.tolist()))
+stations.append('01434000') # a known gauge with 100 years of data
 
 # Retrieve data for the gauges
 Q = nwis.get_streamflow(stations, dates)
 Q.index = pd.to_datetime(Q.index.date)
 
-# remove gauges with missing values
-Q = Q.dropna(axis=1, how='any')
+# remove dates with no data
+Q = Q.dropna(axis=0, how='all')
+
+# remove gauges which have no data prior to 1915
+drop_gauges = []
+for gauge in Q.columns:
+    if Q[gauge].dropna().index[0].year > 1915:
+        drop_gauges.append(gauge)
+Q = Q.drop(drop_gauges, axis=1)
 
 # Transform to monthly
 Q_monthly = Q.resample('M').sum()
@@ -42,3 +50,4 @@ Q.to_csv(f'./usgs_daily_streamflow_cms.csv', sep=',')
 Q_monthly.to_csv(f'./usgs_monthly_streamflow_cms.csv', sep=',')
 
 print(f"Gage data gathered, {Q.shape[1]} USGS streamflow gauges found in date range.")
+

@@ -105,7 +105,7 @@ class SSIDroughtMetrics:
             raise ValueError("Data not set. Please set data before calculating SSI.")
         
         # Get rolling sum
-        data_rs = data.rolling(self.window, min_periods=self.window).sum().dropna()
+        data_rs = self.data.rolling(self.window, min_periods=self.window).sum().dropna()
         
         # Calculate the Standardized Streamflow Index (SSI)
         ssi = si.ssfi(series = data_rs, 

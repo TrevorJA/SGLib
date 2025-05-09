@@ -194,13 +194,13 @@ def plot_autocorrelation(Qh, Qs, lag_range,
     for i, lag in enumerate(lag_range):
         h_corr = pearsonr(Qh.values[:-lag], Qh.values[lag:])
         autocorr_h[i] = h_corr[0]
-        confidence_autocorr_h[0,i] = h_corr[0] - h_corr.confidence_interval().low
-        confidence_autocorr_h[1,i] = h_corr.confidence_interval().high - h_corr[0]
-    print(confidence_autocorr_h)
+        confidence_autocorr_h[0,i] = h_corr.confidence_interval().low
+        confidence_autocorr_h[1,i] = h_corr.confidence_interval().high
+        
     autocorr_s = np.zeros((Qs.shape[1], len(lag_range)))
+    
     for i, realization in enumerate(Qs.columns):
         autocorr_s[i] = [pearsonr(Qs[realization].values[:-lag], Qs[realization].values[lag:])[0] for lag in lag_range]
- 
  
     ## Plotting
     fig, ax = plt.subplots(figsize=figsize, dpi=200)
@@ -216,8 +216,7 @@ def plot_autocorrelation(Qh, Qs, lag_range,
     # Plot autocorrelation for the historic timeseries
     ax.plot(lag_range, autocorr_h, color=colors[0], linewidth=2, label='Historic', zorder = 3)
     ax.scatter(lag_range, autocorr_h, color=colors[0], zorder = 4)
-    ax.errorbar(lag_range, autocorr_h, yerr=confidence_autocorr_h, 
-                color='black', capsize=4, alpha=0.75, label ='Historic 95% CI')
+    
  
     # Set labels and title
     ax.set_xlabel(f'Lag ({time_label})', fontsize=12)

@@ -1,4 +1,4 @@
-from sglib.methods.non_parametric.kirsch_nowak import KirschNowakGenerator
+from sglib.methods.non_parametric.kirsch_nowak import KirschGenerator
 from sglib.utils.load import HDF5
 from sglib.droughts.ssi import SSIDroughtMetrics
 
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     print(f"Historic data shape: {Q.shape}") #(28854, 2)
     
     # Initialize the generator
-    kn_gen = KirschNowakGenerator(Q)
+    kn_gen = KirschGenerator(Q)
 
     # Preprocess the data
     kn_gen.preprocessing()

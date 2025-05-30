@@ -1,0 +1,7 @@
+N_YEARS = 50
+N_REALIZATIONS = 10
+
+START_DATE = '1970-01-01'
+END_DATE = '2019-12-31'
+
+OUTPUT_DIR = "./pywrdrb/outputs/"

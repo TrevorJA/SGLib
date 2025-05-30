@@ -49,9 +49,14 @@ class HDF5Manager:
     Class for saving and loading synthetic time series data to/from HDF5 files.
     Handles both numpy array format and dictionary of DataFrames format.
     """
-
-    @staticmethod
-    def save_to_hdf5(file_path, data, datetime_index=None, site_names=None):
+    def __init__(self):
+        return
+    
+    def save_to_hdf5(self, 
+                     file_path, 
+                     data, 
+                     datetime_index=None, 
+                     site_names=None):
         """
         Save data to HDF5.
 
@@ -81,8 +86,10 @@ class HDF5Manager:
             else:
                 raise TypeError("Data must be a numpy array or a dictionary of DataFrames.")
 
-    @staticmethod
-    def load_from_hdf5(file_path, as_dict=False):
+
+    def load_from_hdf5(self,
+                       file_path, 
+                       as_dict=False):
         """
         Load data from HDF5.
 

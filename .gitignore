@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+./pywrdrb/inputs/stationary_ensemble/*
+./pywrdrb/outputs/*
+./pywrdrb/models/
 # C extensions
 *.so
 

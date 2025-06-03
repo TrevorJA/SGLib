@@ -1,1 +1,1 @@
-from .autoregressive import AR, VAR
+from .ar import AR, VAR

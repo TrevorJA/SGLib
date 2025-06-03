@@ -6,6 +6,7 @@ __pycache__/
 ./pywrdrb/inputs/stationary_ensemble/*
 ./pywrdrb/outputs/*
 ./pywrdrb/models/
+./pywrdrb/*
 # C extensions
 *.so
 

@@ -49,7 +49,7 @@ def inverse_stedinger_normalization(df, tau_monthly):
 
 
 
-class ThomasFieringGenerator(Generator):
+class ThomasFiering(Generator):
     """
     From Thomas and Fiering, 1962.    
     Also described in Steinder and Taylor (1982).

@@ -8,7 +8,7 @@ from scipy.stats import pearsonr
 def plot_flow_ranges(Qh, Qs, 
                      timestep = 'daily',
                      units = 'cms', y_scale = 'log',
-                     savefig = False, fig_dir = '.',
+                     savefig = False, fname = None,
                      figsize = (7,5), colors = ['black', 'orange'],
                      title_addon = ""):
     """Plots the range of flow for historic and syntehtic streamflows for a specific timestep scale.
@@ -19,8 +19,8 @@ def plot_flow_ranges(Qh, Qs,
         timestep (str, optional): The timestep which data should be aggregated over. Defaults to 'daily'. Options are 'daily', 'weekly', or 'monthly'.
         units (str, optional): Streamflow units, for axis label. Defaults to 'cms'.
         y_scale (str, optional): Scale of the y-axis. Defaults to 'log'.
-        savefig (bool, optional): Allows for png to be saved to fig_dir. Defaults to False.
-        fig_dir (str, optional): Location of saved figure output. Defaults to '.' (working directory).
+        savefig (bool, optional): Allows for png to be saved to fname. Defaults to False.
+        fname (str, optional): Location of saved figure output. Defaults to '.' (working directory).
         figsize (tuple, optional): The figure size. Defaults to (4,4).
         colors (list, optional): List of two colors for historic and synthetic data respectively. Defaults to ['black', 'orange'].
         title_addon (str, optional): Text to be added to the end of the title. Defaults to "".
@@ -58,7 +58,7 @@ def plot_flow_ranges(Qh, Qs,
     ## Plotting  
     fig, ax = plt.subplots(figsize = figsize, dpi=150)
     xs = h_max.index
-    print(f'xs: {xs} \n\n s_min: {s_min} \n\n')
+    # print(f'xs: {xs} \n\n s_min: {s_min} \n\n')
     ax.fill_between(xs, s_min, s_max, color = colors[1], label = 'Synthetic Range', alpha = 0.5)
     ax.plot(xs, s_median, color = colors[1], label = 'Synthetic Median')
     ax.fill_between(xs, h_min, h_max, color = colors[0], label = 'Historic Range', alpha = 0.3)
@@ -73,7 +73,7 @@ def plot_flow_ranges(Qh, Qs,
     plt.tight_layout()
      
     if savefig:
-        plt.savefig(f'{fig_dir}/flow_ranges_{timestep}.png', dpi = 150)
+        plt.savefig(fname, dpi = 150)
     return
 
 
@@ -83,7 +83,7 @@ def plot_flow_ranges(Qh, Qs,
 
 def plot_fdc_ranges(Qh, Qs, 
                     units = 'cms', y_scale = 'log',
-                    savefig = False, fig_dir = '.',
+                    savefig = False, fname = None,
                     figsize = (5,5), colors = ['black', 'orange'],                   
                     title_addon = ""):
     """Plots the range and aggregate flow duration curves for historic and synthetic streamflows.
@@ -93,8 +93,8 @@ def plot_fdc_ranges(Qh, Qs,
         Qs (pd.DataFrame): Synthetic daily streamflow timeseries realizations. Each column is a unique realization. Index must be pd.DatetimeIndex.
         units (str, optional): Streamflow units, for axis label. Defaults to 'cms'.
         y_scale (str, optional): Scale of the y-axis. Defaults to 'log'.
-        savefig (bool, optional): Allows for png to be saved to fig_dir. Defaults to False.
-        fig_dir (str, optional): Location of saved figure output. Defaults to '.' (working directory).
+        savefig (bool, optional): Allows for png to be saved to fname. Defaults to False.
+        fname (str, optional): Location of saved figure output. Defaults to '.' (working directory).
         figsize (tuple, optional): The figure size. Defaults to (4,4).
         colors (list, optional): List of two colors for historic and synthetic data respectively. Defaults to ['black', 'orange'].
         title_addon (str, optional): Text to be added to the end of the title. Defaults to "".
@@ -144,7 +144,8 @@ def plot_fdc_ranges(Qh, Qs,
      
     plt.title(f'Flow Duration Curve Ranges\nHistoric & Synthetic Streamflow\n{title_addon}')
     if savefig:
-        plt.savefig(f'{fig_dir}/flow_duration_curves_{title_addon}.png', dpi=200)
+        assert(fname is not None), 'If savefig is True, fname must be provided.'
+        plt.savefig(fname, dpi=200)
     plt.show()
     return
 
@@ -154,7 +155,7 @@ def plot_fdc_ranges(Qh, Qs,
 
 def plot_autocorrelation(Qh, Qs, lag_range, 
                          timestep = 'daily',
-                         savefig = False, fig_dir = '.',
+                         savefig = False, fname = None,
                          figsize=(7, 5), colors = ['black', 'orange'],
                          alpha = 0.3):
     """Plot autocorrelation of historic and synthetic flow over some range of lags.
@@ -165,8 +166,8 @@ def plot_autocorrelation(Qh, Qs, lag_range,
         lag_range (iterable): A list or range of lag values to be used for autocorrelation calculation.
          
         timestep (str, optional): The timestep which data should be aggregated over. Defaults to 'daily'. Options are 'daily', 'weekly', or 'monthly'.
-        savefig (bool, optional): Allows for png to be saved to fig_dir. Defaults to False.
-        fig_dir (str, optional): Location of saved figure output. Defaults to '.' (working directory).
+        savefig (bool, optional): Allows for png to be saved to fname. Defaults to False.
+        fname (str, optional): Location of saved figure output. Defaults to '.' (working directory).
         figsize (tuple, optional): The figure size. Defaults to (4,4).
         colors (list, optional): List of two colors for historic and synthetic data respectively. Defaults to ['black', 'orange'].
         alpha (float, optional): The opacity of synthetic data. Defaults to 0.3.
@@ -228,13 +229,14 @@ def plot_autocorrelation(Qh, Qs, lag_range,
     plt.subplots_adjust(left=0.12, right=0.95, bottom=0.12, top=0.92)
  
     if savefig:
-        plt.savefig(f'{fig_dir}/autocorrelation_plot_{timestep}.png', dpi=200, bbox_inches='tight')
+        assert(fname is not None), 'If savefig is True, fname must be provided.'
+        plt.savefig(fname, dpi=200, bbox_inches='tight')
     plt.show()
     return
 
 def plot_correlation(Qh, Qs_i,
                         timestep = 'daily',
-                        savefig = False, fig_dir = '.',
+                        savefig = False, fname = None,
                         figsize = (8,4), color_map = 'BuPu',
                         cbar_on = True):
     """Plots the side-by-side heatmaps of flow correlation between sites for historic and synthetic multi-site data.
@@ -243,8 +245,8 @@ def plot_correlation(Qh, Qs_i,
         Qh (pd.DataFrame): Historic daily streamflow timeseries at many different locations. The columns of Qh and Qs_i must match, and index must be pd.DatetimeIndex. 
         Qs (pd.DataFrame): Synthetic daily streamflow timeseries realizations. Each column is a unique realization. The columns of Qh and Qs_i must match, and index must be pd.DatetimeIndex.
         timestep (str, optional): The timestep which data should be aggregated over. Defaults to 'daily'. Options are 'daily', 'weekly', or 'monthly'.
-        savefig (bool, optional): Allows for png to be saved to fig_dir. Defaults to False.
-        fig_dir (str, optional): Location of saved figure output. Defaults to '.' (working directory).
+        savefig (bool, optional): Allows for png to be saved to fname. Defaults to False.
+        fname (str, optional): Location of saved figure output. Defaults to '.' (working directory).
         figsize (tuple, optional): The figure size. Defaults to (4,4).
         color_map (str, optional): The colormap used for the heatmaps. Defaults to 'BuPu.
         cbar_on (bool, optional): Indictor if the colorbar should be shown or not. Defaults to True.
@@ -294,6 +296,7 @@ def plot_correlation(Qh, Qs_i,
     plt.suptitle(title_string, fontsize = 12)
      
     if savefig:
-        plt.savefig(f'{fig_dir}/spatial_correlation_comparison_{timestep}.png', dpi = 250)
+        assert(fname is not None), 'If savefig is True, fname must be provided.'
+        plt.savefig(fname, dpi = 250)
     plt.show()
     return

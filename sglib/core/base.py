@@ -17,5 +17,3 @@ class Generator(ABC):
     @abstractmethod
     def generate(self, **kwargs):
         pass
-
-

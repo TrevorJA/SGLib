@@ -164,6 +164,7 @@ cython_debug/
 #.idea/
 
 ./pywrdrb_inputs/*
-./pywrdrb/*
+pywrdrb/*
 *pywrdrb* 
-*/local/*
+./local/*
+local/

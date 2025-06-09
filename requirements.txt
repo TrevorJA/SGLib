@@ -1,9 +1,0 @@
-numpy
-pandas
-matplotlib
-scipy
-scikit-learn
-pygeohydro
-pynhd
-hmmlearn
-seaborn

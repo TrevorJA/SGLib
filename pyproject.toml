@@ -15,9 +15,7 @@ dependencies = [
     "pandas",
     "matplotlib",
     "scipy",
-    "scikit",-learn
-    "pygeohydro",
-    "pynhd",
+    "scikit-learn",
     "hmmlearn",
     "seaborn",
     "spei",

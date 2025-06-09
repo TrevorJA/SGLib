@@ -22,7 +22,11 @@ class KirschGenerator(Generator):
     6. De-standardize to get final synthetic flows
     """
 
-    def __init__(self, Q: pd.DataFrame, **kwargs):
+    def __init__(self, 
+                 Q: pd.DataFrame, 
+                 generate_using_log_flow=True,
+                 matrix_repair_method='spectral',
+                 debug=False):
         """
         Initialize the Kirsch-Nowak Generator
         
@@ -32,14 +36,13 @@ class KirschGenerator(Generator):
             DataFrame containing historic streamflow data
             Index must be a DatetimeIndex
             Columns are different sites/stations
-        kwargs : dict
-            Optional parameters:
-            - generate_using_log_flow: bool (default: True)
-              Whether to transform flows using logarithm
-            - matrix_repair_method: str (default: 'spectral')
-              Method to repair non-positive definite matrices
-            - debug: bool (default: False)
-              Whether to print debug information
+
+        generate_using_log_flow: bool (default: True)
+            Whether to transform flows using logarithm
+        matrix_repair_method: str (default: 'spectral')
+            Method to repair non-positive definite matrices
+        debug: bool (default: False)
+            Whether to log debug information
         """
         if not isinstance(Q, pd.DataFrame):
             raise TypeError("Input must be a pandas DataFrame.")
@@ -52,7 +55,6 @@ class KirschGenerator(Generator):
             'matrix_repair_method': 'spectral',
             'debug': False,
         }
-        self.params.update(kwargs)
         self.fitted = False
         
         ## Use historic Q to get some specifications

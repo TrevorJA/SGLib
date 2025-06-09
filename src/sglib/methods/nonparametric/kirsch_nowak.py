@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import warnings
 
-from sglib.core.base import Generator
 from sglib.methods.nonparametric.kirsch import KirschGenerator
 from sglib.methods.temporal_disaggregation.nowak import NowakDisaggregator
 
@@ -20,6 +19,20 @@ class KirschNowakGenerator(KirschGenerator):
     The KirschGenerator is used to generate monthly streamflows, 
     and the multisite NowakDisaggregator is used to disaggregate all sites simultaneously
     from monthly to daily streamflows using KNN while preserving spatial correlations.
+    
+    
+    Example usage:
+    >>> import pandas as pd
+    >>> from sglib.methods.nonparametric.kirsch_nowak import KirschNowakGenerator
+    >>> # Load your daily streamflow data into a DataFrame Q
+    >>> Q = pd.read_csv('daily_streamflow.csv', index_col=0, parse_dates=True)
+    >>> # Initialize the generator
+    >>> generator = KirschNowakGenerator(Q)
+    >>> # Preprocess the data & fit the model
+    >>> generator.preprocessing()
+    >>> generator.fit()
+    >>> # Generate daily streamflows
+    >>> daily_flows = generator.generate(n_realizations=10, n_years=5)
     """
     def __init__(self, Q: pd.DataFrame, **kwargs):
         """Initialize the KirschNowakGenerator.
@@ -165,160 +178,3 @@ class KirschNowakGenerator(KirschGenerator):
                       f"Date range {Qs_daily_multisite.index[0]} to {Qs_daily_multisite.index[-1]}")
         
         return Qse_daily
-
-
-# """
-# This implements the combined Kirsch generation + Nowak disaggregation 
-# for daily streamflow generation.
-
-# This is built on top of the KirschGenerator, 
-# then uses the NowakDisaggregator on each site and realization.
-
-# """
-# import numpy as np
-# import pandas as pd
-# import warnings
-
-# from sglib.core.base import Generator
-# from sglib.methods.nonparametric.kirsch import KirschGenerator
-# from sglib.methods.temporal_disaggregation.nowak import NowakDisaggregator
-
-# class KirschNowakGenerator(KirschGenerator):
-#     """
-#     This class implements the combined Kirsch + Nowak generation method for daily streamflows. 
-
-#     The KirschGenerator is used to generate monthly streamflows, 
-#     and the NowakDisaggregator is used to disaggregate the monthly streamflows into daily streamflows using KNN.
-#     """
-#     def __init__(self, Q: pd.DataFrame,
-#                  **kwargs):
-#         """Initialize the KirschNowakGenerator.
-        
-#         Parameters
-#         ----------
-#         Q : pd.DataFrame
-#             The daily streamflow data used for generation. 
-#             It should be a DataFrame with datetime index.
-#             Can be single or multiple sites.
-#         **kwargs : keyword arguments
-#             Additional keyword arguments for the KirschGenerator and NowakDisaggregator.
-#         """
-#         # call the parent KirschGenerator
-#         super().__init__(Q, **kwargs)
-        
-
-#         self.nowak_disaggregators = {}
-#         for site in self.site_names:
-#             # Create a NowakDisaggregator for each site
-#             self.nowak_disaggregators[site] = NowakDisaggregator(
-#                 Qh_daily=Q[site],
-#             )
-        
-#     def preprocessing(self):
-#         """
-#         This method preprocesses the data for the KirschGenerator and NowakDisaggregator.
-#         """
-#         # Preprocess the KirschGenerator
-#         super().preprocessing()
-#         for site in self.site_names:
-#             # Preprocess the NowakDisaggregator for each site
-#             self.nowak_disaggregators[site].preprocessing()
-    
-    
-#     def fit(self):
-#         """
-#         This method fits the KirschGenerator and NowakDisaggregator to the data.
-#         """
-#         # Fit the KirschGenerator
-#         super().fit()
-#         for site in self.site_names:
-#             print(f"Fitting NowakDisaggregator for site {site}")
-#             # Fit the NowakDisaggregator for each site
-#             self.nowak_disaggregators[site].fit()
-    
-#     def generate(self, 
-#                     n_realizations: int = 1,
-#                     n_years: int = 1,
-#                     as_array: bool = False):
-        
-#         """
-#         Generate ensembles of daily streamflows using the Kirsch + Nowak method.
-        
-#         First, generate ensemble of monthly flows using the KirschGenerator.
-#         Then, disaggregate each monthly flow to daily flows using the NowakDisaggregator.
-        
-#         Currently, disaggregation is done for each site and realization separately.
-        
-#         Parameters
-#         ----------
-#         n_realizations : int, optional
-#             The number of realizations to generate. Default is 1.
-#         n_years : int, optional
-#             The number of years to generate. Default is 1.
-#         as_array : bool, optional
-#             If True, return the generated data as a numpy array. 
-#             If False, return as a pandas DataFrame. Default is False.
-#         """
-        
-#         if as_array:
-#             warnings.warn("as_array=True is not yet implemented. Returning DataFrame instead.")
-#             as_array = False
-        
-#         ### Generate monthly flows using the KirschGenerator
-#         # Qse_monthly is dict with {real_id: DataFrame}
-#         # where each DF has monthly datetime and columns for each site
-#         Qse_monthly = super().generate(n_realizations=n_realizations, 
-#                                             n_years=n_years, 
-#                                             as_array=False)
-        
-#         # Dict of daily flows,
-#         # matching Qse_monthly format
-#         Qse_daily = {}
-#         syn_start_date = Qse_monthly[0].index[0]
-#         syn_end_date = Qse_monthly[0].index[-1] + pd.offsets.MonthEnd(0)
-#         syn_datetime = pd.date_range(start=syn_start_date,
-#                                         end=syn_end_date,
-#                                         freq='D')
-    
-        
-#         # For each site and realization, make Qs_daily
-#         for real in Qse_monthly.keys():
-        
-#             Qse_daily[real] = pd.DataFrame(
-#                 index=syn_datetime,
-#                 columns=self.site_names
-#             )
-            
-            
-#             for site in self.site_names:
-#                 # Get the monthly flows for the site, realization
-#                 # this should be a pd.Series 
-                
-#                 Qsi_monthly = Qse_monthly[real][site]
-                
-#                 # disaggregate
-#                 # output will be pd.Series of daily flows
-#                 Qsi_daily = self.nowak_disaggregators[site].disaggregate_monthly_flows(
-#                     Qs_monthly=Qsi_monthly) 
-                
-#                 if len(Qsi_daily.index) != len(syn_datetime):
-#                     msg = f"Disaggregated daily flows for site {site} "
-#                     msg += f"do not match the expected length of {len(syn_datetime)}."
-#                     msg += f"\n Disaggregated length: {len(Qsi_daily.index)}."
-#                     msg += f"\n Qsi_daily: {Qsi_daily.index}"
-#                     msg += f"\n Qsi_monthly: {Qsi_monthly.index}"
-#                     msg += f"\n syn_datetime: {syn_datetime}"
-                    
-#                     raise ValueError(f"Disaggregated daily flows for site {site} with shape {Qsi_daily.shape} "
-#                                      f"do not match the expected length of {len(syn_datetime)}.") 
-                
-#                 #store in dataframe
-#                 Qse_daily[real][site] = Qsi_daily
-            
-            
-#         return Qse_daily
-                
-                
-        
-            
-            

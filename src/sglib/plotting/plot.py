@@ -5,6 +5,21 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import pearsonr
 
+def filter_complete_years(df):
+    # Extract year counts
+    days_per_year = df.index.to_series().groupby(df.index.year).count()
+
+    # Determine if it's a leap year or not
+    full_year_days = df.index.to_series().groupby(df.index.year).apply(
+        lambda x: (pd.Timestamp(f"{x.dt.year.iloc[0]}-12-31") - pd.Timestamp(f"{x.dt.year.iloc[0]}-01-01")).days + 1
+    )
+
+    # Identify only the years that have complete daily records
+    complete_years = days_per_year[days_per_year == full_year_days].index
+
+    # Filter original DataFrame
+    return df[df.index.year.isin(complete_years)]
+
 def plot_flow_ranges(Qh, Qs, 
                      timestep = 'daily',
                      units = 'cms', y_scale = 'log',
@@ -82,10 +97,16 @@ def plot_flow_ranges(Qh, Qs,
 
 
 def plot_fdc_ranges(Qh, Qs, 
-                    units = 'cms', y_scale = 'log',
-                    savefig = False, fname = None,
-                    figsize = (5,5), colors = ['black', 'orange'],                   
-                    title_addon = ""):
+                    ax=None,
+                    units = 'cms', 
+                    y_scale = 'log',
+                    savefig = False, 
+                    fname = None,
+                    figsize = (5,5), 
+                    colors = ['black', 'orange'],       
+                    legend=True,            
+                    title = None,
+                    xylabels = True):
     """Plots the range and aggregate flow duration curves for historic and synthetic streamflows.
      
     Args:
@@ -105,29 +126,32 @@ def plot_fdc_ranges(Qh, Qs,
     assert(type(Qh.index) == pd.DatetimeIndex), 'Historic streamflow (Qh) should have pd.DatatimeIndex.'
     assert(type(Qs.index) == pd.DatetimeIndex), 'Synthetic streamflow (Qh) should have pd.DatatimeIndex.'
  
+    # Make sure both data have complete years (01-01 to 12-31)
+    # partial years will mess up the FDC ranges
+    Qh = filter_complete_years(Qh)
+    Qs = filter_complete_years(Qs)
+    
+ 
      
     # Calculate FDCs for total period and each realization
     nonexceedance = np.linspace(0.0001, 0.9999, 50)
-    s_total_fdc = np.quantile(Qs.values.flatten(), nonexceedance)
-    h_total_fdc = np.quantile(Qh.values.flatten(), nonexceedance) 
+    s_total_fdc = np.nanquantile(Qs.values.flatten(), nonexceedance)
+    h_total_fdc = np.nanquantile(Qh.values.flatten(), nonexceedance) 
      
-    s_fdc_max = np.zeros_like(nonexceedance)
-    s_fdc_min = np.zeros_like(nonexceedance)
-    h_fdc_max = np.zeros_like(nonexceedance)
-    h_fdc_min = np.zeros_like(nonexceedance)
- 
-    annual_synthetics = Qs.groupby(Qs.index.year)
-    annual_historic = Qh.groupby(Qh.index.year)
- 
-    for i, quant in enumerate(nonexceedance):
-            s_fdc_max[i] = annual_synthetics.quantile(quant).max().max()
-            s_fdc_min[i] = annual_synthetics.quantile(quant).min().min()
-            h_fdc_max[i] = annual_historic.quantile(quant).max()
-            h_fdc_min[i] = annual_historic.quantile(quant).min()
+    s_annual_fdcs = Qs.groupby(Qs.index.year).quantile(nonexceedance).unstack(level=0)
+    h_annual_fdcs = Qh.groupby(Qh.index.year).quantile(nonexceedance).unstack(level=0)
+    
+    s_fdc_min = s_annual_fdcs.min(axis=1)
+    s_fdc_max = s_annual_fdcs.max(axis=1)
+    h_fdc_min = h_annual_fdcs.min(axis=1)
+    h_fdc_max = h_annual_fdcs.max(axis=1)
      
     ## Plotting
-    fig, ax = plt.subplots(figsize=figsize, dpi=200)
-     
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize, dpi=200)
+    else:
+        fig = ax.get_figure()
+         
     #for quant in syn_fdc_quants:
     ax.fill_between(nonexceedance, s_fdc_min, s_fdc_max, color = colors[1], label = 'Synthetic Annual FDC Range', alpha = 0.5)
     ax.fill_between(nonexceedance, h_fdc_min, h_fdc_max, color = colors[0], label = 'Historic Annual FDC Range', alpha = 0.3)
@@ -137,17 +161,20 @@ def plot_fdc_ranges(Qh, Qs,
  
     ax.grid(True, linestyle='--', linewidth=0.5)
     ax.set_yscale(y_scale)
-    ax.set_ylabel(f'Flow ({units})')
-    ax.set_xlabel('Non-Exceedance Probability')
-    ax.legend(fontsize= 10)
-    ax.grid(True, linestyle='--', linewidth=0.5)
-     
-    plt.title(f'Flow Duration Curve Ranges\nHistoric & Synthetic Streamflow\n{title_addon}')
+    if xylabels:
+        ax.set_ylabel(f'Flow ({units})')
+        ax.set_xlabel('Non-Exceedance Probability')
+    
+    if legend:
+        ax.legend(fontsize= 10)
+    
+    if title is not None:
+        ax.set_title(title, fontsize=12)
     if savefig:
         assert(fname is not None), 'If savefig is True, fname must be provided.'
         plt.savefig(fname, dpi=200)
-    plt.show()
-    return
+    
+    return fig, ax
 
 
 ######################################################################################

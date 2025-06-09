@@ -1,0 +1,70 @@
+[project]
+name = "sglib"
+version = "0.0.1"
+packages = [
+  { include = "sglib", from = "src" }
+]
+authors = [
+    {name = "Trevor Amestoy", email = "tja73@cornell.edu"},
+]
+license = { file = "LICENSE" }
+description = "Synthetic Generation Library - Methods and models for generating synthetic hydrologic timeseries."
+readme = { file = "README.md", content-type = "text/markdown" }  # Specify README with content type
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "scipy",
+    "scikit",-learn
+    "pygeohydro",
+    "pynhd",
+    "hmmlearn",
+    "seaborn",
+    "spei",
+    "pytest",
+    ]
+
+[project.optional-dependencies]
+dev = [
+    "ipython",
+]
+
+lint = [
+    "pre-commit>=2.20.0",
+]
+plotting = [
+    "matplotlib",
+    "seaborn"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = [
+    "src/**/*",
+]
+
+[tool.hatch.build.package]
+# Force hatch to treat 'src' as the root. 
+source = "src"
+
+[tool.hatch.build.targets.wheel]
+sources = ["src"]
+
+[tool.hatch.build.data]
+include = [
+  "pywrdrb/data/**/*",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest",
+]
+
+# Note: hatch need to be installed in the environment to use the hatchling build backend.

@@ -26,6 +26,12 @@ class Ensemble:
         else:
             raise ValueError("Unknown data structure type. Expected 'realizations' or 'sites'.")
 
+        
+        self.realization_ids = list(self.data_by_realization.keys())
+
+
+
+
     def infer_data_structure(self, data):
         """
         Checks which of the two structures the data is in:

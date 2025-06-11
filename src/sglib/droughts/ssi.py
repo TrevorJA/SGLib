@@ -81,7 +81,7 @@ class SSIDroughtMetrics:
                 data = data.iloc[:, 0]
             else:
                 # set datetime index to the first column of the data
-                data.index = pd.date_range(start='2000-01-01', 
+                data.index = pd.date_range(start='1945-01-01', 
                                            periods=data.shape[0], freq='D')
             
         elif isinstance(data, np.ndarray):

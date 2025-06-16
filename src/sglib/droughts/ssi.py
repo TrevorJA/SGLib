@@ -155,7 +155,7 @@ class SSI:
     
     # Training parameters
     dist: ContinuousDist = field(default=scs.gamma)
-    timescale: int = 0
+    timescale: int = 12
     fit_freq: str | None = field(default=None)
     fit_window: int = field(default=0)
     prob_zero: bool = field(default=False)
@@ -183,6 +183,16 @@ class SSI:
             Self for method chaining
         """
         self._training_series = training_series.copy()
+        
+        # Apply rolling aggregation if timescale is set
+        if self.timescale > 0:
+            training_series = (
+                training_series.rolling(self.timescale, min_periods=self.timescale)
+                .agg(self.agg_func)
+                .dropna()
+                .copy()
+            )
+        
         
         # Create and fit the original SI object
         self._fitted_si = SI(
@@ -364,48 +374,3 @@ class SSI:
             raise ValueError("Must call fit() before accessing fitted_distributions")
         return self._fitted_si._dist_dict.copy()
 
-
-# Convenience function
-def trainable_ssfi(
-    training_series: Series,
-    new_series: Series = None,
-    dist: ContinuousDist = None,
-    timescale: int = 0,
-    fit_freq: str | None = None,
-    fit_window: int = 0,
-    prob_zero: bool = True,
-    normal_scores_transform: bool = False,
-    agg_func: Literal["sum", "mean"] = "mean",
-) -> Series:
-    """
-    Convenience function for trainable SSFI calculation.
-    
-    Parameters
-    ----------
-    training_series : Series
-        Data for fitting distributions
-    new_series : Series, optional
-        Data to transform. If None, transforms training_series.
-    ... (other parameters same as original ssfi)
-    
-    Returns
-    -------
-    Series
-        SSI values
-    """
-    from scipy.stats import genextreme
-    
-    if dist is None:
-        dist = genextreme
-    
-    calculator = TrainableSSI(
-        dist=dist,
-        timescale=timescale,
-        fit_freq=fit_freq,
-        fit_window=fit_window,
-        prob_zero=prob_zero,
-        normal_scores_transform=normal_scores_transform,
-        agg_func=agg_func,
-    )
-    
-    return calculator.fit_transform(training_series, new_series)

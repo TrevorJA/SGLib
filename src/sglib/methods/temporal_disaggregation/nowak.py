@@ -452,10 +452,7 @@ class NowakDisaggregator:
                     raise ValueError("For single site disaggregation, Qs_monthly must be a Series or single-column DataFrame.")
                 Qs_monthly = Qs_monthly.iloc[:, 0]
             Qs_monthly_index = Qs_monthly
-        
-        syn_start_date = Qs_monthly.index[0]
-        syn_end_date = Qs_monthly.index[-1]
-        syn_years = Qs_monthly.index.year.unique()
+
         
         # Setup output
         daily_index = pd.date_range(start=Qs_monthly.index[0], 

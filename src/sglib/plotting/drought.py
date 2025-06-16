@@ -8,7 +8,8 @@ def drought_metric_scatter_plot(obs_drought_metrics,
                                 syn_drought_metrics=None, 
                                 x_char = 'magnitude',
                                 y_char = 'duration',
-                                color_char = 'severity',):
+                                color_char = 'severity',
+                                fname=None):
     fig, ax = plt.subplots(figsize = (7,6))
     
     max_color_val = obs_drought_metrics[color_char].max()
@@ -39,5 +40,10 @@ def drought_metric_scatter_plot(obs_drought_metrics,
     if x_char == 'severity':
         plt.xlim(-3.5, -1.0)
     plt.tight_layout()
+    
+    if fname is not None:
+        plt.savefig(fname, dpi=300, bbox_inches='tight')
+        print(f"Saved figure to {fname}")
+    
     plt.show()
     return

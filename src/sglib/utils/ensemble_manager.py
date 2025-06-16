@@ -18,7 +18,7 @@ class Ensemble:
         assert isinstance(data, dict), "Data must be a dictionary."
         
         if self.infer_data_structure(data) == 'realizations':
-            self.data_by_site = self.transform_realizations_to_sites_optimized(data)
+            self.data_by_site = self.transform_realizations_to_sites(data)
             self.data_by_realization = data
         elif self.infer_data_structure(data) == 'sites':
             self.data_by_site = data
@@ -71,7 +71,7 @@ class Ensemble:
         else:
             raise ValueError("Unknown data structure type.")
 
-    def transform_realizations_to_sites_optimized(self, 
+    def transform_realizations_to_sites(self, 
                                                   data_dict: Dict[int, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
         """
         Optimized version using pandas concat for better performance with large datasets.
@@ -116,7 +116,7 @@ class Ensemble:
     def transform_sites_to_realizations(site_dict: Dict[str, pd.DataFrame]) -> Dict[int, pd.DataFrame]:
         """
         Transform data structure from {site: DataFrame} to {realization: DataFrame}.
-        This is the inverse of transform_realizations_to_sites_optimized().
+        This is the inverse of transform_realizations_to_sites().
         
         Parameters:
         -----------

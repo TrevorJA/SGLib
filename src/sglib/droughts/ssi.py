@@ -187,7 +187,8 @@ class SSI:
         # Apply rolling aggregation if timescale is set
         if self.timescale > 0:
             training_series = (
-                training_series.rolling(self.timescale, min_periods=self.timescale)
+                training_series.rolling(self.timescale, 
+                                        min_periods=self.timescale)
                 .agg(self.agg_func)
                 .dropna()
                 .copy()
@@ -198,7 +199,7 @@ class SSI:
         self._fitted_si = SI(
             series=training_series,
             dist=self.dist,
-            timescale=self.timescale,
+            timescale=0,
             fit_freq=self.fit_freq,
             fit_window=self.fit_window,
             prob_zero=self.prob_zero,

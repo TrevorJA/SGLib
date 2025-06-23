@@ -258,7 +258,7 @@ def plot_autocorrelation(Qh, Qs, lag_range,
     if savefig:
         assert(fname is not None), 'If savefig is True, fname must be provided.'
         plt.savefig(fname, dpi=200, bbox_inches='tight')
-    plt.show()
+    
     return
 
 def plot_correlation(Qh, Qs_i,

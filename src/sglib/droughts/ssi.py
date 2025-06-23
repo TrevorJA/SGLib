@@ -210,7 +210,7 @@ class SSI:
         self._fitted_si.fit_distribution()
         self._is_fitted = True
         
-        return self
+        return
     
     def transform(self, new_series: Series) -> Series:
         """

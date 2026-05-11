@@ -1,0 +1,1 @@
+The synhydro.generation._dev module contains streamflow generator classes that are in progress, being explored, or are otherwise unfinished. 

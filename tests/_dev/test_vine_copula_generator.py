@@ -7,7 +7,7 @@ import pytest
 
 pv = pytest.importorskip("pyvinecopulib")
 
-from synhydro.methods.generation.parametric.vine_copula import (
+from synhydro.methods.generation._dev.vine_copula import (
     VineCopulaGenerator,
 )
 

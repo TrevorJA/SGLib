@@ -16,8 +16,6 @@ SynHydro provides parametric and nonparametric stochastic generation methods und
 | [`ThomasFieringGenerator`][synhydro.methods.generation.parametric.thomas_fiering.ThomasFieringGenerator] | Parametric AR(1) | Monthly | Single | Thomas & Fiering (1962) |
 | [`MatalasGenerator`][synhydro.methods.generation.parametric.matalas.MatalasGenerator] | Parametric MAR(1) | Monthly | Multi | Matalas (1967) |
 | [`ARFIMAGenerator`][synhydro.methods.generation.parametric.arfima.ARFIMAGenerator] | Fractional ARIMA | Monthly/Annual | Single | Hosking (1984) |
-| [`GaussianCopulaGenerator`][synhydro.methods.generation.parametric.gaussian_copula.GaussianCopulaGenerator] | Copula (Gaussian/t) | Monthly | Multi | Pereira et al. (2017) |
-| [`VineCopulaGenerator`][synhydro.methods.generation.parametric.vine_copula.VineCopulaGenerator] | Vine copula | Monthly | Multi | Yu et al. (2025) |
 | [`SPARTAGenerator`][synhydro.methods.generation.parametric.sparta.SPARTAGenerator] | PAR-to-Anything | Monthly | Multi | Tsoukalas et al. (2018) |
 | [`SMARTAGenerator`][synhydro.methods.generation.parametric.smarta.SMARTAGenerator] | SMA-to-Anything | Annual | Multi | Tsoukalas et al. (2018) |
 | [`MultiSiteHMMGenerator`][synhydro.methods.generation.parametric.multisite_hmm.MultiSiteHMMGenerator] | Hidden Markov Model | Annual | Multi | Gold et al. (2024) |

@@ -871,7 +871,6 @@ class NormalScoreTransform:
 
     References
     ----------
-    Nelsen, R.B. (2006). An Introduction to Copulas. 2nd ed. Springer.
     Kirsch, B.R., Characklis, G.W., and Zeff, H.B. (2013). JWRPM, 139(4).
 
     Examples

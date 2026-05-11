@@ -18,24 +18,6 @@ Steinschneider, S., and Brown, C. (2013). A semiparametric multivariate, multisi
 **ARFIMA (Autoregressive Fractionally Integrated Moving Average)**
 Hosking, J.R.M. (1984). Modeling persistence in hydrological time series using fractional differencing. *Water Resources Research*, 20(12), 1898-1908. https://doi.org/10.1029/WR020i012p01898
 
-**Copula-Based Multivariate Streamflow Generation**
-Genest, C., and Favre, A.-C. (2007). Everything you always wanted to know about copula modeling but were afraid to ask. *Journal of Hydrologic Engineering*, 12(4), 347-368. https://doi.org/10.1061/(ASCE)1084-0699(2007)12:4(347)
-
-Chen, L., Singh, V.P., Guo, S., Zhou, J., and Zhang, J. (2015). Copula-based method for multisite monthly and daily streamflow simulation. *Journal of Hydrology*, 528, 369-384. https://doi.org/10.1016/j.jhydrol.2015.05.018
-
-Tootoonchi, F., Haerter, J.O., Todsen, A., Whan, K., Laux, P., and Sadegh, M. (2022). Copulas for hydroclimatic analysis: A practice-oriented overview. *WIREs Water*, 9(2), e1579. https://doi.org/10.1002/wat2.1579
-
-Pereira, G.A.A., Veiga, A., Erhardt, T., and Czado, C. (2017). A periodic spatial vine copula model for multi-site streamflow simulation. *Electric Power Systems Research*, 152, 9-17. https://doi.org/10.1016/j.epsr.2017.06.017
-
-**Vine Copula-Based Multivariate Streamflow Generation**
-Yu, X., Xu, Y.-P., Guo, Y., Chen, S., and Gu, H. (2025). Synchronization frequency analysis and stochastic simulation of multi-site flood flows based on the complicated vine copula structure. *Hydrology and Earth System Sciences*, 29, 179-214. https://doi.org/10.5194/hess-29-179-2025
-
-Wang, X., and Shen, Y.-M. (2023). R-statistic based predictor variables selection and vine structure determination approach for stochastic streamflow generation. *Journal of Hydrology*, 617, 129093. https://doi.org/10.1016/j.jhydrol.2023.129093
-
-Wang, W., Dong, Z., Zhang, T., Ren, L., Xue, L., Wu, T. (2024). Mixed D-vine copula-based conditional quantile model for stochastic monthly streamflow simulation. *Water Science and Engineering*, 17(1), 13-20. https://doi.org/10.1016/j.wse.2023.05.004
-
-Czado, C., and Nagler, T. (2022). Vine copula based modeling. *Annual Review of Statistics and Its Application*, 9, 453-477.
-
 **SMARTA (Symmetric Moving Average neaRly To Anything)**
 Tsoukalas, I., Makropoulos, C., and Koutsoyiannis, D. (2018). Simulation of stochastic processes exhibiting any-range dependence and arbitrary marginal distributions. *Water Resources Research*, 54(11), 9484-9513. https://doi.org/10.1029/2017WR022462
 
@@ -74,14 +56,8 @@ Nowak, K., Prairie, J., Rajagopalan, B., and Lall, U. (2010). A nonparametric st
 **Valencia-Schaake Disaggregation**
 Valencia, R.D., and Schaake, J.C. (1973). Disaggregation processes in stochastic hydrology. *Water Resources Research*, 9(3), 580-585. https://doi.org/10.1029/WR009i003p00580
 
-**Grygier-Stedinger Condensed Disaggregation**
-Grygier, J.C., and Stedinger, J.R. (1988). Condensed disaggregation procedures and conservation corrections for stochastic hydrology. *Water Resources Research*, 24(10), 1574-1584. https://doi.org/10.1029/WR024i010p01574
-
 **Stedinger-Vogel Disaggregation** (serial correlation extension)
 Stedinger, J.R., and Vogel, R.M. (1984). Disaggregation procedures for generating serially correlated flow vectors. *Water Resources Research*, 20(1), 47-56. https://doi.org/10.1029/WR020i001p00047
-
-**LAST stochastic techniques**
-Lane, W.L. (1979). Applied stochastic techniques (LAST computer package). User Manual, Division of Planning Technical Services, Bureau of Reclamation, Denver, CO.
 
 ---
 

@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from synhydro.methods.disaggregation.temporal.grygier_stedinger import (
+from synhydro.methods.disaggregation._dev.grygier_stedinger import (
     GrygierStedingerDisaggregator,
 )
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata

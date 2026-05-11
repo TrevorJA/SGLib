@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synhydro.methods.generation.parametric.gaussian_copula import (
+from synhydro.methods.generation._dev.gaussian_copula import (
     GaussianCopulaGenerator,
 )
 

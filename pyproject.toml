@@ -31,7 +31,6 @@ dependencies = [
     "seaborn>=0.13",
     "spei",
     "h5py>=3.16",
-    "pyvinecopulib>=0.7.5",
 ]
 
 [project.optional-dependencies]
@@ -75,6 +74,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+norecursedirs = ["_dev"]
 addopts = [
     "--strict-markers",
     "--strict-config",

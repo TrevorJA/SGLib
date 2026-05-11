@@ -9,9 +9,6 @@ edit_uri: edit/main/docs/
 
 exclude_docs: |
   dev/
-  algorithms/grygier_stedinger.md
-  algorithms/vine_copula.md
-  algorithms/gaussian_copula.md
 
 theme:
   name: material

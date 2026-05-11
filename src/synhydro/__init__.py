@@ -7,13 +7,6 @@ statistical preservation and hydrologic applications.
 
 __version__ = "0.0.2"
 
-# pyvinecopulib must be imported before pandas/pyarrow on Windows to avoid
-# a C++ runtime DLL conflict.  Load it eagerly here, before any pandas import.
-try:
-    import pyvinecopulib as _pyvinecopulib_preload  # noqa: F401
-except ImportError:
-    pass
-
 # Core utilities
 from synhydro.core import (
     Generator,

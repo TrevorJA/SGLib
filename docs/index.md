@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/TrevorJA/SynHydro/blob/main/LICENSE)
 
-SynHydro provides parametric and nonparametric stochastic generation methods under a unified API. All generators share the same `fit() then generate()` workflow.
+SynHydro provides parametric and nonparametric stochastic generation methods under a unified API. All generators share the same `fit()` and `generate()` workflow.
 
 ## Generators
 

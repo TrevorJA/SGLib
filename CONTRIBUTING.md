@@ -23,7 +23,7 @@ All generators inherit from `synhydro.core.base.Generator` and follow the prepro
 
 Before writing code:
 
-1. Write an algorithm description in `docs/algorithms/` following `ALGO_TEMPLATE.md`
+1. Write an algorithm description in `docs/algorithms/` following the structure of existing pages (e.g. `thomas_fiering.md`)
 2. Add the primary reference to `docs/references/references.md`
 3. Verify the reference DOI resolves correctly
 
@@ -59,10 +59,6 @@ cd SynHydro
 pip install -e ".[dev]"
 pytest tests/
 ```
-
-## Code of Conduct
-
-Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Questions
 

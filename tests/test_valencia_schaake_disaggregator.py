@@ -1,367 +1,484 @@
 """
-Tests for Valencia-Schaake temporal disaggregator (annual to monthly).
+Tests for the joint multisite Valencia-Schaake disaggregator.
+
+Verifies parameter shapes for the joint formulation (paper Eqs. 13-19),
+the exact-additivity identity (paper Eq. 31) in the untransformed case,
+multisite cross-site correlation preservation, and proportional-adjustment
+behavior under log transform.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
+from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 from synhydro.methods.disaggregation.temporal.valencia_schaake import (
     ValenciaSchaakeDisaggregator,
 )
-from synhydro.core.ensemble import Ensemble, EnsembleMetadata
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def sample_annual_series():
-    """Generate a sample monthly time series for testing (20 years of monthly data)."""
+def monthly_single_site():
+    """20 years of monthly flows for a single site."""
     dates = pd.date_range(start="2000-01-01", end="2019-12-31", freq="MS")
-    np.random.seed(42)
-    values = np.random.lognormal(mean=6.0, sigma=0.5, size=len(dates))
+    rng = np.random.default_rng(42)
+    values = rng.lognormal(mean=6.0, sigma=0.5, size=len(dates))
     return pd.Series(values, index=dates, name="site_1")
 
 
 @pytest.fixture
-def sample_annual_dataframe():
-    """Generate a sample monthly multi-site DataFrame for testing (20 years, 3 sites)."""
-    dates = pd.date_range(start="2000-01-01", end="2019-12-31", freq="MS")
-    np.random.seed(42)
-    n_sites = 3
-    data = {}
-    for i in range(n_sites):
-        base = np.random.lognormal(mean=6.0, sigma=0.5, size=len(dates))
-        noise = np.random.normal(0, 50, size=len(dates))
-        data[f"site_{i+1}"] = np.maximum(base + noise, 1.0)  # Ensure positive values
+def monthly_multisite():
+    """30 years of monthly flows across 3 correlated sites."""
+    dates = pd.date_range(start="1990-01-01", end="2019-12-31", freq="MS")
+    rng = np.random.default_rng(42)
+    n = len(dates)
+    base = rng.lognormal(mean=6.0, sigma=0.4, size=n)
+    data = {
+        "site_1": np.maximum(base + rng.normal(0, 30, size=n), 1.0),
+        "site_2": np.maximum(0.7 * base + rng.normal(0, 25, size=n), 1.0),
+        "site_3": np.maximum(1.2 * base + rng.normal(0, 40, size=n), 1.0),
+    }
     return pd.DataFrame(data, index=dates)
 
 
-@pytest.fixture
-def sample_monthly_ensemble():
-    """Generate sample annual ensemble for disaggregation testing."""
-    dates = pd.date_range(start="2000-01-01", end="2002-12-31", freq="YS")
-    np.random.seed(42)
-
-    ensemble = {}
-    for realization in range(3):
-        data = {}
-        for site in ["site_1"]:
-            np.random.seed(42 + realization)
-            data[site] = np.random.lognormal(mean=7.0, sigma=0.4, size=len(dates))
-        ensemble[realization] = pd.DataFrame(data, index=dates)
-
+def _annual_ensemble_from(
+    monthly_df: pd.DataFrame, n_realizations: int = 2
+) -> Ensemble:
+    """Build a small annual ensemble whose sites match ``monthly_df``."""
+    annual = monthly_df.resample("YS").sum()
+    rng = np.random.default_rng(0)
+    realization_data = {}
+    for r in range(n_realizations):
+        scale = 1.0 + 0.05 * rng.standard_normal(annual.shape)
+        realization_data[r] = pd.DataFrame(
+            annual.values * scale, index=annual.index, columns=annual.columns
+        )
     metadata = EnsembleMetadata(
         generator_class="TestGenerator",
-        n_realizations=3,
-        n_sites=1,
+        n_realizations=n_realizations,
+        n_sites=annual.shape[1],
         time_resolution="YS",
     )
+    return Ensemble(realization_data, metadata=metadata)
 
-    return Ensemble(ensemble, metadata=metadata)
+
+# ---------------------------------------------------------------------------
+# Initialization
+# ---------------------------------------------------------------------------
 
 
 class TestValenciaSchaakeInitialization:
-    """Tests for ValenciaSchaakeDisaggregator initialization."""
 
-    def test_initialization_default_params(self, sample_annual_series):
-        """Test initialization with default parameters."""
-        disagg = ValenciaSchaakeDisaggregator()
-        assert disagg.n_subperiods == 12
-        assert disagg.transform == "log"
-        assert disagg.conservation_method == "proportional"
+    def test_initialization_default_params(self):
+        d = ValenciaSchaakeDisaggregator()
+        assert d.n_subperiods == 12
+        assert d.transform == "log"
+        assert d.conservation_method == "proportional"
 
-    def test_initialization_custom_params(self, sample_annual_series):
-        """Test initialization with custom parameters."""
-        disagg = ValenciaSchaakeDisaggregator(
-            n_subperiods=4, transform="boxcox", conservation_method="none"
+    def test_initialization_custom_params(self):
+        d = ValenciaSchaakeDisaggregator(
+            n_subperiods=4, transform="boxcox", conservation_method="proportional"
         )
-        assert disagg.n_subperiods == 4
-        assert disagg.transform == "boxcox"
-        assert disagg.conservation_method == "none"
+        assert d.n_subperiods == 4
+        assert d.transform == "boxcox"
+        assert d.conservation_method == "proportional"
 
-    def test_initialization_properties(self, sample_annual_series):
-        """Test frequency properties."""
-        disagg = ValenciaSchaakeDisaggregator()
-        assert disagg.input_frequency == "YS"
-        assert disagg.output_frequency == "MS"
+    def test_initialization_custom_no_transform(self):
+        d = ValenciaSchaakeDisaggregator(
+            n_subperiods=4, transform="none", conservation_method="none"
+        )
+        assert d.n_subperiods == 4
+        assert d.transform == "none"
+        assert d.conservation_method == "none"
+
+    def test_initialization_frequencies(self):
+        d = ValenciaSchaakeDisaggregator()
+        assert d.input_frequency == "YS"
+        assert d.output_frequency == "MS"
+
+    def test_initialization_quarterly_output_frequency(self):
+        d = ValenciaSchaakeDisaggregator(
+            n_subperiods=4, transform="none", conservation_method="none"
+        )
+        assert d.output_frequency == "QS"
+
+
+# ---------------------------------------------------------------------------
+# Preprocessing
+# ---------------------------------------------------------------------------
 
 
 class TestValenciaSchaakePreprocessing:
-    """Tests for ValenciaSchaakeDisaggregator preprocessing."""
 
-    def test_preprocessing_annual_series(self, sample_annual_series):
-        """Test preprocessing with monthly Series (aggregates to annual)."""
-        disagg = ValenciaSchaakeDisaggregator()
-        disagg.preprocessing(sample_annual_series)
-        assert disagg.is_preprocessed is True
-        assert hasattr(disagg, "Q_obs")
-        assert hasattr(disagg, "Q_annual")
+    def test_preprocessing_series(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator()
+        d.preprocessing(monthly_single_site)
+        assert d.is_preprocessed
+        assert hasattr(d, "Q_obs")
+        assert hasattr(d, "Q_annual")
+        assert d.n_sites == 1
 
-    def test_preprocessing_annual_dataframe(self, sample_annual_dataframe):
-        """Test preprocessing with monthly DataFrame (aggregates to annual)."""
-        disagg = ValenciaSchaakeDisaggregator()
-        disagg.preprocessing(sample_annual_dataframe)
-        assert disagg.is_preprocessed is True
-        assert disagg.n_sites == 3
+    def test_preprocessing_dataframe(self, monthly_multisite):
+        d = ValenciaSchaakeDisaggregator()
+        d.preprocessing(monthly_multisite)
+        assert d.is_preprocessed
+        assert d.n_sites == 3
 
-    def test_preprocessing_creates_annual_aggregates(self, sample_annual_series):
-        """Test that preprocessing creates annual aggregates from monthly data."""
-        disagg = ValenciaSchaakeDisaggregator()
-        disagg.preprocessing(sample_annual_series)
-        # Should aggregate monthly data to annual
-        assert len(disagg.Q_annual) > 0
-        assert len(disagg.Q_annual) == 20  # 20 years of data
+    def test_preprocessing_creates_annual(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator()
+        d.preprocessing(monthly_single_site)
+        assert len(d.Q_annual) == 20
+
+
+# ---------------------------------------------------------------------------
+# Fitting -- joint multisite formulation (paper Eqs. 13-19)
+# ---------------------------------------------------------------------------
 
 
 class TestValenciaSchaakeFit:
-    """Tests for ValenciaSchaakeDisaggregator fitting."""
 
-    def test_fit_single_site(self, sample_annual_series):
-        """Test fitting with single site."""
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
+    def test_fit_single_site_attributes(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator(transform="none")
+        d.fit(monthly_single_site)
+        assert d.is_fitted
+        assert d.mu_Y_ is not None
+        assert d.mu_X_ is not None
+        assert d.S_yy_ is not None
+        assert d.S_xx_ is not None
+        assert d.S_yx_ is not None
+        assert d.A_ is not None
+        assert d.B_ is not None
 
-        assert disagg.is_fitted is True
-        assert disagg.mu_X_ is not None
-        assert disagg.S_XX_ is not None
-        assert disagg.mu_Y_ is not None
-        assert disagg.sigma_Y_sq_ is not None
-        assert disagg.A_ is not None
-        assert disagg.C_ is not None
+    def test_fit_single_site_shapes(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator(transform="none")
+        d.fit(monthly_single_site)
+        m, s = d.n_sites, d.n_subperiods
+        assert d.mu_Y_.shape == (s * m,)
+        assert d.mu_X_.shape == (m,)
+        assert d.S_yy_.shape == (s * m, s * m)
+        assert d.S_xx_.shape == (m, m)
+        assert d.S_yx_.shape == (s * m, m)
+        assert d.A_.shape == (s * m, m)
+        assert d.B_.shape[0] == s * m
+        assert d.B_.shape[1] <= min(s * m, 20 - 1)
 
-    def test_fit_multiple_sites(self, sample_annual_dataframe):
-        """Test fitting with multiple sites."""
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(sample_annual_dataframe)
-        disagg.fit()
+    def test_fit_multisite_shapes(self, monthly_multisite):
+        d = ValenciaSchaakeDisaggregator(transform="none")
+        d.fit(monthly_multisite)
+        m, s = d.n_sites, d.n_subperiods
+        assert m == 3
+        assert d.mu_Y_.shape == (s * m,)
+        assert d.mu_X_.shape == (m,)
+        assert d.S_yy_.shape == (s * m, s * m)
+        assert d.S_xx_.shape == (m, m)
+        assert d.A_.shape == (s * m, m)
 
-        assert disagg.is_fitted is True
-        assert disagg.is_multisite is True
-        assert disagg.n_sites == 3
+    def test_fit_with_log_transform(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator(transform="log")
+        d.fit(monthly_single_site)
+        assert d.is_fitted
+        assert d.transform_params_["type"] == "log"
 
-    def test_fit_statistics_shapes(self, sample_annual_series):
-        """Test that fitted statistics have correct shapes."""
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
+    def test_fit_with_boxcox_transform(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator(transform="boxcox")
+        d.fit(monthly_single_site)
+        assert d.is_fitted
+        assert d.transform_params_["type"] == "boxcox"
+        assert "lambda" in d.transform_params_
 
-        assert disagg.mu_X_.shape == (disagg.n_subperiods,)
-        assert disagg.S_XX_.shape == (disagg.n_subperiods, disagg.n_subperiods)
-        assert disagg.A_.shape == (disagg.n_subperiods,)
-        assert disagg.C_.shape == (disagg.n_subperiods, disagg.n_subperiods)
+    def test_fit_without_transform(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator(transform="none")
+        d.fit(monthly_single_site)
+        assert d.is_fitted
+        assert d.transform_params_.get("type") == "none"
 
-    def test_fit_with_log_transform(self, sample_annual_series):
-        """Test fitting with log transformation."""
-        disagg = ValenciaSchaakeDisaggregator(transform="log")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
+    def test_fitted_params_object(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator(transform="none")
+        d.fit(monthly_single_site)
+        assert d.fitted_params_ is not None
+        assert d.fitted_params_.n_parameters_ > 0
+        assert d.fitted_params_.n_sites_ == 1
 
-        assert disagg.is_fitted is True
-        assert disagg.transform_params_["type"] == "log"
 
-    def test_fit_with_boxcox_transform(self, sample_annual_series):
-        """Test fitting with Box-Cox transformation."""
-        disagg = ValenciaSchaakeDisaggregator(transform="boxcox")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
-
-        assert disagg.is_fitted is True
-        assert disagg.transform_params_["type"] == "boxcox"
-        assert "lambda" in disagg.transform_params_
-
-    def test_fit_without_transform(self, sample_annual_series):
-        """Test fitting without transformation."""
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
-
-        assert disagg.is_fitted is True
-        # When no transform is applied, transform_params_ is empty
-        assert (
-            len(disagg.transform_params_) == 0
-            or disagg.transform_params_.get("type") == "none"
-        )
-
-    def test_fit_computes_fitted_params(self, sample_annual_series):
-        """Test that fit computes fitted parameters object."""
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
-
-        assert disagg.fitted_params_ is not None
-        assert disagg.fitted_params_.n_parameters_ > 0
-        assert disagg.fitted_params_.sample_size_ > 0
+# ---------------------------------------------------------------------------
+# Disaggregation: shape, reproducibility, non-negativity
+# ---------------------------------------------------------------------------
 
 
 class TestValenciaSchaakeDisaggregation:
-    """Tests for disaggregation functionality."""
 
-    def test_disaggregate_single_year(self, sample_annual_series):
-        """Test disaggregating single year."""
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
-
-        # Create ensemble for single year
-        annual_value = np.array([1200.0])
-        annual_dates = pd.DatetimeIndex(["2020-01-01"], freq="YS")
-        annual_df = pd.DataFrame({"site_1": annual_value}, index=annual_dates)
-
-        rng = np.random.default_rng(0)
-        monthly_df = disagg._disaggregate_single_realization(annual_df, rng=rng)
-
-        assert isinstance(monthly_df, pd.DataFrame)
-        assert len(monthly_df) == 12  # 12 months
-        assert monthly_df.shape[1] == 1  # 1 site
-
-    def test_disaggregate_multiple_years(self, sample_annual_series):
-        """Test disaggregating multiple years."""
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
-
-        annual_values = np.random.lognormal(mean=7.0, sigma=0.4, size=3)
-        annual_dates = pd.date_range("2020-01-01", periods=3, freq="YS")
-        annual_df = pd.DataFrame({"site_1": annual_values}, index=annual_dates)
-
-        rng = np.random.default_rng(0)
-        monthly_df = disagg._disaggregate_single_realization(annual_df, rng=rng)
-
-        assert isinstance(monthly_df, pd.DataFrame)
-        assert len(monthly_df) == 36  # 3 years * 12 months
-        assert monthly_df.shape[1] == 1
-
-    def test_disaggregate_ensemble(self, sample_annual_series):
-        """Test disaggregating via Ensemble interface."""
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
-
-        # Create test ensemble with single site, annual synthetic data
-        # Use 5 years to test multiple years of disaggregation
-        dates = pd.date_range(start="2000-01-01", periods=5, freq="YS")
-        np.random.seed(42)
-
-        ensemble_data = {}
-        for realization in range(2):
-            data = {"site_1": np.random.lognormal(mean=7.0, sigma=0.4, size=len(dates))}
-            ensemble_data[realization] = pd.DataFrame(data, index=dates)
-
-        metadata = EnsembleMetadata(
-            generator_class="TestGenerator",
-            n_realizations=2,
-            n_sites=1,
-            time_resolution="YS",
+    def test_disaggregate_single_site_ensemble(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator(transform="none", conservation_method="none")
+        d.fit(monthly_single_site)
+        ensemble = _annual_ensemble_from(
+            monthly_single_site.to_frame(), n_realizations=2
         )
+        out = d.disaggregate(ensemble, seed=0)
+        assert isinstance(out, Ensemble)
+        assert out.metadata.time_resolution == "MS"
+        assert len(out.realization_ids) == 2
+        first = out.data_by_realization[out.realization_ids[0]]
+        n_years = len(ensemble.data_by_realization[ensemble.realization_ids[0]])
+        assert len(first) == n_years * 12
+        assert first.shape[1] == 1
 
-        ensemble_in = Ensemble(ensemble_data, metadata=metadata)
+    def test_disaggregate_multisite_runs(self, monthly_multisite):
+        d = ValenciaSchaakeDisaggregator(transform="none", conservation_method="none")
+        d.fit(monthly_multisite)
+        ensemble = _annual_ensemble_from(monthly_multisite, n_realizations=2)
+        out = d.disaggregate(ensemble, seed=0)
+        first = out.data_by_realization[out.realization_ids[0]]
+        n_years = len(ensemble.data_by_realization[ensemble.realization_ids[0]])
+        assert len(first) == n_years * 12
+        assert first.shape[1] == 3
+        assert list(first.columns) == ["site_1", "site_2", "site_3"]
 
-        # Disaggregate
-        ensemble_out = disagg.disaggregate(ensemble_in)
+    def test_reproducible_with_seed(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator(transform="none", conservation_method="none")
+        d.fit(monthly_single_site)
+        ensemble = _annual_ensemble_from(
+            monthly_single_site.to_frame(), n_realizations=1
+        )
+        out_a = d.disaggregate(ensemble, seed=42)
+        out_b = d.disaggregate(ensemble, seed=42)
+        a = out_a.data_by_realization[out_a.realization_ids[0]].values
+        b = out_b.data_by_realization[out_b.realization_ids[0]].values
+        np.testing.assert_array_almost_equal(a, b)
 
-        assert isinstance(ensemble_out, Ensemble)
-        assert ensemble_out.metadata.time_resolution == "MS"
-        assert len(ensemble_out.realization_ids) == 2
-        assert ensemble_out.metadata.n_sites == 1
-        # 5 years of annual data should produce 5*12=60 months
-        assert len(ensemble_out.data_by_realization[0]) == 60
+    def test_non_negative_output_with_log(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator(transform="log")
+        d.fit(monthly_single_site)
+        ensemble = _annual_ensemble_from(
+            monthly_single_site.to_frame(), n_realizations=1
+        )
+        out = d.disaggregate(ensemble, seed=0)
+        values = out.data_by_realization[out.realization_ids[0]].values
+        assert (values >= 0).all()
 
-    def test_disaggregation_preserves_sum(self, sample_annual_series):
-        """Test that disaggregation preserves annual total."""
-        disagg = ValenciaSchaakeDisaggregator(
+
+# ---------------------------------------------------------------------------
+# Additivity and statistical-property tests
+# ---------------------------------------------------------------------------
+
+
+class TestValenciaSchaakeAdditivity:
+
+    def test_exact_additivity_no_transform_single_site(self, monthly_single_site):
+        """Paper Eq. 31: with no transform and conservation_method='none',
+        per-site annual sums must equal input annuals to floating-point
+        precision -- by construction (CB = 0)."""
+        d = ValenciaSchaakeDisaggregator(transform="none", conservation_method="none")
+        d.fit(monthly_single_site)
+        ensemble = _annual_ensemble_from(
+            monthly_single_site.to_frame(), n_realizations=3
+        )
+        out = d.disaggregate(ensemble, seed=0)
+        for rid in out.realization_ids:
+            annual_in = ensemble.data_by_realization[rid].values
+            annual_out = out.data_by_realization[rid].resample("YS").sum().values
+            np.testing.assert_allclose(annual_out, annual_in, rtol=1e-8, atol=1e-6)
+
+    def test_exact_additivity_no_transform_multisite(self, monthly_multisite):
+        """Same identity holds joint across sites: every site's annual sum
+        equals its input annual exactly."""
+        d = ValenciaSchaakeDisaggregator(transform="none", conservation_method="none")
+        d.fit(monthly_multisite)
+        ensemble = _annual_ensemble_from(monthly_multisite, n_realizations=3)
+        out = d.disaggregate(ensemble, seed=0)
+        for rid in out.realization_ids:
+            annual_in = ensemble.data_by_realization[rid].values
+            annual_out = out.data_by_realization[rid].resample("YS").sum().values
+            np.testing.assert_allclose(annual_out, annual_in, rtol=1e-8, atol=1e-6)
+
+    def test_log_transform_proportional_adjustment_preserves_sum(
+        self, monthly_multisite
+    ):
+        """With log transform and proportional conservation, per-site annual
+        sums still match input annuals (the workaround restores additivity)."""
+        d = ValenciaSchaakeDisaggregator(
             transform="log", conservation_method="proportional"
         )
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
+        d.fit(monthly_multisite)
+        ensemble = _annual_ensemble_from(monthly_multisite, n_realizations=2)
+        out = d.disaggregate(ensemble, seed=0)
+        for rid in out.realization_ids:
+            annual_in = ensemble.data_by_realization[rid].values
+            annual_out = out.data_by_realization[rid].resample("YS").sum().values
+            np.testing.assert_allclose(annual_out, annual_in, rtol=1e-6)
 
-        annual_value = 1200.0
-        annual_dates = pd.DatetimeIndex(["2020-01-01"], freq="YS")
-        annual_df = pd.DataFrame({"site_1": [annual_value]}, index=annual_dates)
 
-        rng = np.random.default_rng(0)
-        monthly_df = disagg._disaggregate_single_realization(annual_df, rng=rng)
-        monthly_sum = monthly_df["site_1"].sum()
+class TestValenciaSchaakeMultisiteStructure:
 
-        # Should preserve the annual total
-        assert np.abs(monthly_sum - annual_value) < 1.0  # Allow small tolerance
+    def test_cross_site_correlation_preserved(self, monthly_multisite):
+        """The joint covariance should preserve historical cross-site monthly
+        correlations to within sampling tolerance. Validates that
+        _compute_statistics uses the true joint structure (a site-averaged
+        model would fail this)."""
+        d = ValenciaSchaakeDisaggregator(transform="none", conservation_method="none")
+        d.fit(monthly_multisite)
 
-    def test_disaggregation_produces_non_negative(self, sample_annual_series):
-        """Test that disaggregation produces non-negative flows."""
-        disagg = ValenciaSchaakeDisaggregator(transform="log")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
+        historical_monthly = monthly_multisite
+        hist_corr = historical_monthly.corr().values
 
-        annual_value = 1200.0
-        annual_dates = pd.DatetimeIndex(["2020-01-01"], freq="YS")
-        annual_df = pd.DataFrame({"site_1": [annual_value]}, index=annual_dates)
+        n_realizations = 20
+        ensemble = _annual_ensemble_from(
+            monthly_multisite, n_realizations=n_realizations
+        )
+        out = d.disaggregate(ensemble, seed=123)
 
-        rng = np.random.default_rng(0)
-        monthly_df = disagg._disaggregate_single_realization(annual_df, rng=rng)
+        synth_long = pd.concat(
+            [out.data_by_realization[r] for r in out.realization_ids],
+            ignore_index=True,
+        )
+        synth_corr = synth_long.corr().values
 
-        # All values should be non-negative
-        assert (monthly_df.values >= 0).all()
+        np.testing.assert_allclose(synth_corr, hist_corr, atol=0.15)
 
-    def test_disaggregation_reproducible(self, sample_annual_series):
-        """Test that disaggregation is reproducible with seed."""
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(sample_annual_series)
-        disagg.fit()
 
-        annual_dates = pd.DatetimeIndex(["2020-01-01"], freq="YS")
-        annual_df = pd.DataFrame({"site_1": [1200.0]}, index=annual_dates)
-
-        # Run twice with same seed
-        rng1 = np.random.default_rng(42)
-        monthly_1 = disagg._disaggregate_single_realization(annual_df.copy(), rng=rng1)
-
-        rng2 = np.random.default_rng(42)
-        monthly_2 = disagg._disaggregate_single_realization(annual_df.copy(), rng=rng2)
-
-        # Results should be identical
-        np.testing.assert_array_almost_equal(monthly_1.values, monthly_2.values)
+# ---------------------------------------------------------------------------
+# Edge cases / error handling
+# ---------------------------------------------------------------------------
 
 
 class TestValenciaSchaakeEdgeCases:
-    """Tests for edge cases and error handling."""
 
-    def test_fit_before_preprocessing_raises_error(self, sample_annual_series):
-        """Test that fit without preprocessing raises error."""
-        disagg = ValenciaSchaakeDisaggregator()
+    def test_fit_before_preprocessing_raises(self):
+        d = ValenciaSchaakeDisaggregator()
         with pytest.raises(ValueError):
-            disagg.fit()
+            d.fit()
 
-    def test_disaggregate_before_fit_raises_error(
-        self, sample_monthly_ensemble, sample_annual_series
-    ):
-        """Test that disaggregate without fit raises error."""
-        disagg = ValenciaSchaakeDisaggregator()
-        disagg.preprocessing(sample_annual_series)
-
+    def test_disaggregate_before_fit_raises(self, monthly_single_site):
+        d = ValenciaSchaakeDisaggregator()
+        d.preprocessing(monthly_single_site)
+        annual = monthly_single_site.resample("YS").sum().to_frame()
+        ensemble = _annual_ensemble_from(
+            monthly_single_site.to_frame(), n_realizations=1
+        )
         with pytest.raises(ValueError):
-            disagg.disaggregate(sample_monthly_ensemble)
+            d.disaggregate(ensemble)
 
-    def test_small_sample_size(self):
-        """Test behavior with very small sample size (3 years of monthly data)."""
-        dates = pd.date_range(start="2000-01-01", end="2002-12-31", freq="MS")
-        values = np.random.lognormal(mean=6.0, sigma=0.5, size=len(dates))
-        Q_obs = pd.Series(values, index=dates, name="site_1")
-
-        disagg = ValenciaSchaakeDisaggregator(transform="none")
-        disagg.preprocessing(Q_obs)
-        # Should not raise error
-        disagg.fit()
-        assert disagg.is_fitted
+    def test_short_record_still_fits(self):
+        """5 years is short relative to 12 sub-periods, but V-S fits with
+        a rank-deficient B."""
+        dates = pd.date_range(start="2000-01-01", end="2004-12-31", freq="MS")
+        rng = np.random.default_rng(0)
+        values = rng.lognormal(mean=6.0, sigma=0.4, size=len(dates))
+        series = pd.Series(values, index=dates, name="site_1")
+        d = ValenciaSchaakeDisaggregator(transform="none")
+        d.fit(series)
+        assert d.is_fitted
+        assert d.B_.shape[1] <= 5 - 1
 
     def test_zero_flows_handled(self):
-        """Test that zero flows are handled appropriately (6 years of monthly data)."""
         dates = pd.date_range(start="2000-01-01", end="2005-12-31", freq="MS")
-        # Include some zero or near-zero values
-        values = np.array(
-            [1000.0, 0.1, 1100.0, 500.0, 1200.0, 300.0] * 12
-        )  # 6 years of monthly data
-        Q_obs = pd.Series(values[: len(dates)], index=dates, name="site_1")
+        values = np.array([1000.0, 0.1, 1100.0, 500.0, 1200.0, 300.0] * 12)
+        series = pd.Series(values[: len(dates)], index=dates, name="site_1")
+        d = ValenciaSchaakeDisaggregator(transform="log")
+        d.fit(series)
+        assert d.is_fitted
 
-        disagg = ValenciaSchaakeDisaggregator(transform="log")
-        disagg.preprocessing(Q_obs)
-        disagg.fit()
-        assert disagg.is_fitted
+
+# ---------------------------------------------------------------------------
+# Input validation and timing-axis tests (Section A/C of the fresh plan)
+# ---------------------------------------------------------------------------
+
+
+class TestValenciaSchaakeInputValidation:
+
+    def test_invalid_transform_raises(self):
+        with pytest.raises(ValueError, match="transform"):
+            ValenciaSchaakeDisaggregator(transform="lgo")
+
+    def test_invalid_conservation_raises(self):
+        with pytest.raises(ValueError, match="conservation_method"):
+            ValenciaSchaakeDisaggregator(conservation_method="proprtional")
+
+    def test_transform_without_conservation_raises(self):
+        with pytest.raises(ValueError, match="incompatible"):
+            ValenciaSchaakeDisaggregator(transform="log", conservation_method="none")
+
+        with pytest.raises(ValueError, match="incompatible"):
+            ValenciaSchaakeDisaggregator(transform="boxcox", conservation_method="none")
+
+    def test_unsupported_n_subperiods_raises(self):
+        with pytest.raises(ValueError, match="n_subperiods"):
+            ValenciaSchaakeDisaggregator(n_subperiods=5)
+        with pytest.raises(ValueError, match="n_subperiods"):
+            ValenciaSchaakeDisaggregator(n_subperiods=1)
+
+
+class TestValenciaSchaakeQuarterlyDisaggregation:
+
+    def test_quarterly_output_timestamps(self, monthly_single_site):
+        """For n_subperiods=4 the output index must use quarter starts
+        (Jan, Apr, Jul, Oct), not consecutive months."""
+        d = ValenciaSchaakeDisaggregator(
+            n_subperiods=4, transform="none", conservation_method="none"
+        )
+        d.fit(monthly_single_site)
+        ens = _annual_ensemble_from(monthly_single_site.to_frame(), n_realizations=1)
+        out = d.disaggregate(ens, seed=0)
+        df = out.data_by_realization[out.realization_ids[0]]
+        first_year = df.index[0].year
+        assert list(df.index[:4].month) == [1, 4, 7, 10]
+        assert all(df.index[:4].year == first_year)
+        assert df.index[4].month == 1
+        assert df.index[4].year == first_year + 1
+
+    def test_quarterly_exact_additivity(self, monthly_single_site):
+        """Additivity must hold for any supported n_subperiods, not just 12."""
+        d = ValenciaSchaakeDisaggregator(
+            n_subperiods=4, transform="none", conservation_method="none"
+        )
+        d.fit(monthly_single_site)
+        ens = _annual_ensemble_from(monthly_single_site.to_frame(), n_realizations=2)
+        out = d.disaggregate(ens, seed=0)
+        for rid in out.realization_ids:
+            annual_in = ens.data_by_realization[rid].values
+            annual_out = out.data_by_realization[rid].resample("YS").sum().values
+            np.testing.assert_allclose(annual_out, annual_in, rtol=1e-8, atol=1e-6)
+
+
+class TestValenciaSchaakeNumericalRobustness:
+
+    def test_boxcox_inverse_nan_replaced_with_zero(self, monthly_single_site):
+        """If inv_boxcox returns NaN for any draw, the output must still be
+        finite (NaN is replaced before clip)."""
+        d = ValenciaSchaakeDisaggregator(
+            transform="boxcox", conservation_method="proportional"
+        )
+        d.fit(monthly_single_site)
+        ens = _annual_ensemble_from(monthly_single_site.to_frame(), n_realizations=3)
+        out = d.disaggregate(ens, seed=0)
+        for rid in out.realization_ids:
+            values = out.data_by_realization[rid].values
+            assert np.isfinite(values).all()
+            assert (values >= 0).all()
+
+    def test_zero_sum_site_uniform_fallback(self):
+        """When proportional rescale would divide by zero (a site's pre-rescale
+        sum is non-positive), the fallback should split X_t[s] uniformly."""
+        # Build a synthetic case where the conditional mean is centered on
+        # zero so clipping zeroes out the entire site for some draws.
+        rng = np.random.default_rng(0)
+        dates = pd.date_range(start="2000-01-01", periods=12 * 20, freq="MS")
+        # Use mixed signs: with transform='none' the rescale path doesn't
+        # apply when conservation_method='none'. Use 'proportional' but
+        # synthesize a fixture where some draws produce zero-sum sites.
+        values = rng.normal(0.5, 1.0, size=len(dates))
+        series = pd.Series(values, index=dates, name="site_1")
+        d = ValenciaSchaakeDisaggregator(
+            transform="none", conservation_method="proportional"
+        )
+        d.fit(series)
+        ens = _annual_ensemble_from(series.to_frame(), n_realizations=5)
+        out = d.disaggregate(ens, seed=0)
+        for rid in out.realization_ids:
+            annual_in = ens.data_by_realization[rid].values
+            annual_out = out.data_by_realization[rid].resample("YS").sum().values
+            np.testing.assert_allclose(annual_out, annual_in, rtol=1e-6)

@@ -1,12 +1,28 @@
 """
-Valencia-Schaake temporal disaggregation method.
+Valencia-Schaake temporal disaggregation.
 
-This module implements the foundational Valencia-Schaake (1973) parametric
-temporal disaggregation approach for synthetic hydrology. It disaggregates
-an aggregate flow volume (e.g., annual total) into sub-period values
-(e.g., 12 monthly flows) using a linear regression model that conditions
-sub-period flows on the known aggregate and preserves the conditional
-mean and covariance structure.
+Joint multisite formulation per Valencia and Schaake (1973). Given a
+multivariate aggregate (per-site annual totals) ``X``, the disaggregated
+sub-period vector ``Y`` is modeled as
+
+    Y = mu_Y + A (X - mu_X) + B V,    V ~ N(0, I)
+
+with parameter matrices
+
+    A    = S_yx S_xx^{-1}
+    BB^T = S_yy - S_yx S_xx^{-1} S_xy
+
+estimated from historical data. ``B`` is computed by rank-aware spectral
+factorization (rank at most ``N - 1`` per the paper, where ``N`` is the
+number of fitted years), which preserves the paper's exact-additivity
+identities ``C A = I`` and ``C B = 0`` to floating-point precision. This
+guarantees ``C Y = X`` for any draw when no nonlinear transformation is
+applied. With a log or Box-Cox transform, additivity is restored by a
+per-site proportional rescale.
+
+Within a year the sub-period vector ``Y`` is ordered site-major, matching
+paper Equation (3): the first ``n_subperiods`` entries are site 1, then
+site 2, and so on.
 
 References
 ----------
@@ -14,41 +30,86 @@ Valencia, R.D., and Schaake, J.C. (1973).
 Disaggregation processes in stochastic hydrology.
 Water Resources Research, 9(3), 580-585.
 https://doi.org/10.1029/WR009i003p00580
+
+Grygier, J.C., and Stedinger, J.R. (1988).
+Condensed disaggregation procedures and conservation corrections for
+stochastic hydrology.
+Water Resources Research, 24(10), 1574-1584.
 """
 
 import logging
-from typing import Union, Dict, Any, Optional, List, Tuple
+from typing import Any, List, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
 from scipy.stats import boxcox
 from scipy.special import inv_boxcox
 
-from synhydro.core.base import Disaggregator, DisaggregatorParams, FittedParams
+from synhydro.core.base import Disaggregator, FittedParams
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 
 
 logger = logging.getLogger(__name__)
 
 
+# Sub-period configurations: maps n_subperiods -> (starting calendar months,
+# pandas frequency string). Months are 1-indexed and span an even partition
+# of a calendar year. Only configurations with an exact month-stride are
+# supported, which keeps the time axis unambiguous.
+_SUBPERIOD_LAYOUTS: dict = {
+    2: ((1, 7), "2QS"),
+    3: ((1, 5, 9), "4MS"),
+    4: ((1, 4, 7, 10), "QS"),
+    6: ((1, 3, 5, 7, 9, 11), "2MS"),
+    12: ((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), "MS"),
+}
+
+
+def _subperiod_layout(n_subperiods: int) -> Tuple[Tuple[int, ...], str]:
+    """Return the (starting-months, pandas-frequency) layout for the
+    configured number of sub-periods. Raises ``ValueError`` for
+    unsupported counts."""
+    try:
+        return _SUBPERIOD_LAYOUTS[n_subperiods]
+    except KeyError as e:
+        raise ValueError(
+            f"n_subperiods={n_subperiods} is not supported; "
+            f"choose one of {sorted(_SUBPERIOD_LAYOUTS)}."
+        ) from e
+
+
 class ValenciaSchaakeDisaggregator(Disaggregator):
     """
-    Temporal disaggregation using the Valencia-Schaake method.
+    Joint multisite Valencia-Schaake temporal disaggregator.
 
-    Disaggregates flows from a coarser temporal resolution to a finer
-    resolution (e.g., annual to monthly) using a multivariate normal
-    distribution conditioned on the known aggregate. Preserves the
-    conditional mean and covariance structure of sub-periods given
-    the aggregate.
+    Disaggregates an aggregate flow vector (e.g., per-site annual totals)
+    into sub-period flows (e.g., monthly) using the linear model
+
+        Y = mu_Y + A (X - mu_X) + B V,    V ~ N(0, I)
+
+    where ``A`` and ``B`` are fit jointly across all sites and sub-periods.
+    The fit preserves the paper's exact-additivity identity
+    ``C Y = X`` (where ``C`` is the per-site summation operator) for the
+    untransformed model.
 
     Parameters
     ----------
     n_subperiods : int, default=12
-        Number of sub-periods per aggregate period (e.g., 12 for
-        annual-to-monthly, 4 for annual-to-seasonal).
+        Number of sub-periods per aggregate period. Supported values are
+        2, 3, 4, 6, and 12 (each must divide the calendar year into
+        equal month-strided segments).
     transform : str, default='log'
-        Transformation applied before fitting: 'log', 'boxcox', or 'none'.
+        Transformation applied to sub-period flows before fitting:
+        'log', 'boxcox', or 'none'. The paper assumes Gaussian data is
+        "convenient but not absolutely necessary"; the log option is a
+        common practical choice for hydrologic flows.
     conservation_method : str, default='proportional'
-        Method to enforce sum consistency: 'proportional' or 'none'.
+        Method to enforce per-site sum consistency: 'proportional' or
+        'none'. Required when a nonlinear transform is used; for
+        ``transform='none'`` the linear model already satisfies
+        additivity exactly. The combination ``transform != 'none'`` with
+        ``conservation_method='none'`` is rejected because it produces
+        silently non-conservative output.
     name : str, optional
         Name identifier for this disaggregator instance.
     debug : bool, default=False
@@ -56,19 +117,28 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
 
     Attributes
     ----------
+    mu_Y_ : np.ndarray
+        Sub-period mean vector, shape (n_subperiods * n_sites,),
+        site-major ordering.
     mu_X_ : np.ndarray
-        Mean vector of sub-period flows (n_subperiods,).
-    S_XX_ : np.ndarray
-        Covariance matrix of sub-period flows (n_subperiods, n_subperiods).
-    mu_Y_ : float
-        Mean of aggregate flows.
-    sigma_Y_sq_ : float
-        Variance of aggregate flows.
+        Aggregate mean vector, shape (n_sites,).
+    S_yy_ : np.ndarray
+        Sub-period covariance, shape
+        (n_subperiods * n_sites, n_subperiods * n_sites).
+    S_xx_ : np.ndarray
+        Aggregate covariance, shape (n_sites, n_sites).
+    S_yx_ : np.ndarray
+        Cross-covariance ``Cov(Y, X)``, shape
+        (n_subperiods * n_sites, n_sites).
     A_ : np.ndarray
-        Regression coefficients (n_subperiods,).
-    C_ : np.ndarray
-        Cholesky decomposition of conditional covariance
-        (n_subperiods, n_subperiods).
+        Regression matrix ``A = S_yx S_xx^{-1}``, shape
+        (n_subperiods * n_sites, n_sites).
+    B_ : np.ndarray
+        Rank-aware factor with ``B B^T = S_yy - S_yx S_xx^{-1} S_xy``,
+        shape (n_subperiods * n_sites, r) with
+        ``r <= min(n_years - 1, (n_subperiods - 1) * n_sites)`` (the
+        null-space-of-C constraint tightens the paper's
+        ``N - 1`` rank bound).
     """
 
     def __init__(
@@ -80,27 +150,37 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
         name: Optional[str] = None,
         debug: bool = False,
     ) -> None:
-        """
-        Initialize the Valencia-Schaake Disaggregator.
-
-        Parameters
-        ----------
-        n_subperiods : int, default=12
-            Number of sub-periods per aggregate period.
-        transform : str, default='log'
-            Transformation: 'log', 'boxcox', or 'none'.
-        conservation_method : str, default='proportional'
-            Conservation method: 'proportional' or 'none'.
-        name : str, optional
-            Name for this disaggregator instance.
-        debug : bool, default=False
-            Enable debug logging.
-        """
         super().__init__(name=name, debug=debug)
+
+        _months, _freq = _subperiod_layout(n_subperiods)
+
+        valid_transforms = {"log", "boxcox", "none"}
+        if transform not in valid_transforms:
+            raise ValueError(
+                f"transform={transform!r} is not supported; "
+                f"choose one of {sorted(valid_transforms)}."
+            )
+
+        valid_conservation = {"proportional", "none"}
+        if conservation_method not in valid_conservation:
+            raise ValueError(
+                f"conservation_method={conservation_method!r} is not "
+                f"supported; choose one of {sorted(valid_conservation)}."
+            )
+
+        if transform != "none" and conservation_method == "none":
+            raise ValueError(
+                "conservation_method='none' is incompatible with a "
+                "nonlinear transform: per-site annual sums would not be "
+                "preserved. Use conservation_method='proportional' when "
+                "transform is 'log' or 'boxcox', or set transform='none'."
+            )
 
         self.n_subperiods = n_subperiods
         self.transform = transform
         self.conservation_method = conservation_method
+        self._subperiod_months = _months
+        self._output_freq = _freq
 
         self.init_params.algorithm_params = {
             "method": "Valencia-Schaake Disaggregation",
@@ -109,24 +189,22 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
             "conservation_method": conservation_method,
         }
 
-        # Fitted parameters (will be set during fit())
-        self.mu_X_ = None
-        self.S_XX_ = None
         self.mu_Y_ = None
-        self.sigma_Y_sq_ = None
+        self.mu_X_ = None
+        self.S_yy_ = None
+        self.S_xx_ = None
+        self.S_yx_ = None
         self.A_ = None
-        self.C_ = None
-        self.transform_params_ = {}
+        self.B_ = None
+        self.transform_params_ = {"type": "none"}
 
     @property
     def input_frequency(self) -> str:
-        """Valencia-Schaake expects annual input."""
-        return "YS"  # Annual Start
+        return "YS"
 
     @property
     def output_frequency(self) -> str:
-        """Valencia-Schaake produces monthly output."""
-        return "MS"  # Month Start
+        return self._output_freq
 
     def preprocessing(
         self,
@@ -136,33 +214,24 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
         **kwargs: Any,
     ) -> None:
         """
-        Preprocess observed flow data.
-
-        Validates input data and aggregates from finer resolution to
-        coarser resolution (e.g., monthly to annual).
+        Validate and store observed sub-period flows.
 
         Parameters
         ----------
         Q_obs : pd.Series or pd.DataFrame
-            Observed flow data at finer temporal resolution.
+            Observed flow data at sub-period (e.g., monthly) resolution.
         sites : list of str, optional
-            Sites to use. If None, uses all columns.
-        **kwargs : Any
-            Additional preprocessing parameters (currently unused).
+            Sites to retain. If None, uses all columns.
         """
         Q_obs_validated = self._store_obs_data(Q_obs, sites)
-
         self.Q_obs = Q_obs_validated
-
-        # Aggregate to annual resolution
         self.Q_annual = Q_obs_validated.resample("YS").sum()
 
         self.logger.info(
             f"Preprocessing complete: {self.n_sites} sites, "
-            f"{len(self.Q_obs)} fine-resolution observations, "
+            f"{len(self.Q_obs)} sub-period observations, "
             f"{len(self.Q_annual)} annual observations"
         )
-
         self.update_state(preprocessed=True)
 
     def fit(
@@ -173,548 +242,384 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
         **kwargs: Any,
     ) -> None:
         """
-        Fit the Valencia-Schaake disaggregator.
-
-        Computes sub-period statistics, aggregate statistics, regression
-        parameters, and conditional covariance. Applies optional
-        transformations and Cholesky decomposition.
-
-        If ``Q_obs`` is provided, ``preprocessing()`` is called automatically.
-        If omitted, a prior call to ``preprocessing()`` is required.
+        Fit the joint multisite Valencia-Schaake model.
 
         Parameters
         ----------
         Q_obs : pd.Series or pd.DataFrame, optional
-            Observed data. If provided, runs preprocessing automatically.
+            Observed data; if provided, preprocessing runs automatically.
         sites : list of str, optional
             Sites to use (only when Q_obs is provided).
-        **kwargs : Any
-            Additional fitting parameters (currently unused).
         """
-        # Auto-call preprocessing if Q_obs is provided
         if Q_obs is not None:
             self.preprocessing(Q_obs, sites=sites)
 
         self.validate_preprocessing()
 
-        # Organize observed data into sub-period matrix
-        X = self._organize_subperiods()
-
-        if X.shape[0] == 0:
+        Y_block_orig = self._organize_subperiods()
+        n_years = Y_block_orig.shape[0]
+        if n_years == 0:
             raise ValueError(
                 "No complete aggregate periods found in data. "
                 "Ensure data has at least one full year."
             )
+        if n_years < 2:
+            raise ValueError(f"Need at least 2 complete years to fit; got {n_years}.")
 
-        # Apply transformation if specified
         if self.transform != "none":
-            X = self._apply_transform(X)
+            Y_block_working = self._apply_transform(Y_block_orig)
+        else:
+            Y_block_working = Y_block_orig
 
-        # Compute statistics
-        self._compute_statistics(X)
+        self._compute_statistics(Y_block_orig, Y_block_working)
+        self._compute_noise_factor()
 
-        # Compute Cholesky decomposition
-        self._compute_cholesky()
+        rank_bound = (self.n_subperiods - 1) * self.n_sites
+        if n_years - 1 < rank_bound:
+            self.logger.warning(
+                "Short record: %d fitted years - 1 < (n_subperiods - 1) * n_sites = %d. "
+                "Noise factor B will be heavily rank-deficient (rank <= %d).",
+                n_years,
+                rank_bound,
+                n_years - 1,
+            )
 
-        # Update state
         self.update_state(fitted=True)
-
-        # Compute and store fitted parameters
         self.fitted_params_ = self._compute_fitted_params()
 
         self.logger.info(
-            f"Fitting complete: {X.shape[0]} aggregate periods, "
-            f"{X.shape[1]} sub-periods, {self.n_sites} sites"
+            f"Fitting complete: {n_years} years x {self.n_subperiods} "
+            f"sub-periods x {self.n_sites} sites; B rank = {self.B_.shape[1]}"
         )
 
     def _organize_subperiods(self) -> np.ndarray:
         """
-        Organize observed data into sub-period matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Matrix of shape (n_years, n_subperiods, n_sites) where each row
-            is a complete aggregate period. If multiple sites, returns
-            (n_years, n_subperiods, n_sites).
+        Build a ``(n_years, n_subperiods, n_sites)`` array of sub-period
+        flows over complete historical years using the layout configured
+        by ``n_subperiods``. Single-site data gets a trailing site axis
+        of size 1.
         """
         years = self.Q_obs.index.year.unique()
-        complete_years = []
-        X_list = []
+        Y_list = []
 
         for year in years:
-            year_data = self.Q_obs[self.Q_obs.index.year == year]
-
-            # Check if we have a complete year (approximately)
-            if len(year_data) < self.n_subperiods:
+            year_mask = self.Q_obs.index.year == year
+            if year_mask.sum() < self.n_subperiods:
                 continue
 
-            # Aggregate to sub-periods using forward resampling
-            # For monthly (n_subperiods=12), use 'MS' (month start)
-            if self.n_subperiods == 12:
-                subperiod_freq = "MS"
-            elif self.n_subperiods == 4:
-                subperiod_freq = "QS"  # Quarterly start
-            else:
-                # General case: estimate frequency
-                year_start = pd.Timestamp(year=year, month=1, day=1)
-                year_end = pd.Timestamp(year=year, month=12, day=31)
-                n_days = (year_end - year_start).days
-                days_per_subperiod = n_days / self.n_subperiods
-                # Use daily resampling as fallback
-                subperiod_freq = "D"
+            year_start = pd.Timestamp(year=year, month=1, day=1)
+            year_end = pd.Timestamp(year=year + 1, month=1, day=1)
+            starts = [
+                pd.Timestamp(year=year, month=m, day=1) for m in self._subperiod_months
+            ]
+            edges = starts + [year_end]
 
-            if self.n_subperiods in [12, 4]:
-                year_range = pd.date_range(
-                    start=f"{year}-01-01", end=f"{year}-12-31", freq=subperiod_freq
+            rows = []
+            complete = True
+            for i in range(self.n_subperiods):
+                mask = (self.Q_obs.index >= edges[i]) & (
+                    self.Q_obs.index < edges[i + 1]
                 )
-                subperiod_data = (
-                    self.Q_obs.loc[(self.Q_obs.index.year == year)]
-                    .resample(subperiod_freq)
-                    .sum()
-                )
+                if not mask.any():
+                    complete = False
+                    break
+                rows.append(self.Q_obs.loc[mask].sum().values)
+            if not complete:
+                continue
+            Y_list.append(np.asarray(rows))
 
-                if len(subperiod_data) == self.n_subperiods:
-                    X_list.append(subperiod_data.values)
-                    complete_years.append(year)
-            else:
-                # Fallback: manually partition year into n_subperiods
-                year_start = pd.Timestamp(year=year, month=1, day=1)
-                year_end = pd.Timestamp(year=year + 1, month=1, day=1)
-                year_range = pd.date_range(
-                    start=year_start, end=year_end, periods=self.n_subperiods + 1
-                )
-
-                subperiods = []
-                for i in range(self.n_subperiods):
-                    mask = (self.Q_obs.index >= year_range[i]) & (
-                        self.Q_obs.index < year_range[i + 1]
-                    )
-                    subperiod_sum = self.Q_obs.loc[mask].sum()
-                    subperiods.append(subperiod_sum.values)
-
-                if len(subperiods) == self.n_subperiods:
-                    X_list.append(np.array(subperiods))
-                    complete_years.append(year)
-
-        if len(X_list) == 0:
+        if not Y_list:
             raise ValueError("No complete periods found for disaggregation.")
 
-        X = np.array(X_list)
-
-        if X.ndim == 2:
-            # Single site: shape (n_years, n_subperiods)
-            self.is_multisite = False
-        else:
-            # Multiple sites: shape (n_years, n_subperiods, n_sites)
-            self.is_multisite = True
+        Y = np.array(Y_list)
+        if Y.ndim == 2:
+            Y = Y[:, :, np.newaxis]
 
         self.logger.debug(
-            f"Organized {len(complete_years)} complete years into sub-period matrix"
+            f"Organized {Y.shape[0]} complete years into sub-period array"
         )
+        return Y
 
-        return X
-
-    def _apply_transform(self, X: np.ndarray) -> np.ndarray:
-        """
-        Apply transformation to sub-period data.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Sub-period data.
-
-        Returns
-        -------
-        np.ndarray
-            Transformed data.
-        """
+    def _apply_transform(self, Y_block: np.ndarray) -> np.ndarray:
+        """Apply the configured transformation to sub-period flows."""
         if self.transform == "log":
-            # Add small constant to avoid log(0)
             epsilon = 1e-6
-            X_transformed = np.log(X + epsilon)
-            self.transform_params_["type"] = "log"
-            self.transform_params_["epsilon"] = epsilon
-
+            Y_transformed = np.log(Y_block + epsilon)
+            self.transform_params_ = {"type": "log", "epsilon": epsilon}
         elif self.transform == "boxcox":
-            # Apply Box-Cox transformation
-            # Flatten to 1D, apply transform, reshape back
-            X_flat = X.flatten()
-            X_flat = np.clip(X_flat, a_min=1e-6, a_max=None)
-
-            X_transformed_flat, lambda_bc = boxcox(X_flat)
-            X_transformed = X_transformed_flat.reshape(X.shape)
-
-            self.transform_params_["type"] = "boxcox"
-            self.transform_params_["lambda"] = lambda_bc
-
+            Y_flat = np.clip(Y_block.flatten(), a_min=1e-6, a_max=None)
+            Y_transformed_flat, lambda_bc = boxcox(Y_flat)
+            Y_transformed = Y_transformed_flat.reshape(Y_block.shape)
+            self.transform_params_ = {"type": "boxcox", "lambda": lambda_bc}
         else:
-            X_transformed = X.copy()
-            self.transform_params_["type"] = "none"
+            Y_transformed = Y_block.copy()
+            self.transform_params_ = {"type": "none"}
 
         self.logger.debug(f"Applied {self.transform} transformation")
+        return Y_transformed
 
-        return X_transformed
-
-    def _inverse_transform(self, X: np.ndarray) -> np.ndarray:
-        """
-        Inverse transform from transformed to original scale.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data in transformed space.
-
-        Returns
-        -------
-        np.ndarray
-            Data in original scale.
-        """
-        if self.transform_params_.get("type") == "log":
+    def _inverse_transform(self, Y: np.ndarray) -> np.ndarray:
+        """Invert the fitted transformation."""
+        ttype = self.transform_params_.get("type", "none")
+        if ttype == "log":
             epsilon = self.transform_params_.get("epsilon", 1e-6)
-            X_inv = np.exp(X) - epsilon
-            X_inv = np.clip(X_inv, a_min=0, a_max=None)
-
-        elif self.transform_params_.get("type") == "boxcox":
-            lambda_bc = self.transform_params_.get("lambda")
-            X_inv = inv_boxcox(X, lambda_bc)
-            X_inv = np.clip(X_inv, a_min=0, a_max=None)
-
+            Y_inv = np.exp(Y) - epsilon
+        elif ttype == "boxcox":
+            Y_inv = inv_boxcox(Y, self.transform_params_["lambda"])
         else:
-            X_inv = X.copy()
+            return Y.copy()
+        # inv_boxcox can produce NaN when lambda*Y + 1 is outside the domain
+        # of the inverse; np.clip does not strip NaN, so handle explicitly
+        # before the lower-bound clip.
+        Y_inv = np.where(np.isfinite(Y_inv), Y_inv, 0.0)
+        return np.clip(Y_inv, a_min=0, a_max=None)
 
-        return X_inv
-
-    def _compute_statistics(self, X: np.ndarray) -> None:
+    def _compute_statistics(
+        self, Y_block_orig: np.ndarray, Y_block_working: np.ndarray
+    ) -> None:
         """
-        Compute statistics from sub-period data.
+        Estimate the joint multisite moments per paper Eqs. 13-15.
 
-        Computes means, covariances, and regression parameters.
+        ``X`` is always computed from the **original-scale** sub-period flows
+        so it matches the annual aggregates passed to ``disaggregate()``.
+        ``Y`` is computed from the working-space flows (possibly transformed).
+        When ``transform='none'`` the two block arrays are identical and the
+        paper's ``X = CY`` identity holds exactly; otherwise the transform
+        breaks linear additivity and the proportional adjustment restores
+        per-site conservation.
 
         Parameters
         ----------
-        X : np.ndarray
-            Sub-period data (n_years, n_subperiods) or
-            (n_years, n_subperiods, n_sites).
+        Y_block_orig : np.ndarray
+            Original-scale sub-period flows, shape
+            ``(n_years, n_subperiods, n_sites)``.
+        Y_block_working : np.ndarray
+            Possibly transformed sub-period flows, same shape.
         """
-        # TODO: True multisite Valencia-Schaake.
-        # Grygier and Stedinger (1988, eq. 3) describe V-S as inherently
-        # multisite: X_y is a (12 * n_sites)-vector and the model fits a joint
-        # (12 * n_sites) x (12 * n_sites) covariance with site-by-site
-        # cross-correlations. The current implementation collapses sites by
-        # averaging (X.mean(axis=2)) and applies the univariate model per site
-        # with shared parameters, which loses cross-site cross-month covariance.
-        # Replacement plan: stack sites along the column axis to form a
-        # (n_years, 12 * n_sites) matrix, fit the full joint covariance, and
-        # disaggregate jointly given a multisite annual vector Y. Cholesky may
-        # require pseudo-inverse / spectral repair for short records.
-        if self.is_multisite:
-            n_years, n_subperiods, n_sites = X.shape
-            # Average across sites for univariate statistics
-            X_univariate = X.mean(axis=2)
-        else:
-            n_years, n_subperiods = X.shape
-            X_univariate = X
+        n_years, n_sub, n_sites = Y_block_working.shape
 
-        # Compute sub-period statistics
-        self.mu_X_ = X_univariate.mean(axis=0)  # (n_subperiods,)
-        self.S_XX_ = np.cov(X_univariate.T)  # (n_subperiods, n_subperiods)
+        Y_data = Y_block_working.transpose(0, 2, 1).reshape(n_years, n_sites * n_sub)
+        X_data = Y_block_orig.sum(axis=1)
 
-        # Ensure S_XX_ is 2D even for n_subperiods=1
-        if self.S_XX_.ndim == 0:
-            self.S_XX_ = np.array([[self.S_XX_]])
+        self.mu_Y_ = Y_data.mean(axis=0)
+        self.mu_X_ = X_data.mean(axis=0)
 
-        # Compute aggregate (annual) statistics
-        Y = X_univariate.sum(axis=1)  # Sum across subperiods for each year
-        self.mu_Y_ = Y.mean()
-        self.sigma_Y_sq_ = Y.var(ddof=1)
+        Y_centered = Y_data - self.mu_Y_
+        X_centered = X_data - self.mu_X_
 
-        # Compute regression parameters
-        # S_XY = Cov(X, Y) = S_XX @ 1_m (covariance between sub-periods and aggregate)
-        ones = np.ones(self.n_subperiods)
-        S_XY = self.S_XX_ @ ones
+        self.S_yy_ = (Y_centered.T @ Y_centered) / (n_years - 1)
+        self.S_xx_ = (X_centered.T @ X_centered) / (n_years - 1)
+        self.S_yx_ = (Y_centered.T @ X_centered) / (n_years - 1)
 
-        # A = S_XY / sigma_Y^2 (regression coefficients)
-        self.A_ = S_XY / (self.sigma_Y_sq_ + 1e-10)
+        S_xx_inv = np.linalg.pinv(self.S_xx_)
+        self.A_ = self.S_yx_ @ S_xx_inv
 
         self.logger.debug(
-            f"Statistics computed: mu_Y={self.mu_Y_:.2f}, "
-            f"sigma_Y^2={self.sigma_Y_sq_:.2f}"
+            f"Joint statistics: S_yy={self.S_yy_.shape}, S_xx={self.S_xx_.shape}, "
+            f"S_yx={self.S_yx_.shape}, A={self.A_.shape}"
         )
 
-    def _compute_cholesky(self) -> None:
+    def _compute_noise_factor(self) -> None:
         """
-        Compute Cholesky decomposition of conditional covariance.
+        Construct the noise factor ``B`` such that
+        ``B B^T = S_yy - S_yx S_xx^{-1} S_xy`` (paper Eq. 19) **and**
+        ``C B = 0`` exactly (paper Eqs. 39-40), where ``C`` is the
+        per-site aggregation operator.
 
-        Conditional covariance: S_e = S_XX - A * sigma_Y^2 * A^T
-
-        If S_e is not positive semi-definite, applies spectral repair.
+        We factor in an orthonormal basis ``N`` of the null space of
+        ``C``: any vector ``B v`` then lies in that null space by
+        construction, so ``C B = 0`` to floating-point precision and the
+        paper's exact-additivity identity ``C Y = X`` holds for any draw.
+        The retained rank is at most ``min((n_subperiods - 1) * n_sites,
+        n_years - 1)`` per the paper's rank bound (p.584).
         """
-        # Conditional covariance
-        S_e = self.S_XX_ - np.outer(self.A_, self.A_) * self.sigma_Y_sq_
+        from scipy.linalg import null_space
 
-        # Ensure positive semi-definiteness
-        S_e = self._repair_covariance(S_e)
+        n_sub = self.n_subperiods
+        n_sites = self.n_sites
+        n = n_sub * n_sites
 
-        # Cholesky decomposition
-        try:
-            self.C_ = np.linalg.cholesky(S_e)
-        except np.linalg.LinAlgError:
-            self.logger.warning(
-                "Cholesky decomposition failed. "
-                "Applying spectral repair and retrying."
+        ones_row = np.ones((1, n_sub))
+        block_basis = null_space(ones_row)  # (n_sub, n_sub - 1)
+        N = np.zeros((n, (n_sub - 1) * n_sites))
+        for s in range(n_sites):
+            N[s * n_sub : (s + 1) * n_sub, s * (n_sub - 1) : (s + 1) * (n_sub - 1)] = (
+                block_basis
             )
-            S_e = self._repair_covariance(S_e, aggressive=True)
-            self.C_ = np.linalg.cholesky(S_e)
+
+        S_xx_inv = np.linalg.pinv(self.S_xx_)
+        BBt = self.S_yy_ - self.S_yx_ @ S_xx_inv @ self.S_yx_.T
+        M2 = N.T @ BBt @ N
+        M2 = 0.5 * (M2 + M2.T)
+
+        eigvals, eigvecs = np.linalg.eigh(M2)
+        scale = max(abs(eigvals[-1]), 1.0) if eigvals.size else 1.0
+        tol = scale * max(eigvals.size, 1) * np.finfo(eigvals.dtype).eps * 10.0
+        keep = eigvals > tol
+
+        if not keep.any():
+            # Degenerate: the conditional distribution has no residual
+            # variance (e.g., perfectly cyclic input). The conditional mean
+            # alone defines the disaggregation.
+            self.B_ = np.zeros((n, 0))
+            self.logger.debug(
+                "Conditional covariance is numerically zero; noise factor B has rank 0."
+            )
+            return
+
+        M = eigvecs[:, keep] * np.sqrt(eigvals[keep])
+        self.B_ = N @ M
 
         self.logger.debug(
-            f"Cholesky decomposition computed for {self.n_subperiods}x{self.n_subperiods} matrix"
+            f"Noise factor B: shape={self.B_.shape}, "
+            f"rank={self.B_.shape[1]}/{(n_sub - 1) * n_sites} max, tol={tol:.2e}"
         )
-
-    def _repair_covariance(self, S: np.ndarray, aggressive: bool = False) -> np.ndarray:
-        """
-        Repair covariance matrix to ensure positive semi-definiteness.
-
-        Uses spectral decomposition to set negative eigenvalues to small
-        positive values.
-
-        Parameters
-        ----------
-        S : np.ndarray
-            Covariance matrix to repair.
-        aggressive : bool, default=False
-            If True, uses larger positive value replacement.
-
-        Returns
-        -------
-        np.ndarray
-            Repaired covariance matrix.
-        """
-        eigvals, eigvecs = np.linalg.eigh(S)
-
-        # Set negative eigenvalues to small positive value
-        min_eigval = 1e-8 if not aggressive else 1e-4
-        eigvals_fixed = np.maximum(eigvals, min_eigval)
-
-        # Reconstruct covariance
-        S_repaired = eigvecs @ np.diag(eigvals_fixed) @ eigvecs.T
-
-        return S_repaired
 
     def _compute_fitted_params(self) -> FittedParams:
-        """
-        Extract and package fitted parameters.
+        """Package fitted statistics in the framework's FittedParams object."""
+        m = self.n_sites
+        s = self.n_subperiods
+        # Count only the independent synthesis-model parameters:
+        # mu_Y (s*m) + mu_X (m) + A (s*m, m) + B (s*m, r).
+        # Covariance matrices are derived from these, not independent.
+        n_params = s * m + m + s * m * m + self.B_.size
 
-        Returns
-        -------
-        FittedParams
-            Dataclass containing all fitted parameters.
-        """
-        n_params = (
-            self.n_subperiods  # mu_X
-            + self.n_subperiods * self.n_subperiods  # S_XX
-            + 1  # mu_Y
-            + 1  # sigma_Y^2
-            + self.n_subperiods  # A
-            + self.n_subperiods * self.n_subperiods  # C
-        )
-
-        training_period = (
-            str(self.Q_obs.index[0].date()),
-            str(self.Q_obs.index[-1].date()),
-        )
+        labels = [f"{site}_sub{j}" for site in self._sites for j in range(s)]
+        means_series = pd.Series(self.mu_Y_, index=labels)
+        stds_series = pd.Series(np.sqrt(np.diag(self.S_yy_)), index=labels)
 
         return FittedParams(
-            means_=pd.Series(
-                self.mu_X_, index=[f"subperiod_{i}" for i in range(self.n_subperiods)]
-            ),
-            stds_=pd.Series(
-                np.sqrt(np.diag(self.S_XX_)),
-                index=[f"subperiod_{i}" for i in range(self.n_subperiods)],
-            ),
+            means_=means_series,
+            stds_=stds_series,
             correlations_=self._get_correlation_matrix(),
             distributions_={
                 "type": "multivariate_normal",
-                "method": "Valencia-Schaake",
+                "method": "Valencia-Schaake (joint multisite)",
             },
             fitted_models_={
                 "n_subperiods": self.n_subperiods,
+                "n_sites": self.n_sites,
                 "transform": self.transform,
                 "conservation_method": self.conservation_method,
+                "B_rank": int(self.B_.shape[1]),
             },
-            n_parameters_=n_params,
+            n_parameters_=int(n_params),
             sample_size_=len(self.Q_obs),
             n_sites_=self.n_sites,
-            training_period_=training_period,
+            training_period_=(
+                str(self.Q_obs.index[0].date()),
+                str(self.Q_obs.index[-1].date()),
+            ),
         )
 
     def _get_correlation_matrix(self) -> np.ndarray:
-        """
-        Compute correlation matrix from covariance.
-
-        Returns
-        -------
-        np.ndarray
-            Correlation matrix.
-        """
-        stds = np.sqrt(np.diag(self.S_XX_))
+        """Correlation matrix derived from S_yy_."""
+        stds = np.sqrt(np.diag(self.S_yy_))
         denom = np.outer(stds, stds)
         denom[denom == 0] = 1.0
-        corr = self.S_XX_ / denom
-        return corr
+        return self.S_yy_ / denom
 
     def disaggregate(
         self, ensemble: Ensemble, seed: Optional[int] = None, **kwargs: Any
     ) -> Ensemble:
         """
-        Disaggregate annual ensemble to monthly.
+        Disaggregate an annual ensemble to monthly (or n_subperiods) flows.
 
         Parameters
         ----------
         ensemble : Ensemble
-            Input ensemble at annual resolution. Must have frequency 'YS'.
+            Input ensemble at annual resolution. Must have frequency 'YS'
+            and the same site set as the fitted disaggregator.
         seed : int, optional
-            Random seed for reproducibility.
-        **kwargs : Any
-            Additional disaggregation parameters.
+            Random seed for reproducibility. A single
+            ``np.random.default_rng(seed)`` is consumed sequentially in
+            ``ensemble.data_by_realization`` insertion order, so changing
+            the number of realizations or their iteration order will
+            change every realization's draws.
 
         Returns
         -------
         Ensemble
-            Disaggregated ensemble at monthly resolution.
-
-        Raises
-        ------
-        ValueError
-            If ensemble is not at expected input frequency.
+            Disaggregated ensemble at sub-period resolution.
         """
         self.validate_fit()
         self.validate_input_ensemble(ensemble)
 
         rng = np.random.default_rng(seed)
 
-        # Disaggregate each realization
-        monthly_realization_dict = {}
-
+        sub_realization_dict = {}
         for realization_id, annual_df in ensemble.data_by_realization.items():
-            monthly_df = self._disaggregate_single_realization(annual_df, rng=rng)
-            monthly_realization_dict[realization_id] = monthly_df
+            sub_realization_dict[realization_id] = (
+                self._disaggregate_single_realization(annual_df, rng=rng)
+            )
 
-        # Create metadata for monthly ensemble
+        first_df = sub_realization_dict[next(iter(sub_realization_dict))]
         metadata = EnsembleMetadata(
             generator_class=ensemble.metadata.generator_class,
             generator_params=ensemble.metadata.generator_params,
-            n_realizations=len(monthly_realization_dict),
+            n_realizations=len(sub_realization_dict),
             n_sites=len(self._sites),
             time_resolution=self.output_frequency,
-            time_period=(
-                str(monthly_realization_dict[0].index[0].date()),
-                str(monthly_realization_dict[0].index[-1].date()),
-            ),
+            time_period=(str(first_df.index[0].date()), str(first_df.index[-1].date())),
         )
 
-        monthly_ensemble = Ensemble(monthly_realization_dict, metadata=metadata)
-
+        out_ensemble = Ensemble(sub_realization_dict, metadata=metadata)
         self.logger.info(
-            f"Disaggregated {len(monthly_realization_dict)} realizations "
-            f"from annual to monthly"
+            f"Disaggregated {len(sub_realization_dict)} realizations "
+            f"from annual to sub-period resolution"
         )
-
-        return monthly_ensemble
+        return out_ensemble
 
     def _disaggregate_single_realization(
         self, annual_df: pd.DataFrame, *, rng: np.random.Generator
     ) -> pd.DataFrame:
         """
-        Disaggregate a single realization from annual to monthly.
-
-        Parameters
-        ----------
-        annual_df : pd.DataFrame
-            Annual flows for a single realization.
-            Shape: (n_years, n_sites).
-
-        Returns
-        -------
-        pd.DataFrame
-            Monthly disaggregated flows.
-            Shape: (n_months, n_sites).
+        Disaggregate one realization. ``annual_df`` columns must match the
+        fitted site order; we reindex to enforce that.
         """
-        # Extract annual flows
-        Y_syn = (
-            annual_df.iloc[:, 0].values
-            if annual_df.shape[1] == 1
-            else annual_df.sum(axis=1).values
-        )
+        annual_df = annual_df.reindex(columns=self._sites)
+        X_syn = annual_df.values  # (n_years, n_sites)
+        n_years, n_sites = X_syn.shape
+        n_sub = self.n_subperiods
 
-        n_years = len(Y_syn)
-        monthly_flows = []
-        monthly_dates = []
+        out_rows = np.empty((n_years * n_sub, n_sites), dtype=float)
+        out_dates: List[pd.Timestamp] = []
 
-        for i, (year_idx, annual_flow) in enumerate(zip(annual_df.index, Y_syn)):
-            # Extract year from timestamp
-            year = annual_df.index[i].year
+        for t in range(n_years):
+            year = annual_df.index[t].year
+            X_t = X_syn[t]
 
-            # Sample monthly flows for this year
-            X_month = self._sample_conditional_distribution(annual_flow, rng=rng)
+            mu_Y_given_X = self.mu_Y_ + self.A_ @ (X_t - self.mu_X_)
+            V = rng.standard_normal(self.B_.shape[1])
+            Y_t = mu_Y_given_X + self.B_ @ V
 
-            # Inverse transform
             if self.transform != "none":
-                X_month = self._inverse_transform(X_month)
+                Y_t = self._inverse_transform(Y_t)
 
-            # Proportional adjustment to enforce sum consistency
+            # Site-major unpacking per paper Eq. (3): rows = sites, cols = sub-periods.
+            Y_sitewise = Y_t.reshape(n_sites, n_sub)
+
             if self.conservation_method == "proportional":
-                X_month_sum = X_month.sum()
-                if X_month_sum > 0:
-                    X_month = X_month * (annual_flow / X_month_sum)
+                # Clip then rescale so per-site annual sums match X_t exactly
+                # even when the nonlinear transform or clipping breaks linear
+                # additivity. For transform='none' with a paper-faithful B
+                # (rank-aware, C B = 0) the pre-clip Y_sitewise already sums
+                # to X_t; the rescale absorbs any clip-induced error.
+                Y_sitewise = np.clip(Y_sitewise, 0, None)
+                for s in range(n_sites):
+                    s_sum = Y_sitewise[s].sum()
+                    if s_sum > 0:
+                        Y_sitewise[s] = Y_sitewise[s] * (X_t[s] / s_sum)
+                    else:
+                        # All entries were non-positive and got clipped to
+                        # zero; fall back to a uniform split to preserve the
+                        # site's annual total.
+                        Y_sitewise[s, :] = X_t[s] / n_sub
 
-            # Enforce non-negativity
-            X_month = np.clip(X_month, 0, None)
+            out_rows[t * n_sub : (t + 1) * n_sub, :] = Y_sitewise.T
+            for month in self._subperiod_months:
+                out_dates.append(pd.Timestamp(year=year, month=month, day=1))
 
-            # Store monthly flows
-            monthly_flows.append(X_month)
-
-            # Create monthly dates
-            for month in range(1, self.n_subperiods + 1):
-                monthly_dates.append(pd.Timestamp(year=year, month=month, day=1))
-
-        # Combine into DataFrame
-        monthly_flows_array = np.array(monthly_flows).reshape(-1, annual_df.shape[1])
-
-        monthly_df = pd.DataFrame(
-            monthly_flows_array,
-            index=pd.DatetimeIndex(monthly_dates),
-            columns=annual_df.columns,
+        return pd.DataFrame(
+            out_rows, index=pd.DatetimeIndex(out_dates), columns=self._sites
         )
-
-        return monthly_df
-
-    def _sample_conditional_distribution(
-        self, Y_syn: float, *, rng: np.random.Generator
-    ) -> np.ndarray:
-        """
-        Sample from conditional distribution given aggregate.
-
-        Computes conditional mean and samples from conditional normal
-        distribution: X_syn ~ N(mu_X|Y, S_e).
-
-        Parameters
-        ----------
-        Y_syn : float
-            Synthetic aggregate (annual) flow value.
-
-        Returns
-        -------
-        np.ndarray
-            Sampled sub-period flows (n_subperiods,).
-        """
-        # Conditional mean: mu_X|Y = mu_X + A * (Y_syn - mu_Y)
-        mu_X_given_Y = self.mu_X_ + self.A_ * (Y_syn - self.mu_Y_)
-
-        # Sample residuals: Z ~ N(0, I_m)
-        Z = rng.standard_normal(self.n_subperiods)
-
-        # X_syn = mu_X|Y + C @ Z
-        X_syn = mu_X_given_Y + self.C_ @ Z
-
-        return X_syn

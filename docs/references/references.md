@@ -59,6 +59,9 @@ Valencia, R.D., and Schaake, J.C. (1973). Disaggregation processes in stochastic
 **Stedinger-Vogel Disaggregation** (serial correlation extension)
 Stedinger, J.R., and Vogel, R.M. (1984). Disaggregation procedures for generating serially correlated flow vectors. *Water Resources Research*, 20(1), 47-56. https://doi.org/10.1029/WR020i001p00047
 
+**Grygier-Stedinger Condensed Disaggregation** (multisite formulation and conservation corrections)
+Grygier, J.C., and Stedinger, J.R. (1988). Condensed disaggregation procedures and conservation corrections for stochastic hydrology. *Water Resources Research*, 24(10), 1574-1584. https://doi.org/10.1029/WR024i010p01574
+
 ---
 
 ## Wavelet-Based Methods

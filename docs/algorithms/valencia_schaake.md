@@ -3,119 +3,240 @@
 | | |
 |---|---|
 | **Type** | Parametric |
-| **Resolution** | Annual to Monthly |
-| **Sites** | Univariate / Multisite (per-site application of site-averaged univariate model -- joint multisite formulation is a planned enhancement) |
+| **Resolution** | Annual to monthly, quarterly, or other equal-month-stride splits (`n_subperiods` in {2, 3, 4, 6, 12}) |
+| **Sites** | Multisite (joint formulation per Valencia and Schaake, 1973) |
 
 ## Overview
 
-The Valencia-Schaake method is the foundational parametric temporal disaggregation approach in stochastic hydrology. It disaggregates an aggregate flow volume (e.g., annual total) into sub-period values (e.g., 12 monthly flows) by modeling the sub-periods as a multivariate normal distribution conditioned on the known aggregate. A linear regression relates the sub-period vector to the aggregate, and the conditional covariance captures the remaining uncertainty. This is the classical baseline against which subsequent disaggregation methods are compared.
+The Valencia-Schaake method is the foundational parametric temporal
+disaggregation approach in stochastic hydrology. Given an aggregate flow
+vector (e.g., per-site annual totals), it generates a vector of sub-period
+flows (e.g., monthly flows at every site) by fitting a joint multivariate
+linear regression model. The full cross-site, cross-sub-period covariance
+structure is preserved, and per-site aggregate totals are reproduced
+exactly by construction in the untransformed model.
+
+The method is the classical baseline against which subsequent disaggregation
+methods are compared.
 
 ## Notation
 
+The symbols below match the manuscript convention (Valencia and Schaake,
+1973). An earlier internal draft of this document used the opposite
+convention; readers comparing to the paper should now find them
+consistent.
+
 | Symbol | Description |
 |--------|-------------|
-| $\mathbf{X}_y \in \mathbb{R}^{m}$ | Vector of sub-period flows for year $y$, $X_{y,j}$ is the flow in sub-period $j$ |
-| $Y_y$ | Aggregate (annual) flow for year $y$, $Y_y = \mathbf{1}^\top \mathbf{X}_y$ |
-| $\boldsymbol{\mu}_X \in \mathbb{R}^{m}$ | Mean vector of sub-period flows |
-| $\mu_Y$ | Mean of the aggregate flow |
-| $\sigma_Y^2$ | Variance of the aggregate flow |
-| $\mathbf{S}_{XX} \in \mathbb{R}^{m \times m}$ | Covariance matrix of sub-period flows |
-| $\mathbf{S}_{XY} \in \mathbb{R}^{m}$ | Cross-covariance between sub-periods and aggregate |
-| $\mathbf{A} \in \mathbb{R}^{m}$ | Regression coefficient vector |
-| $\mathbf{S}_e \in \mathbb{R}^{m \times m}$ | Conditional covariance of sub-periods given the aggregate |
-| $\mathbf{C}$ | Lower Cholesky factor, $\mathbf{S}_e = \mathbf{C}\mathbf{C}^\top$ |
-| $m$ | Number of sub-periods (e.g., 12 months) |
+| $m$ | Number of sites |
+| $s$ | Number of sub-periods per aggregate (e.g., 12 months, 4 quarters) |
 | $N$ | Number of complete years in the historical record |
-| $\mathbf{1}$ | $m$-vector of ones |
+| $\mathbf{Y} \in \mathbb{R}^{s m}$ | Sub-period vector for one year, ordered site-major (paper Eq. 3): all $s$ sub-period values for site 1, then site 2, and so on |
+| $\mathbf{X} \in \mathbb{R}^{m}$ | Aggregate vector for one year (per-site annual totals; paper Eq. 4) |
+| $\boldsymbol{\mu}_Y,\,\boldsymbol{\mu}_X$ | Sample mean vectors of $\mathbf{Y},\,\mathbf{X}$ |
+| $\mathbf{S}_{yy},\,\mathbf{S}_{xx},\,\mathbf{S}_{yx}$ | Sample covariance and cross-covariance matrices (paper Eq. 13) |
+| $\mathbf{A} \in \mathbb{R}^{s m \times m}$ | Regression matrix (paper Eq. 15) |
+| $\mathbf{B}$ | Noise factor with $\mathbf{B}\mathbf{B}^\top = \mathbf{S}_{yy} - \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1}\mathbf{S}_{xy}$ (paper Eq. 19) |
+| $\mathbf{V} \sim \mathcal{N}(\mathbf{0},\,\mathbf{I})$ | Standard-normal innovations (paper Eq. 7) |
+| $\mathbf{C} \in \mathbb{R}^{m \times s m}$ | Aggregation operator: $\mathbf{X} = \mathbf{C}\mathbf{Y}$ by definition (paper Eqs. 5-6) -- one row per site, ones across that site's sub-period block |
 
 ## Formulation
 
 ### Model Structure
 
-The sub-period vector $\mathbf{X}$ and the aggregate $Y = \mathbf{1}^\top \mathbf{X}$ are assumed to follow a joint multivariate normal distribution. The conditional distribution of $\mathbf{X}$ given $Y$ is:
+The sub-period vector $\mathbf{Y}$ is modeled as a linear function of the
+aggregate $\mathbf{X}$ plus Gaussian noise (paper Eqs. 1 and 7,
+mean-incorporated form):
 
 $$
-\mathbf{X} \mid Y \;\sim\; \mathcal{N}\!\left(\boldsymbol{\mu}_{X|Y},\; \mathbf{S}_e\right)
+\mathbf{Y} \;=\; \boldsymbol{\mu}_Y \,+\, \mathbf{A}(\mathbf{X} - \boldsymbol{\mu}_X) \,+\, \mathbf{B}\mathbf{V}.
 $$
 
-where the conditional mean is:
+Equivalently, the conditional distribution of $\mathbf{Y}$ given $\mathbf{X}$
+is multivariate normal,
 
 $$
-\boldsymbol{\mu}_{X|Y} = \boldsymbol{\mu}_X + \mathbf{A}(Y - \mu_Y)
+\mathbf{Y} \mid \mathbf{X} \;\sim\; \mathcal{N}\!\left(\boldsymbol{\mu}_Y + \mathbf{A}(\mathbf{X} - \boldsymbol{\mu}_X),\; \mathbf{B}\mathbf{B}^\top\right).
 $$
+
+The paper writes the centered form $\mathbf{Y} = \mathbf{A}\mathbf{X} +
+\mathbf{B}\mathbf{V}$ and notes that "all random variables have been
+transformed to have zero mean" and that rendering the data Gaussian is
+"convenient but not absolutely necessary." The implementation works in
+mean-incorporated coordinates (subtracting and adding back sample means),
+which is algebraically equivalent.
 
 ### Parameter Estimation
 
-The sub-period covariance and aggregate statistics are estimated from the historical record. The cross-covariance between sub-periods and the aggregate is:
+Sample moments are estimated from $N$ historical years. Following paper
+Eqs. 14, 15, 19:
 
 $$
-\mathbf{S}_{XY} = \text{Cov}(\mathbf{X}, Y) = \mathbf{S}_{XX}\,\mathbf{1}
+\mathbf{A} \;=\; \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1},
+\qquad
+\mathbf{B}\mathbf{B}^\top \;=\; \mathbf{S}_{yy} - \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1}\mathbf{S}_{xy}.
 $$
 
-The regression coefficient vector is:
+In practice we use the Moore-Penrose pseudo-inverse for $\mathbf{S}_{xx}^{-1}$
+to remain numerically stable when the aggregate covariance is poorly
+conditioned, and we factor $\mathbf{B}\mathbf{B}^\top$ via a rank-aware
+spectral decomposition (see Numerical considerations below). The paper uses
+the biased estimator $\hat{\mathbf{S}} = (1/r)\,\mathbf{R}\mathbf{R}^\top$
+(paper Eq. 25). The implementation uses the unbiased estimator
+$\hat{\mathbf{S}} = (1/(r-1))\,\mathbf{R}\mathbf{R}^\top$; the
+$1/(r-1)$ factor cancels in both
+$\mathbf{A} = \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1}$ and
+$\mathbf{B}\mathbf{B}^\top$, so the parameter estimates are identical.
+
+An optional transformation (log or Box-Cox) may be applied to sub-period
+flows before fitting. The paper does not prescribe a specific transformation
+-- these are practical extensions for highly skewed hydrologic flows.
+
+### Exact additivity by construction
+
+A key result of Valencia and Schaake (1973) is that the linear model
+preserves the per-site aggregate identity $\mathbf{X} = \mathbf{C}\mathbf{Y}$
+*exactly* for every draw, with no post-hoc rescaling. The proof (paper
+Eqs. 31-42) proceeds in three steps:
+
+1. **Historical identity (Eq. 32):** the training data satisfy
+   $\mathbf{X} = \mathbf{C}\mathbf{Y}$ by construction (annual totals are
+   sums of sub-periods).
+
+2. **Inherited covariance identities (Eqs. 33-35):**
+
+   $$
+   \mathbf{S}_{xx} = \mathbf{C}\mathbf{S}_{yy}\mathbf{C}^\top, \quad
+   \mathbf{S}_{yx} = \mathbf{S}_{yy}\mathbf{C}^\top, \quad
+   \mathbf{S}_{xy} = \mathbf{C}\mathbf{S}_{yy}.
+   $$
+
+3. **Parameter identities (Eqs. 36-40):** substituting into the formulas
+   for $\mathbf{A}$ and $\mathbf{B}\mathbf{B}^\top$ gives
+
+   $$
+   \mathbf{A} = \mathbf{S}_{yy}\mathbf{C}^\top\left(\mathbf{C}\mathbf{S}_{yy}\mathbf{C}^\top\right)^{-1},
+   $$
+
+   $$
+   \mathbf{B}\mathbf{B}^\top = \mathbf{S}_{yy} - \mathbf{S}_{yy}\mathbf{C}^\top\left(\mathbf{C}\mathbf{S}_{yy}\mathbf{C}^\top\right)^{-1}\mathbf{C}\mathbf{S}_{yy}.
+   $$
+
+   Premultiplying by $\mathbf{C}$ yields
+
+   $$
+   \mathbf{C}\mathbf{A} = \mathbf{I}, \qquad
+   \mathbf{C}\mathbf{B}\mathbf{B}^\top = \mathbf{0}.
+   $$
+
+   The second identity implies $\mathbf{C}\mathbf{B} = \mathbf{0}$
+   because $(\mathbf{C}\mathbf{B})(\mathbf{C}\mathbf{B})^\top = \mathbf{0}$.
+
+Combining (paper Eq. 42),
 
 $$
-\mathbf{A} = \frac{\mathbf{S}_{XY}}{\sigma_Y^2}
+\mathbf{C}\mathbf{Y} \;=\; \mathbf{C}\boldsymbol{\mu}_Y + \mathbf{C}\mathbf{A}(\mathbf{X} - \boldsymbol{\mu}_X) + \mathbf{C}\mathbf{B}\mathbf{V} \;=\; \boldsymbol{\mu}_X + (\mathbf{X} - \boldsymbol{\mu}_X) + \mathbf{0} \;=\; \mathbf{X}.
 $$
 
-The conditional covariance matrix is:
-
-$$
-\mathbf{S}_e = \mathbf{S}_{XX} - \frac{\mathbf{S}_{XY}\,\mathbf{S}_{XY}^\top}{\sigma_Y^2}
-$$
-
-If $\mathbf{S}_e$ is not positive semi-definite, it is repaired via spectral projection. The Cholesky factorization $\mathbf{S}_e = \mathbf{C}\mathbf{C}^\top$ is then computed.
-
-An optional transformation (log or Box-Cox) may be applied to the sub-period flows before fitting to improve the normality assumption.
+**Scope of the identity.** This proof assumes $\mathbf{Y}$ in the fit is on
+the *same scale* as $\mathbf{X}$, so the historical identity
+$\mathbf{X} = \mathbf{C}\mathbf{Y}$ holds. That is true with
+`transform='none'`. When a log or Box-Cox transform is applied,
+$\mathbf{Y}$ is fit in transformed space while $\mathbf{X}$ remains on the
+original scale, so Eqs. 33-35 no longer hold and the synthesized
+sub-period flows do not automatically sum to the input annual totals.
+Per-site additivity is then restored numerically by the proportional
+rescale in step 4 of the synthesis procedure.
 
 ### Synthesis Procedure
 
-For each synthetic aggregate value $Y^{\text{syn}}$:
+For each year $t$ in the input ensemble with aggregate vector
+$\mathbf{X}_t$:
 
-1. Compute the conditional mean:
+1. Compute the conditional mean
+   $\boldsymbol{\mu}_{Y \mid X} = \boldsymbol{\mu}_Y + \mathbf{A}(\mathbf{X}_t - \boldsymbol{\mu}_X)$.
 
-$$
-\boldsymbol{\mu}_{X|Y} = \boldsymbol{\mu}_X + \mathbf{A}(Y^{\text{syn}} - \mu_Y)
-$$
+2. Draw $\mathbf{V} \sim \mathcal{N}(\mathbf{0},\,\mathbf{I}_r)$, where
+   $r$ is the retained rank of $\mathbf{B}$, and set
+   $\mathbf{Y}_t = \boldsymbol{\mu}_{Y \mid X} + \mathbf{B}\mathbf{V}$.
 
-2. Sample from the conditional distribution:
+3. If a transformation was applied during fitting, invert it. Non-finite
+   values from inverse Box-Cox (out-of-domain draws) are mapped to zero
+   before any further processing.
 
-$$
-\mathbf{Z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_m), \qquad \mathbf{X}^{\text{syn}} = \boldsymbol{\mu}_{X|Y} + \mathbf{C}\,\mathbf{Z}
-$$
-
-3. Apply a proportional adjustment to enforce volume conservation:
-
-$$
-X_j^{\text{adj}} = X_j^{\text{syn}} \cdot \frac{Y^{\text{syn}}}{\displaystyle\sum_{k=1}^{m} X_k^{\text{syn}}}
-$$
-
-4. Invert the transformation if one was applied.
-5. Enforce non-negativity.
-
-Note: The proportional adjustment ensures exact volume conservation but distorts the conditional covariance structure.
+4. If `conservation_method='proportional'`, clip any negative entries to
+   zero and rescale each site's sub-period block to its target annual sum
+   $X_{t,s}$. When the post-clip sum is zero (rare, requires extreme
+   clipping), the site's $X_{t,s}$ is split uniformly across its
+   sub-periods. With `transform='none'` and a full-rank $\mathbf{B}$, this
+   step is a no-op because the linear model already satisfies
+   $\mathbf{C}\mathbf{Y} = \mathbf{X}$ exactly; it becomes meaningful only
+   when a nonlinear transform or aggressive clipping breaks linear
+   additivity. The constructor rejects the combination
+   `transform != 'none'` with `conservation_method='none'` because the
+   resulting output would be silently non-conservative.
 
 ## Statistical Properties
 
-The method preserves the conditional mean and covariance of sub-period flows given the aggregate, the cross-correlations among sub-periods, and the aggregate total (exactly, after proportional adjustment). Monthly means and standard deviations are approximately preserved.
+The method preserves, to within sampling error:
 
-However, the proportional adjustment introduces distortion into the conditional covariance. The multivariate normal assumption may be violated for strongly skewed flow distributions, particularly at the monthly or daily scale. Inter-annual serial correlations between sub-periods of consecutive years are not modeled.
+- Sub-period means, standard deviations, and the full joint covariance of
+  $\mathbf{Y}$.
+- Cross-site, cross-sub-period correlations.
+- Per-site aggregate totals -- exactly, by construction, in the
+  untransformed full-rank case (paper Eq. 31); exactly after proportional
+  adjustment in the transformed case.
+
+Inter-annual serial correlation between sub-periods of consecutive years
+is not modeled; see Stedinger and Vogel (1984) for an extension that
+addresses this.
+
+## Numerical considerations
+
+- $\mathbf{B}\mathbf{B}^\top$ is rank-deficient by construction with rank
+  at most $\min(N - 1,\,(s - 1)\,m)$. The paper's bound (page 5) is
+  $N - 1$; the tighter $(s - 1)\,m$ ceiling comes from the null-space
+  constraint $\mathbf{C}\mathbf{B} = \mathbf{0}$.
+- $\mathbf{B}$ is constructed by eigendecomposing
+  $\mathbf{B}\mathbf{B}^\top$ in an orthonormal basis of the null space of
+  $\mathbf{C}$ and retaining only eigenvalues above a relative tolerance.
+  This matches the paper's "principal component technique" (page 5) of
+  retaining the leading $N - 1$ eigenvectors, with the additional null-
+  space restriction that guarantees $\mathbf{C}\mathbf{B} = \mathbf{0}$ to
+  floating-point precision -- preserving exact additivity for every draw.
+- When the residual covariance is numerically zero (e.g., a perfectly
+  cyclic input), the noise factor takes rank 0 and the disaggregation
+  becomes deterministic, equal to the conditional mean.
+- Box-Cox uses a single shared $\lambda$ fit on flattened data across all
+  sites and sub-periods. This is a practical simplification; per-site
+  lambdas would be more appropriate for basins with heterogeneous flow
+  magnitudes.
 
 ## Limitations
 
-- Multivariate normality assumption may be violated for skewed sub-period distributions.
-- Proportional adjustment distorts the conditional covariance.
-- Does not model serial correlations between sub-periods of consecutive years.
-- Full covariance estimation requires long records relative to $m$.
-- Better suited for annual-to-monthly than monthly-to-daily disaggregation.
+- The multivariate normality assumption may be violated for strongly skewed
+  sub-period distributions. A log or Box-Cox transform mitigates this but
+  breaks the linear-additivity property; proportional rescaling restores
+  per-site conservation at the cost of small distortion of the conditional
+  covariance.
+- Full joint covariance estimation requires reasonably long records
+  relative to $s \cdot m$. Short records produce a heavily rank-deficient
+  noise factor.
+- Inter-annual serial correlation between consecutive sub-periods is not
+  modeled.
+- The model is best suited for annual-to-monthly or annual-to-seasonal
+  disaggregation. Monthly-to-daily is generally not recommended with this
+  method.
 
 ## References
 
 **Primary:**
-Valencia, R.D., and Schaake, J.C. (1973). Disaggregation processes in stochastic hydrology. *Water Resources Research*, 9(3), 580-585. https://doi.org/10.1029/WR009i003p00580
+Valencia, R.D., and Schaake, J.C. (1973). Disaggregation processes in stochastic hydrology. *Water Resources Research*, 9(3), 580-585. <https://doi.org/10.1029/WR009i003p00580>
 
 **See also:**
-- Stedinger, J.R., and Vogel, R.M. (1984). Disaggregation procedures for generating serially correlated flow vectors. *Water Resources Research*, 20(1), 47-56. https://doi.org/10.1029/WR020i001p00047
+
+- Grygier, J.C., and Stedinger, J.R. (1988). Condensed disaggregation procedures and conservation corrections for stochastic hydrology. *Water Resources Research*, 24(10), 1574-1584. <https://doi.org/10.1029/WR024i010p01574>
+- Stedinger, J.R., and Vogel, R.M. (1984). Disaggregation procedures for generating serially correlated flow vectors. *Water Resources Research*, 20(1), 47-56. <https://doi.org/10.1029/WR020i001p00047>
 - Salas, J.D., Delleur, J.W., Yevjevich, V., and Lane, W.L. (1980). *Applied Modeling of Hydrologic Time Series*. Water Resources Publications.
 
 ---

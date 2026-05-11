@@ -1115,6 +1115,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#exact-additivity-by-construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      Exact additivity by construction
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#synthesis-procedure" class="md-nav__link">
     <span class="md-ellipsis">
       Synthesis Procedure
@@ -1132,6 +1141,15 @@
   <a href="#statistical-properties" class="md-nav__link">
     <span class="md-ellipsis">
       Statistical Properties
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#numerical-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Numerical considerations
     </span>
   </a>
   
@@ -1431,6 +1449,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#exact-additivity-by-construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      Exact additivity by construction
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#synthesis-procedure" class="md-nav__link">
     <span class="md-ellipsis">
       Synthesis Procedure
@@ -1448,6 +1475,15 @@
   <a href="#statistical-properties" class="md-nav__link">
     <span class="md-ellipsis">
       Statistical Properties
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#numerical-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Numerical considerations
     </span>
   </a>
   
@@ -1505,17 +1541,29 @@
 </tr>
 <tr>
 <td><strong>Resolution</strong></td>
-<td>Annual to Monthly</td>
+<td>Annual to monthly, quarterly, or other equal-month-stride splits (<code>n_subperiods</code> in {2, 3, 4, 6, 12})</td>
 </tr>
 <tr>
 <td><strong>Sites</strong></td>
-<td>Univariate / Multisite (per-site application of site-averaged univariate model -- joint multisite formulation is a planned enhancement)</td>
+<td>Multisite (joint formulation per Valencia and Schaake, 1973)</td>
 </tr>
 </tbody>
 </table>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The Valencia-Schaake method is the foundational parametric temporal disaggregation approach in stochastic hydrology. It disaggregates an aggregate flow volume (e.g., annual total) into sub-period values (e.g., 12 monthly flows) by modeling the sub-periods as a multivariate normal distribution conditioned on the known aggregate. A linear regression relates the sub-period vector to the aggregate, and the conditional covariance captures the remaining uncertainty. This is the classical baseline against which subsequent disaggregation methods are compared.</p>
+<p>The Valencia-Schaake method is the foundational parametric temporal
+disaggregation approach in stochastic hydrology. Given an aggregate flow
+vector (e.g., per-site annual totals), it generates a vector of sub-period
+flows (e.g., monthly flows at every site) by fitting a joint multivariate
+linear regression model. The full cross-site, cross-sub-period covariance
+structure is preserved, and per-site aggregate totals are reproduced
+exactly by construction in the untransformed model.</p>
+<p>The method is the classical baseline against which subsequent disaggregation
+methods are compared.</p>
 <h2 id="notation">Notation<a class="headerlink" href="#notation" title="Permanent link">&para;</a></h2>
+<p>The symbols below match the manuscript convention (Valencia and Schaake,
+1973). An earlier internal draft of this document used the opposite
+convention; readers comparing to the paper should now find them
+consistent.</p>
 <table>
 <thead>
 <tr>
@@ -1525,126 +1573,232 @@
 </thead>
 <tbody>
 <tr>
-<td><span class="arithmatex">\(\mathbf{X}_y \in \mathbb{R}^{m}\)</span></td>
-<td>Vector of sub-period flows for year <span class="arithmatex">\(y\)</span>, <span class="arithmatex">\(X_{y,j}\)</span> is the flow in sub-period <span class="arithmatex">\(j\)</span></td>
-</tr>
-<tr>
-<td><span class="arithmatex">\(Y_y\)</span></td>
-<td>Aggregate (annual) flow for year <span class="arithmatex">\(y\)</span>, <span class="arithmatex">\(Y_y = \mathbf{1}^\top \mathbf{X}_y\)</span></td>
-</tr>
-<tr>
-<td><span class="arithmatex">\(\boldsymbol{\mu}_X \in \mathbb{R}^{m}\)</span></td>
-<td>Mean vector of sub-period flows</td>
-</tr>
-<tr>
-<td><span class="arithmatex">\(\mu_Y\)</span></td>
-<td>Mean of the aggregate flow</td>
-</tr>
-<tr>
-<td><span class="arithmatex">\(\sigma_Y^2\)</span></td>
-<td>Variance of the aggregate flow</td>
-</tr>
-<tr>
-<td><span class="arithmatex">\(\mathbf{S}_{XX} \in \mathbb{R}^{m \times m}\)</span></td>
-<td>Covariance matrix of sub-period flows</td>
-</tr>
-<tr>
-<td><span class="arithmatex">\(\mathbf{S}_{XY} \in \mathbb{R}^{m}\)</span></td>
-<td>Cross-covariance between sub-periods and aggregate</td>
-</tr>
-<tr>
-<td><span class="arithmatex">\(\mathbf{A} \in \mathbb{R}^{m}\)</span></td>
-<td>Regression coefficient vector</td>
-</tr>
-<tr>
-<td><span class="arithmatex">\(\mathbf{S}_e \in \mathbb{R}^{m \times m}\)</span></td>
-<td>Conditional covariance of sub-periods given the aggregate</td>
-</tr>
-<tr>
-<td><span class="arithmatex">\(\mathbf{C}\)</span></td>
-<td>Lower Cholesky factor, <span class="arithmatex">\(\mathbf{S}_e = \mathbf{C}\mathbf{C}^\top\)</span></td>
-</tr>
-<tr>
 <td><span class="arithmatex">\(m\)</span></td>
-<td>Number of sub-periods (e.g., 12 months)</td>
+<td>Number of sites</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(s\)</span></td>
+<td>Number of sub-periods per aggregate (e.g., 12 months, 4 quarters)</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(N\)</span></td>
 <td>Number of complete years in the historical record</td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(\mathbf{1}\)</span></td>
-<td><span class="arithmatex">\(m\)</span>-vector of ones</td>
+<td><span class="arithmatex">\(\mathbf{Y} \in \mathbb{R}^{s m}\)</span></td>
+<td>Sub-period vector for one year, ordered site-major (paper Eq. 3): all <span class="arithmatex">\(s\)</span> sub-period values for site 1, then site 2, and so on</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\mathbf{X} \in \mathbb{R}^{m}\)</span></td>
+<td>Aggregate vector for one year (per-site annual totals; paper Eq. 4)</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\boldsymbol{\mu}_Y,\,\boldsymbol{\mu}_X\)</span></td>
+<td>Sample mean vectors of <span class="arithmatex">\(\mathbf{Y},\,\mathbf{X}\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\mathbf{S}_{yy},\,\mathbf{S}_{xx},\,\mathbf{S}_{yx}\)</span></td>
+<td>Sample covariance and cross-covariance matrices (paper Eq. 13)</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\mathbf{A} \in \mathbb{R}^{s m \times m}\)</span></td>
+<td>Regression matrix (paper Eq. 15)</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\mathbf{B}\)</span></td>
+<td>Noise factor with <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top = \mathbf{S}_{yy} - \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1}\mathbf{S}_{xy}\)</span> (paper Eq. 19)</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\mathbf{V} \sim \mathcal{N}(\mathbf{0},\,\mathbf{I})\)</span></td>
+<td>Standard-normal innovations (paper Eq. 7)</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\mathbf{C} \in \mathbb{R}^{m \times s m}\)</span></td>
+<td>Aggregation operator: <span class="arithmatex">\(\mathbf{X} = \mathbf{C}\mathbf{Y}\)</span> by definition (paper Eqs. 5-6) -- one row per site, ones across that site's sub-period block</td>
 </tr>
 </tbody>
 </table>
 <h2 id="formulation">Formulation<a class="headerlink" href="#formulation" title="Permanent link">&para;</a></h2>
 <h3 id="model-structure">Model Structure<a class="headerlink" href="#model-structure" title="Permanent link">&para;</a></h3>
-<p>The sub-period vector <span class="arithmatex">\(\mathbf{X}\)</span> and the aggregate <span class="arithmatex">\(Y = \mathbf{1}^\top \mathbf{X}\)</span> are assumed to follow a joint multivariate normal distribution. The conditional distribution of <span class="arithmatex">\(\mathbf{X}\)</span> given <span class="arithmatex">\(Y\)</span> is:</p>
+<p>The sub-period vector <span class="arithmatex">\(\mathbf{Y}\)</span> is modeled as a linear function of the
+aggregate <span class="arithmatex">\(\mathbf{X}\)</span> plus Gaussian noise (paper Eqs. 1 and 7,
+mean-incorporated form):</p>
 <div class="arithmatex">\[
-\mathbf{X} \mid Y \;\sim\; \mathcal{N}\!\left(\boldsymbol{\mu}_{X|Y},\; \mathbf{S}_e\right)
+\mathbf{Y} \;=\; \boldsymbol{\mu}_Y \,+\, \mathbf{A}(\mathbf{X} - \boldsymbol{\mu}_X) \,+\, \mathbf{B}\mathbf{V}.
 \]</div>
-<p>where the conditional mean is:</p>
+<p>Equivalently, the conditional distribution of <span class="arithmatex">\(\mathbf{Y}\)</span> given <span class="arithmatex">\(\mathbf{X}\)</span>
+is multivariate normal,</p>
 <div class="arithmatex">\[
-\boldsymbol{\mu}_{X|Y} = \boldsymbol{\mu}_X + \mathbf{A}(Y - \mu_Y)
+\mathbf{Y} \mid \mathbf{X} \;\sim\; \mathcal{N}\!\left(\boldsymbol{\mu}_Y + \mathbf{A}(\mathbf{X} - \boldsymbol{\mu}_X),\; \mathbf{B}\mathbf{B}^\top\right).
 \]</div>
+<p>The paper writes the centered form <span class="arithmatex">\(\mathbf{Y} = \mathbf{A}\mathbf{X} +
+\mathbf{B}\mathbf{V}\)</span> and notes that "all random variables have been
+transformed to have zero mean" and that rendering the data Gaussian is
+"convenient but not absolutely necessary." The implementation works in
+mean-incorporated coordinates (subtracting and adding back sample means),
+which is algebraically equivalent.</p>
 <h3 id="parameter-estimation">Parameter Estimation<a class="headerlink" href="#parameter-estimation" title="Permanent link">&para;</a></h3>
-<p>The sub-period covariance and aggregate statistics are estimated from the historical record. The cross-covariance between sub-periods and the aggregate is:</p>
+<p>Sample moments are estimated from <span class="arithmatex">\(N\)</span> historical years. Following paper
+Eqs. 14, 15, 19:</p>
 <div class="arithmatex">\[
-\mathbf{S}_{XY} = \text{Cov}(\mathbf{X}, Y) = \mathbf{S}_{XX}\,\mathbf{1}
+\mathbf{A} \;=\; \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1},
+\qquad
+\mathbf{B}\mathbf{B}^\top \;=\; \mathbf{S}_{yy} - \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1}\mathbf{S}_{xy}.
 \]</div>
-<p>The regression coefficient vector is:</p>
+<p>In practice we use the Moore-Penrose pseudo-inverse for <span class="arithmatex">\(\mathbf{S}_{xx}^{-1}\)</span>
+to remain numerically stable when the aggregate covariance is poorly
+conditioned, and we factor <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span> via a rank-aware
+spectral decomposition (see Numerical considerations below). The paper uses
+the biased estimator <span class="arithmatex">\(\hat{\mathbf{S}} = (1/r)\,\mathbf{R}\mathbf{R}^\top\)</span>
+(paper Eq. 25). The implementation uses the unbiased estimator
+<span class="arithmatex">\(\hat{\mathbf{S}} = (1/(r-1))\,\mathbf{R}\mathbf{R}^\top\)</span>; the
+<span class="arithmatex">\(1/(r-1)\)</span> factor cancels in both
+<span class="arithmatex">\(\mathbf{A} = \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1}\)</span> and
+<span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span>, so the parameter estimates are identical.</p>
+<p>An optional transformation (log or Box-Cox) may be applied to sub-period
+flows before fitting. The paper does not prescribe a specific transformation
+-- these are practical extensions for highly skewed hydrologic flows.</p>
+<h3 id="exact-additivity-by-construction">Exact additivity by construction<a class="headerlink" href="#exact-additivity-by-construction" title="Permanent link">&para;</a></h3>
+<p>A key result of Valencia and Schaake (1973) is that the linear model
+preserves the per-site aggregate identity <span class="arithmatex">\(\mathbf{X} = \mathbf{C}\mathbf{Y}\)</span>
+<em>exactly</em> for every draw, with no post-hoc rescaling. The proof (paper
+Eqs. 31-42) proceeds in three steps:</p>
+<ol>
+<li>
+<p><strong>Historical identity (Eq. 32):</strong> the training data satisfy
+   <span class="arithmatex">\(\mathbf{X} = \mathbf{C}\mathbf{Y}\)</span> by construction (annual totals are
+   sums of sub-periods).</p>
+</li>
+<li>
+<p><strong>Inherited covariance identities (Eqs. 33-35):</strong></p>
+</li>
+</ol>
+<p>$$
+   \mathbf{S}<em yy="yy">{xx} = \mathbf{C}\mathbf{S}</em>^\top, \quad
+   \mathbf{S}}\mathbf{C<em yy="yy">{yx} = \mathbf{S}</em>^\top, \quad
+   \mathbf{S}}\mathbf{C<em yy="yy">{xy} = \mathbf{C}\mathbf{S}</em>.
+   $$</p>
+<ol>
+<li><strong>Parameter identities (Eqs. 36-40):</strong> substituting into the formulas
+   for <span class="arithmatex">\(\mathbf{A}\)</span> and <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span> gives</li>
+</ol>
+<p>$$
+   \mathbf{A} = \mathbf{S}<em yy="yy">{yy}\mathbf{C}^\top\left(\mathbf{C}\mathbf{S}</em>,
+   $$}\mathbf{C}^\top\right)^{-1</p>
+<p>$$
+   \mathbf{B}\mathbf{B}^\top = \mathbf{S}<em yy="yy">{yy} - \mathbf{S}</em>}\mathbf{C}^\top\left(\mathbf{C}\mathbf{S<em yy="yy">{yy}\mathbf{C}^\top\right)^{-1}\mathbf{C}\mathbf{S}</em>.
+   $$</p>
+<p>Premultiplying by <span class="arithmatex">\(\mathbf{C}\)</span> yields</p>
+<p>$$
+   \mathbf{C}\mathbf{A} = \mathbf{I}, \qquad
+   \mathbf{C}\mathbf{B}\mathbf{B}^\top = \mathbf{0}.
+   $$</p>
+<p>The second identity implies <span class="arithmatex">\(\mathbf{C}\mathbf{B} = \mathbf{0}\)</span>
+   because <span class="arithmatex">\((\mathbf{C}\mathbf{B})(\mathbf{C}\mathbf{B})^\top = \mathbf{0}\)</span>.</p>
+<p>Combining (paper Eq. 42),</p>
 <div class="arithmatex">\[
-\mathbf{A} = \frac{\mathbf{S}_{XY}}{\sigma_Y^2}
+\mathbf{C}\mathbf{Y} \;=\; \mathbf{C}\boldsymbol{\mu}_Y + \mathbf{C}\mathbf{A}(\mathbf{X} - \boldsymbol{\mu}_X) + \mathbf{C}\mathbf{B}\mathbf{V} \;=\; \boldsymbol{\mu}_X + (\mathbf{X} - \boldsymbol{\mu}_X) + \mathbf{0} \;=\; \mathbf{X}.
 \]</div>
-<p>The conditional covariance matrix is:</p>
-<div class="arithmatex">\[
-\mathbf{S}_e = \mathbf{S}_{XX} - \frac{\mathbf{S}_{XY}\,\mathbf{S}_{XY}^\top}{\sigma_Y^2}
-\]</div>
-<p>If <span class="arithmatex">\(\mathbf{S}_e\)</span> is not positive semi-definite, it is repaired via spectral projection. The Cholesky factorization <span class="arithmatex">\(\mathbf{S}_e = \mathbf{C}\mathbf{C}^\top\)</span> is then computed.</p>
-<p>An optional transformation (log or Box-Cox) may be applied to the sub-period flows before fitting to improve the normality assumption.</p>
+<p><strong>Scope of the identity.</strong> This proof assumes <span class="arithmatex">\(\mathbf{Y}\)</span> in the fit is on
+the <em>same scale</em> as <span class="arithmatex">\(\mathbf{X}\)</span>, so the historical identity
+<span class="arithmatex">\(\mathbf{X} = \mathbf{C}\mathbf{Y}\)</span> holds. That is true with
+<code>transform='none'</code>. When a log or Box-Cox transform is applied,
+<span class="arithmatex">\(\mathbf{Y}\)</span> is fit in transformed space while <span class="arithmatex">\(\mathbf{X}\)</span> remains on the
+original scale, so Eqs. 33-35 no longer hold and the synthesized
+sub-period flows do not automatically sum to the input annual totals.
+Per-site additivity is then restored numerically by the proportional
+rescale in step 4 of the synthesis procedure.</p>
 <h3 id="synthesis-procedure">Synthesis Procedure<a class="headerlink" href="#synthesis-procedure" title="Permanent link">&para;</a></h3>
-<p>For each synthetic aggregate value <span class="arithmatex">\(Y^{\text{syn}}\)</span>:</p>
+<p>For each year <span class="arithmatex">\(t\)</span> in the input ensemble with aggregate vector
+<span class="arithmatex">\(\mathbf{X}_t\)</span>:</p>
 <ol>
-<li>Compute the conditional mean:</li>
+<li>
+<p>Compute the conditional mean
+   <span class="arithmatex">\(\boldsymbol{\mu}_{Y \mid X} = \boldsymbol{\mu}_Y + \mathbf{A}(\mathbf{X}_t - \boldsymbol{\mu}_X)\)</span>.</p>
+</li>
+<li>
+<p>Draw <span class="arithmatex">\(\mathbf{V} \sim \mathcal{N}(\mathbf{0},\,\mathbf{I}_r)\)</span>, where
+   <span class="arithmatex">\(r\)</span> is the retained rank of <span class="arithmatex">\(\mathbf{B}\)</span>, and set
+   <span class="arithmatex">\(\mathbf{Y}_t = \boldsymbol{\mu}_{Y \mid X} + \mathbf{B}\mathbf{V}\)</span>.</p>
+</li>
+<li>
+<p>If a transformation was applied during fitting, invert it. Non-finite
+   values from inverse Box-Cox (out-of-domain draws) are mapped to zero
+   before any further processing.</p>
+</li>
+<li>
+<p>If <code>conservation_method='proportional'</code>, clip any negative entries to
+   zero and rescale each site's sub-period block to its target annual sum
+   <span class="arithmatex">\(X_{t,s}\)</span>. When the post-clip sum is zero (rare, requires extreme
+   clipping), the site's <span class="arithmatex">\(X_{t,s}\)</span> is split uniformly across its
+   sub-periods. With <code>transform='none'</code> and a full-rank <span class="arithmatex">\(\mathbf{B}\)</span>, this
+   step is a no-op because the linear model already satisfies
+   <span class="arithmatex">\(\mathbf{C}\mathbf{Y} = \mathbf{X}\)</span> exactly; it becomes meaningful only
+   when a nonlinear transform or aggressive clipping breaks linear
+   additivity. The constructor rejects the combination
+   <code>transform != 'none'</code> with <code>conservation_method='none'</code> because the
+   resulting output would be silently non-conservative.</p>
+</li>
 </ol>
-<div class="arithmatex">\[
-\boldsymbol{\mu}_{X|Y} = \boldsymbol{\mu}_X + \mathbf{A}(Y^{\text{syn}} - \mu_Y)
-\]</div>
-<ol>
-<li>Sample from the conditional distribution:</li>
-</ol>
-<div class="arithmatex">\[
-\mathbf{Z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_m), \qquad \mathbf{X}^{\text{syn}} = \boldsymbol{\mu}_{X|Y} + \mathbf{C}\,\mathbf{Z}
-\]</div>
-<ol>
-<li>Apply a proportional adjustment to enforce volume conservation:</li>
-</ol>
-<div class="arithmatex">\[
-X_j^{\text{adj}} = X_j^{\text{syn}} \cdot \frac{Y^{\text{syn}}}{\displaystyle\sum_{k=1}^{m} X_k^{\text{syn}}}
-\]</div>
-<ol>
-<li>Invert the transformation if one was applied.</li>
-<li>Enforce non-negativity.</li>
-</ol>
-<p>Note: The proportional adjustment ensures exact volume conservation but distorts the conditional covariance structure.</p>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
-<p>The method preserves the conditional mean and covariance of sub-period flows given the aggregate, the cross-correlations among sub-periods, and the aggregate total (exactly, after proportional adjustment). Monthly means and standard deviations are approximately preserved.</p>
-<p>However, the proportional adjustment introduces distortion into the conditional covariance. The multivariate normal assumption may be violated for strongly skewed flow distributions, particularly at the monthly or daily scale. Inter-annual serial correlations between sub-periods of consecutive years are not modeled.</p>
+<p>The method preserves, to within sampling error:</p>
+<ul>
+<li>Sub-period means, standard deviations, and the full joint covariance of
+  <span class="arithmatex">\(\mathbf{Y}\)</span>.</li>
+<li>Cross-site, cross-sub-period correlations.</li>
+<li>Per-site aggregate totals -- exactly, by construction, in the
+  untransformed full-rank case (paper Eq. 31); exactly after proportional
+  adjustment in the transformed case.</li>
+</ul>
+<p>Inter-annual serial correlation between sub-periods of consecutive years
+is not modeled; see Stedinger and Vogel (1984) for an extension that
+addresses this.</p>
+<h2 id="numerical-considerations">Numerical considerations<a class="headerlink" href="#numerical-considerations" title="Permanent link">&para;</a></h2>
+<ul>
+<li><span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span> is rank-deficient by construction with rank
+  at most <span class="arithmatex">\(\min(N - 1,\,(s - 1)\,m)\)</span>. The paper's bound (page 5) is
+  <span class="arithmatex">\(N - 1\)</span>; the tighter <span class="arithmatex">\((s - 1)\,m\)</span> ceiling comes from the null-space
+  constraint <span class="arithmatex">\(\mathbf{C}\mathbf{B} = \mathbf{0}\)</span>.</li>
+<li><span class="arithmatex">\(\mathbf{B}\)</span> is constructed by eigendecomposing
+  <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span> in an orthonormal basis of the null space of
+  <span class="arithmatex">\(\mathbf{C}\)</span> and retaining only eigenvalues above a relative tolerance.
+  This matches the paper's "principal component technique" (page 5) of
+  retaining the leading <span class="arithmatex">\(N - 1\)</span> eigenvectors, with the additional null-
+  space restriction that guarantees <span class="arithmatex">\(\mathbf{C}\mathbf{B} = \mathbf{0}\)</span> to
+  floating-point precision -- preserving exact additivity for every draw.</li>
+<li>When the residual covariance is numerically zero (e.g., a perfectly
+  cyclic input), the noise factor takes rank 0 and the disaggregation
+  becomes deterministic, equal to the conditional mean.</li>
+<li>Box-Cox uses a single shared <span class="arithmatex">\(\lambda\)</span> fit on flattened data across all
+  sites and sub-periods. This is a practical simplification; per-site
+  lambdas would be more appropriate for basins with heterogeneous flow
+  magnitudes.</li>
+</ul>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Multivariate normality assumption may be violated for skewed sub-period distributions.</li>
-<li>Proportional adjustment distorts the conditional covariance.</li>
-<li>Does not model serial correlations between sub-periods of consecutive years.</li>
-<li>Full covariance estimation requires long records relative to <span class="arithmatex">\(m\)</span>.</li>
-<li>Better suited for annual-to-monthly than monthly-to-daily disaggregation.</li>
+<li>The multivariate normality assumption may be violated for strongly skewed
+  sub-period distributions. A log or Box-Cox transform mitigates this but
+  breaks the linear-additivity property; proportional rescaling restores
+  per-site conservation at the cost of small distortion of the conditional
+  covariance.</li>
+<li>Full joint covariance estimation requires reasonably long records
+  relative to <span class="arithmatex">\(s \cdot m\)</span>. Short records produce a heavily rank-deficient
+  noise factor.</li>
+<li>Inter-annual serial correlation between consecutive sub-periods is not
+  modeled.</li>
+<li>The model is best suited for annual-to-monthly or annual-to-seasonal
+  disaggregation. Monthly-to-daily is generally not recommended with this
+  method.</li>
 </ul>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <p><strong>Primary:</strong>
-Valencia, R.D., and Schaake, J.C. (1973). Disaggregation processes in stochastic hydrology. <em>Water Resources Research</em>, 9(3), 580-585. https://doi.org/10.1029/WR009i003p00580</p>
-<p><strong>See also:</strong>
-- Stedinger, J.R., and Vogel, R.M. (1984). Disaggregation procedures for generating serially correlated flow vectors. <em>Water Resources Research</em>, 20(1), 47-56. https://doi.org/10.1029/WR020i001p00047
-- Salas, J.D., Delleur, J.W., Yevjevich, V., and Lane, W.L. (1980). <em>Applied Modeling of Hydrologic Time Series</em>. Water Resources Publications.</p>
+Valencia, R.D., and Schaake, J.C. (1973). Disaggregation processes in stochastic hydrology. <em>Water Resources Research</em>, 9(3), 580-585. <a href="https://doi.org/10.1029/WR009i003p00580">https://doi.org/10.1029/WR009i003p00580</a></p>
+<p><strong>See also:</strong></p>
+<ul>
+<li>Grygier, J.C., and Stedinger, J.R. (1988). Condensed disaggregation procedures and conservation corrections for stochastic hydrology. <em>Water Resources Research</em>, 24(10), 1574-1584. <a href="https://doi.org/10.1029/WR024i010p01574">https://doi.org/10.1029/WR024i010p01574</a></li>
+<li>Stedinger, J.R., and Vogel, R.M. (1984). Disaggregation procedures for generating serially correlated flow vectors. <em>Water Resources Research</em>, 20(1), 47-56. <a href="https://doi.org/10.1029/WR020i001p00047">https://doi.org/10.1029/WR020i001p00047</a></li>
+<li>Salas, J.D., Delleur, J.W., Yevjevich, V., and Lane, W.L. (1980). <em>Applied Modeling of Hydrologic Time Series</em>. Water Resources Publications.</li>
+</ul>
 <hr />
 <p><strong>Implementation:</strong> <code>src/synhydro/methods/disaggregation/temporal/valencia_schaake.py</code></p>
 

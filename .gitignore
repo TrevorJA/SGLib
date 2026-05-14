@@ -177,3 +177,6 @@ external_source_codes/*
 experiments/*
 .vscode/
 docs/dev/
+
+# Pre-release audit working document (regenerated per audit cycle)
+AUDIT.md

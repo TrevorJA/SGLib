@@ -97,7 +97,7 @@ best_pvalue = comparison.iloc[0]["ks_pvalue"]
 print(f"RECOMMENDED DISTRIBUTION: {best_dist}")
 print(f"  - Lowest AIC: {best_aic:.2f}")
 print(
-    f"  - KS p-value: {best_pvalue:.4f} {'(PASS ✓)' if best_pvalue > 0.05 else '(marginal)'}"
+    f"  - KS p-value: {best_pvalue:.4f} {'(PASS)' if best_pvalue > 0.05 else '(marginal)'}"
 )
 print()
 
@@ -127,7 +127,7 @@ print()
 # ============================================================================
 print("STEP 3: EXTRACTING DROUGHT EVENTS")
 print("-" * 80)
-print("Identifying droughts (SSI ≤ -1 indicates critical drought)...")
+print("Identifying droughts (SSI <= -1 indicates critical drought)...")
 print()
 
 drought_metrics = get_drought_metrics(ssi_values)
@@ -341,7 +341,7 @@ plt.savefig(
 )
 plt.close()
 
-print(f"✓ Figure saved to examples/figures/04_drought_analysis_ssi.png")
+print(f"Figure saved to examples/figures/04_drought_analysis_ssi.png")
 print()
 
 # ============================================================================
@@ -415,9 +415,7 @@ plt.savefig(
 )
 plt.close()
 
-print(
-    f"✓ Comparison figure saved to examples/figures/04_drought_analysis_timescales.png"
-)
+print(f"Comparison figure saved to examples/figures/04_drought_analysis_timescales.png")
 print()
 
 # ============================================================================
@@ -428,18 +426,18 @@ print("ANALYSIS COMPLETE")
 print("=" * 80)
 print()
 print(f"Key Findings:")
-print(f"  • Best-fit distribution: {best_dist}")
+print(f"  -Best-fit distribution: {best_dist}")
 print(
-    f"  • Total droughts detected: {len(drought_metrics) if len(drought_metrics) > 0 else 0}"
+    f"  -Total droughts detected: {len(drought_metrics) if len(drought_metrics) > 0 else 0}"
 )
 if len(drought_metrics) > 0:
     print(
-        f"  • Average drought duration: {drought_metrics['duration'].mean():.1f} months"
+        f"  -Average drought duration: {drought_metrics['duration'].mean():.1f} months"
     )
-    print(f"  • Longest drought: {drought_metrics['duration'].max():.0f} months")
+    print(f"  -Longest drought: {drought_metrics['duration'].max():.0f} months")
     most_severe = drought_metrics.loc[drought_metrics["severity"].idxmin()]
     print(
-        f"  • Most severe drought: {most_severe['start'].date()} to {most_severe['end'].date()}"
+        f"  -Most severe drought: {most_severe['start'].date()} to {most_severe['end'].date()}"
     )
     print(f"    (SSI reached {most_severe['severity']:.2f})")
 print()

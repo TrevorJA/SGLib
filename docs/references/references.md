@@ -108,6 +108,9 @@ Montanari, A., Rosso, R., and Taqqu, M.S. (1997). Fractionally differenced ARIMA
 **SMA (Symmetric Moving Average) Model and CAS**
 Koutsoyiannis, D. (2000). A generalized mathematical framework for stochastic simulation and forecast of hydrologic time series. *Water Resources Research*, 36(6), 1519-1533. https://doi.org/10.1029/2000WR900044
 
+**Climacogram for stochastic process identification** (used in SMARTA)
+Dimitriadis, P., and Koutsoyiannis, D. (2015). Climacogram versus autocovariance and power spectrum in stochastic modelling for Markovian and Hurst-Kolmogorov processes. *Stochastic Environmental Research and Risk Assessment*, 29(6), 1649-1669. https://doi.org/10.1007/s00477-015-1023-7
+
 **Nataf joint distribution model**
 Nataf, A. (1962). Determination des distributions de probabilites dont les marges sont donnees. *Comptes Rendus de l'Academie des Sciences*, 225, 42-43.
 

@@ -25,6 +25,44 @@ from synhydro.plotting._utils import (
 )
 
 
+def _is_annual_index(index: pd.DatetimeIndex) -> bool:
+    """Return True when the index has at most one observation per calendar year."""
+    if len(index) < 2:
+        return True
+    years = pd.Index(index).year
+    return len(years) == len(pd.unique(years))
+
+
+def _empirical_fdc(values: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Empirical flow duration curve using Weibull plotting positions.
+
+    Sorts the (non-NaN) values ascending and returns ``(p, sorted_vals)``
+    where ``p[k] = (k - 0.5) / N`` for ``k = 1..N``. This places one point
+    per data value and avoids the tail-flattening artifacts that arise when
+    a fixed quantile grid is interpolated against a small sample.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        1-D array of flow values, possibly containing NaN.
+
+    Returns
+    -------
+    p : np.ndarray
+        Non-exceedance probabilities, ascending in (0, 1).
+    sorted_vals : np.ndarray
+        Sorted flow values aligned with ``p``.
+    """
+    arr = np.asarray(values, dtype=float).ravel()
+    arr = arr[~np.isnan(arr)]
+    if arr.size == 0:
+        return np.empty(0), np.empty(0)
+    sorted_vals = np.sort(arr)
+    n = sorted_vals.size
+    p = (np.arange(1, n + 1) - 0.5) / n
+    return p, sorted_vals
+
+
 def plot_flow_duration_curve(
     ensemble: Ensemble,
     observed: Optional[pd.Series] = None,
@@ -108,36 +146,68 @@ def plot_flow_duration_curve(
     if observed is not None:
         observed = filter_complete_years(observed.to_frame()).iloc[:, 0]
 
-    # Define non-exceedance probabilities
-    nonexceedance = np.linspace(0.0001, 0.9999, 50)
+    is_annual = _is_annual_index(site_data.index)
 
-    # Calculate total period FDC for ensemble
-    s_total_fdc = np.nanquantile(site_data.values.flatten(), nonexceedance)
+    # Total FDC for the ensemble plotted at empirical Weibull positions on
+    # sorted values. Fixed-quantile interpolation (e.g. linspace 0..1) does
+    # not work well at the tails of small samples, where many quantile
+    # points map to the same min/max value and create artificial flat
+    # horizontal segments. Empirical positions place one point per data
+    # value and let matplotlib draw a faithful step-and-rise FDC.
+    s_flat = site_data.values.flatten()
+    s_pos, s_total_fdc = _empirical_fdc(s_flat)
 
-    # Calculate annual FDCs if requested
     if show_annual_range:
-        s_annual_fdcs = (
-            site_data.groupby(site_data.index.year)
-            .quantile(nonexceedance)
-            .unstack(level=0)
-        )
-        s_fdc_min = s_annual_fdcs.min(axis=1)
-        s_fdc_max = s_annual_fdcs.max(axis=1)
+        if is_annual:
+            # Per-realization FDC, then envelope across realizations.
+            # site_data shape is (n_periods, n_realizations); each column
+            # is one realization at the same n_periods, so empirical FDC
+            # positions are common across realizations.
+            sorted_cols = np.sort(site_data.values, axis=0)
+            valid = ~np.isnan(sorted_cols)
+            # Per-column N (count of finite values) is uniform here
+            # because all realizations have the same period count.
+            n_per_real = int(valid[:, 0].sum())
+            env_pos = (np.arange(1, n_per_real + 1) - 0.5) / n_per_real
+            env_vals = sorted_cols[:n_per_real, :]
+            s_fdc_min = np.nanmin(env_vals, axis=1)
+            s_fdc_max = np.nanmax(env_vals, axis=1)
+            envelope_label = "Ensemble Realization FDC Range"
+        else:
+            # Sub-annual data: per-year FDC at empirical within-year
+            # positions, then min/max envelope across years. Pool values
+            # across all realizations within each year.
+            years = sorted(set(int(y) for y in site_data.index.year.unique()))
+            per_year_vals = []
+            for y in years:
+                year_block = site_data.values[site_data.index.year == y]
+                vals = np.sort(year_block.flatten())
+                vals = vals[~np.isnan(vals)]
+                if vals.size:
+                    per_year_vals.append(vals)
+            if per_year_vals:
+                m = min(v.size for v in per_year_vals)
+                env_pos = (np.arange(1, m + 1) - 0.5) / m
+                env_arr = np.stack([v[:m] for v in per_year_vals], axis=1)
+                s_fdc_min = np.nanmin(env_arr, axis=1)
+                s_fdc_max = np.nanmax(env_arr, axis=1)
+                envelope_label = "Ensemble Annual FDC Range"
+            else:
+                env_pos = None
 
-        # Plot annual range
-        ax.fill_between(
-            nonexceedance,
-            s_fdc_min,
-            s_fdc_max,
-            color=COLORS["ensemble_fill"],
-            alpha=STYLE["fill_alpha"],
-            label="Ensemble Annual FDC Range",
-            **kwargs,
-        )
+        if env_pos is not None:
+            ax.fill_between(
+                env_pos,
+                s_fdc_min,
+                s_fdc_max,
+                color=COLORS["ensemble_fill"],
+                alpha=STYLE["fill_alpha"],
+                label=envelope_label,
+                **kwargs,
+            )
 
-    # Plot total period FDC
     ax.plot(
-        nonexceedance,
+        s_pos,
         s_total_fdc,
         color=COLORS["ensemble_median"],
         linewidth=STYLE["ensemble_linewidth"],
@@ -145,31 +215,38 @@ def plot_flow_duration_curve(
         **kwargs,
     )
 
-    # Plot observed if provided
     if observed is not None:
-        h_total_fdc = np.nanquantile(observed.values.flatten(), nonexceedance)
+        h_pos, h_total_fdc = _empirical_fdc(observed.values.flatten())
 
-        if show_annual_range:
-            h_annual_fdcs = (
-                observed.groupby(observed.index.year)
-                .quantile(nonexceedance)
-                .unstack(level=0)
-            )
-            h_fdc_min = h_annual_fdcs.min(axis=1)
-            h_fdc_max = h_annual_fdcs.max(axis=1)
-
-            ax.fill_between(
-                nonexceedance,
-                h_fdc_min,
-                h_fdc_max,
-                color=COLORS["observed"],
-                alpha=0.3,
-                label="Observed Annual FDC Range",
-                **kwargs,
-            )
+        # An observed series is one realization, so the inter-year
+        # envelope is only meaningful for sub-annual data; for annual
+        # observed data it would collapse to a horizontal rectangle.
+        if show_annual_range and not _is_annual_index(observed.index):
+            years = sorted(set(int(y) for y in observed.index.year.unique()))
+            per_year_obs = []
+            for y in years:
+                vals = np.sort(observed.values[observed.index.year == y])
+                vals = vals[~np.isnan(vals)]
+                if vals.size:
+                    per_year_obs.append(vals)
+            if per_year_obs:
+                m = min(v.size for v in per_year_obs)
+                obs_env_pos = (np.arange(1, m + 1) - 0.5) / m
+                obs_env_arr = np.stack([v[:m] for v in per_year_obs], axis=1)
+                h_fdc_min = np.nanmin(obs_env_arr, axis=1)
+                h_fdc_max = np.nanmax(obs_env_arr, axis=1)
+                ax.fill_between(
+                    obs_env_pos,
+                    h_fdc_min,
+                    h_fdc_max,
+                    color=COLORS["observed"],
+                    alpha=0.3,
+                    label="Observed Annual FDC Range",
+                    **kwargs,
+                )
 
         ax.plot(
-            nonexceedance,
+            h_pos,
             h_total_fdc,
             color=COLORS["observed"],
             linewidth=STYLE["observed_linewidth"],

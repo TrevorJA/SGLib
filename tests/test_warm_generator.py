@@ -655,3 +655,73 @@ class TestWARMReconstruction:
             # Reconstruction magnitudes should be on the same order as the
             # observed centered series, not normalized.
             assert np.std(recon) <= np.std(sample_annual_series.values) * 5
+
+
+class TestWARMLowerBound:
+    """Tests for the configurable lower_bound on synthesis output."""
+
+    def test_default_lower_bound_is_zero(self, sample_annual_series):
+        gen = WARMGenerator()
+        gen.fit(sample_annual_series)
+        assert gen._effective_lower_bound() == 0.0
+
+    def test_obs_min_lower_bound_clamps_to_observed_minimum(self, sample_annual_series):
+        obs_min = float(sample_annual_series.min())
+        gen = WARMGenerator(lower_bound="obs_min")
+        gen.fit(sample_annual_series)
+        assert gen._effective_lower_bound() == pytest.approx(obs_min)
+
+        ensemble = gen.generate(n_years=80, n_realizations=10, seed=42)
+        for r in range(10):
+            values = ensemble.data_by_realization[r].values
+            assert float(values.min()) >= obs_min - 1e-9
+
+    def test_numeric_lower_bound_clamps_to_value(self, sample_annual_series):
+        floor = 300.0
+        gen = WARMGenerator(lower_bound=floor)
+        gen.fit(sample_annual_series)
+        ensemble = gen.generate(n_years=80, n_realizations=10, seed=42)
+        for r in range(10):
+            values = ensemble.data_by_realization[r].values
+            assert float(values.min()) >= floor - 1e-9
+
+    def test_invalid_lower_bound_string_raises(self):
+        with pytest.raises(ValueError, match="lower_bound"):
+            WARMGenerator(lower_bound="bogus")
+
+    def test_lower_bound_default_preserves_legacy_behavior(self, sample_annual_series):
+        """Default lower_bound=0 must reproduce identical output to a fixed seed."""
+        gen_a = WARMGenerator()
+        gen_a.fit(sample_annual_series)
+        ensemble_a = gen_a.generate(n_years=30, n_realizations=2, seed=7)
+
+        gen_b = WARMGenerator(lower_bound=0.0)
+        gen_b.fit(sample_annual_series)
+        ensemble_b = gen_b.generate(n_years=30, n_realizations=2, seed=7)
+
+        for r in range(2):
+            pd.testing.assert_frame_equal(
+                ensemble_a.data_by_realization[r],
+                ensemble_b.data_by_realization[r],
+            )
+
+
+class TestWARMEnsembleMetadata:
+    """Regression tests for proper EnsembleMetadata on generated output."""
+
+    def test_ensemble_has_annual_frequency_attribute(self, sample_annual_series):
+        """ensemble.frequency must reflect the output_frequency 'YS'.
+
+        Regression test: previously WARMGenerator.generate() returned
+        Ensemble(realizations) with no metadata, so ensemble.frequency was
+        None and any downstream consumer that branches on frequency would
+        break.
+        """
+        gen = WARMGenerator()
+        gen.fit(sample_annual_series)
+        ensemble = gen.generate(n_years=20, n_realizations=2, seed=1)
+
+        assert ensemble.frequency == "YS"
+        assert ensemble.metadata.generator_class == "WARMGenerator"
+        assert ensemble.metadata.n_realizations == 2
+        assert ensemble.metadata.n_sites == 1

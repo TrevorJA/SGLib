@@ -17,7 +17,7 @@ from numpy.typing import NDArray
 from scipy import stats
 
 from synhydro.core.base import Generator, FittedParams
-from synhydro.core.ensemble import Ensemble
+from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +101,7 @@ class WARMGenerator(Generator):
         background_spectrum: str = "red",
         significance_level: float = 0.95,
         min_band_scales: int = 1,
+        lower_bound: Union[float, str] = 0.0,
         name: Optional[str] = None,
         debug: bool = False,
         **kwargs,
@@ -160,6 +161,15 @@ class WARMGenerator(Generator):
             Minimum number of contiguous scales above the significance
             threshold required to declare a band. Increase to suppress narrow
             single-scale spurious peaks.
+        lower_bound : float or {'obs_min'}, default=0.0
+            Floor applied to synthetic annual values before returning. The
+            Gaussian AR + bootstrapped-SAWP synthesis can occasionally produce
+            sums that are more negative than the historical record supports,
+            and Nowak et al. (2011) clamp these at zero. For perennial rivers
+            where zero-flow years are not physically plausible, pass a
+            positive float (interpreted in the units of the input series) or
+            the string ``'obs_min'`` to use the observed minimum as the
+            floor. Default of ``0.0`` reproduces the original paper.
         name : str, optional
             Name for this generator instance.
         debug : bool, default=False
@@ -194,6 +204,19 @@ class WARMGenerator(Generator):
             )
         if min_band_scales < 1:
             raise ValueError(f"min_band_scales must be >= 1, got {min_band_scales}")
+        if isinstance(lower_bound, str):
+            if lower_bound != "obs_min":
+                raise ValueError(
+                    "lower_bound string must be 'obs_min', got " f"{lower_bound!r}"
+                )
+        else:
+            try:
+                lower_bound = float(lower_bound)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "lower_bound must be a float or the string 'obs_min', "
+                    f"got {lower_bound!r}"
+                ) from exc
         if wavelet not in pywt.wavelist(kind="continuous"):
             raise ValueError(
                 f"wavelet '{wavelet}' not recognized. "
@@ -230,6 +253,7 @@ class WARMGenerator(Generator):
         self.background_spectrum = background_spectrum
         self.significance_level = float(significance_level)
         self.min_band_scales = int(min_band_scales)
+        self.lower_bound = lower_bound
 
         # Backwards-compatible attribute for tests / introspection.
         self.scales = scales if scales is not None else 64
@@ -266,6 +290,7 @@ class WARMGenerator(Generator):
             "significance_level": self.significance_level,
             "n_voices": self.n_voices,
             "min_band_scales": self.min_band_scales,
+            "lower_bound": self.lower_bound,
         }
 
     @property
@@ -508,7 +533,16 @@ class WARMGenerator(Generator):
             n_realizations,
             n_years,
         )
-        return Ensemble(realizations)
+
+        first = realizations[0]
+        metadata = EnsembleMetadata(
+            generator_class=self.__class__.__name__,
+            n_realizations=n_realizations,
+            n_sites=1,
+            time_resolution=self.output_frequency,
+            time_period=(str(first.index[0].date()), str(first.index[-1].date())),
+        )
+        return Ensemble(realizations, metadata=metadata)
 
     # ------------------------------------------------------------------
     # Scale construction and wavelet support
@@ -1053,11 +1087,22 @@ class WARMGenerator(Generator):
             Q_syn = Q_syn + noise_syn
 
         Q_syn = Q_syn + self.flow_mean_
-        Q_syn = np.maximum(Q_syn, 0.0)
+        Q_syn = np.maximum(Q_syn, self._effective_lower_bound())
 
         start_year = self.Q_obs_annual.index[0].year
         dates = pd.date_range(start=f"{start_year}-01-01", periods=n_years, freq="YS")
         return pd.DataFrame(Q_syn, index=dates, columns=[self._sites[0]])
+
+    def _effective_lower_bound(self) -> float:
+        """Resolve the lower_bound option to a numeric floor in flow units.
+
+        'obs_min' resolves at synthesis time to the observed annual minimum
+        so the floor remains attached to the fitted record rather than the
+        constructor argument.
+        """
+        if isinstance(self.lower_bound, str):
+            return float(np.min(self.Q_obs_annual.values))
+        return float(self.lower_bound)
 
     # ------------------------------------------------------------------
     # Reporting

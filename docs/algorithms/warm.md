@@ -151,7 +151,7 @@ $$
 \hat Q_t = \bar Q + \sum_b \hat S^{(b)}_t + \hat \eta_t
 $$
 
-6. Enforce non-negativity: $\hat Q_t \leftarrow \max(\hat Q_t, 0)$.
+6. Enforce a lower bound on flow: $\hat Q_t \leftarrow \max(\hat Q_t, L)$, where $L$ is the `lower_bound` parameter (default $L = 0$ following Nowak et al. 2011; set $L$ to the observed minimum via `lower_bound='obs_min'` to suppress unphysical near-zero years on perennial rivers, see Tail behavior below).
 
 ## Multi-site Simulation via Composition
 
@@ -170,6 +170,14 @@ In SynHydro, this composition is implemented by chaining `WARMGenerator` with `s
 - **Spectral structure.** The non-stationary spectral envelope of significant bands is reproduced through the SAWP bootstrap and per-band reconstruction. The global spectrum is reproduced through the variance budget across bands and noise.
 - **Higher moments.** Skewness is not explicitly modeled and is generally underrepresented when the residual deviates from Gaussianity (Nowak et al. 2011 Fig. 14 caveat).
 
+## Tail behavior
+
+The Gaussian AR innovations on the standardized band components and on the noise residual can sample several standard deviations into the lower tail. Combined with bootstrap-resampled SAWP and independent simulation of bands and noise (Nowak et al. 2011 Eq. 7 variance correction is not applied here), a small fraction of synthetic annual sums can fall below the observed historical minimum. Empirically, on the Delaware-basin example record (80 years), about 2% of synthetic years fall below the observed minimum and roughly 0.3% would be negative before clamping. For a perennial river where zero-flow years are not physically plausible, the synthesis step
+$$
+\hat Q_t \leftarrow \max(\hat Q_t, L)
+$$
+exposes a tunable floor $L$ via the `lower_bound` parameter. Setting `lower_bound='obs_min'` floors at the observed annual minimum and removes the unphysical near-zero tail at the cost of a one-sided distortion of the lower percentiles. The default $L = 0$ reproduces the published Nowak et al. (2011) behavior.
+
 ## Limitations
 
 - Annual frequency only; monthly or daily output requires a downstream temporal disaggregator.
@@ -178,6 +186,7 @@ In SynHydro, this composition is implemented by chaining `WARMGenerator` with `s
 - The chi-squared significance test assumes a smoothly varying background spectrum; multi-modal spectra may produce noisy band identification near the threshold.
 - Gaussian AR innovations may underrepresent tails; a bootstrap or non-Gaussian AR for the noise component is suggested by Nowak et al. (2011) Section 4 for records with strongly non-Gaussian residuals.
 - The variance correction factor of Nowak et al. (2011) Eq. 7 is *not* applied here; the implementation relies on the variance-preserving form of the inverse CWT and explicit mean re-addition. If the band/noise components exhibit non-trivial cross-correlation in a particular dataset, the user may observe a small variance underestimation.
+- Lower-tail clamping at `lower_bound` introduces a hard discontinuity at the floor; users plotting flow-duration curves should be aware that the lowest one or two percent of synthetic values represent clamped extreme draws rather than smooth tail behavior.
 
 ## References
 

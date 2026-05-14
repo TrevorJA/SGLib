@@ -84,7 +84,6 @@ plot_flow_duration_curve(
     ax=ax,
     title="Daily Flow Duration Curve",
     ylabel="Flow (cms)",
-    percentiles=[10, 50, 90],
     log_scale=True,
 )
 

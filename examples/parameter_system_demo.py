@@ -122,8 +122,10 @@ print("7. Generating Synthetic Data")
 print("-" * 80)
 
 Q_syn = tf_gen.generate(n_years=5, n_realizations=3)
-print(f"Generated synthetic flows: {Q_syn.shape}")
-print(f"  {len(Q_syn)} timesteps × {Q_syn.shape[1]} realizations")
+first = Q_syn.data_by_realization[Q_syn.realization_ids[0]]
+n_timesteps, n_sites = first.shape
+print(f"Generated synthetic flows: {len(Q_syn.realization_ids)} realizations")
+print(f"  {n_timesteps} timesteps x {n_sites} site(s) per realization")
 print()
 
 # =============================================================================
@@ -152,9 +154,9 @@ print("Demonstration Complete!")
 print("=" * 80)
 print()
 print("Key Features:")
-print("  ✓ get_params() - Access initialization parameters")
-print("  ✓ get_fitted_params() - Access learned parameters")
-print("  ✓ summary() - Comprehensive formatted summary")
-print("  ✓ get_state_info() - Complete state dictionary")
-print("  ✓ Direct access via init_params and fitted_params_ attributes")
+print("  -get_params() - Access initialization parameters")
+print("  -get_fitted_params() - Access learned parameters")
+print("  -summary() - Comprehensive formatted summary")
+print("  -get_state_info() - Complete state dictionary")
+print("  -Direct access via init_params and fitted_params_ attributes")
 print()

@@ -13,7 +13,7 @@ import pandas as pd
 from scipy.stats import pearsonr
 
 from synhydro.core.base import Generator, FittedParams
-from synhydro.core.ensemble import Ensemble
+from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 from synhydro.core.statistics import compute_monthly_statistics
 from synhydro.transformations import SteddingerTransform
 
@@ -102,11 +102,16 @@ class ThomasFieringGenerator(Generator):
         """
         Q = self._store_obs_data(Q_obs, sites)
 
-        # Resample to monthly if needed
-        if Q.index.freq not in ["MS", "M"]:
-            if Q.index.freq in ["D", "W"]:
-                self.logger.info(f"Resampling from {Q.index.freq} to monthly")
-                Q = Q.resample("MS").sum()
+        # Resample to monthly if needed. Use inferred_freq so input without an
+        # explicit DatetimeIndex.freq (the common case for loaded CSVs) is still
+        # detected.
+        detected_freq = Q.index.freq or pd.infer_freq(Q.index)
+        detected_freq = str(detected_freq) if detected_freq is not None else None
+        if detected_freq not in ("MS", "M", "<MonthBegin>", "<MonthEnd>"):
+            self.logger.info(
+                "Resampling from detected freq %r to monthly", detected_freq
+            )
+            Q = Q.resample("MS").sum()
 
         # Store monthly data
         self.Q_obs_monthly = Q.iloc[:, 0]  # Convert to Series for Thomas-Fiering
@@ -401,4 +406,12 @@ class ThomasFieringGenerator(Generator):
             f"Generated {n_realizations} realizations of {n_years} years each"
         )
 
-        return Ensemble(realizations)
+        first = realizations[0]
+        metadata = EnsembleMetadata(
+            generator_class=self.__class__.__name__,
+            n_realizations=n_realizations,
+            n_sites=1,
+            time_resolution=self.output_frequency,
+            time_period=(str(first.index[0].date()), str(first.index[-1].date())),
+        )
+        return Ensemble(realizations, metadata=metadata)

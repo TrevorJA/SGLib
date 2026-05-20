@@ -1645,7 +1645,7 @@
   </span>
 
 <a href="#synhydro.droughts.ssi.SSI" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SSI</span><span class="p">(</span><span class="n">dist</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ContinuousDist</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;gamma&#39;</span><span class="p">,</span> <span class="n">timescale</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span> <span class="n">fit_freq</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">fit_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">prob_zero</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">normal_scores_transform</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">agg_func</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;sum&#39;</span><span class="p">,</span> <span class="s1">&#39;mean&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;sum&#39;</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SSI</span><span class="p">(</span><span class="n">dist</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ContinuousDist</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;gamma&#39;</span><span class="p">,</span> <span class="n">timescale</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span> <span class="n">fit_freq</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">fit_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">prob_zero</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">normal_scores_transform</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">agg_func</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;sum&#39;</span><span class="p">,</span> <span class="s1">&#39;mean&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;sum&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">cdf_epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_CDF_EPSILON</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -1783,9 +1783,48 @@ If None, fits single distribution to entire dataset.</p>
                   <code>&#39;sum&#39;</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cdf_epsilon</code>
+            </td>
+            <td>
+                  <code>(<span title="float">float</span>, <span title="keyword">keyword</span> - <span title="only">only</span>)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>CDF clip floor applied before the inverse-normal transform. The CDF
+is clipped to [cdf_epsilon, 1 - cdf_epsilon] so that saturated tail
+probabilities do not map to +/- inf via norm.ppf. This implicitly
+bounds the SSI series within +/- abs(norm.ppf(cdf_epsilon)):</p>
+<div class="highlight"><pre><span></span><code>SSI_bound is approximately abs(norm.ppf(cdf_epsilon))
+</code></pre></div>
+<p>Reasonable values:</p>
+<div class="highlight"><pre><span></span><code>cdf_epsilon = 1e-3   -&gt; SSI bound approx +/- 3.09 (literature standard)
+cdf_epsilon = 3e-5   -&gt; SSI bound approx +/- 4.00
+cdf_epsilon = 3.4e-6 -&gt; SSI bound approx +/- 4.50 (new default)
+</code></pre></div>
+              </div>
+            </td>
+            <td>
+                  <code>norm.cdf(-4.5) (approx 3.4e-6)</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>The default cdf_epsilon changed from an implicit floating-point safety
+value (1e-10, bounding SSI at approx +/- 6.36) to a value that bounds SSI
+within +/- 4.5. This is a behavior change: any monthly value that
+previously produced SSI &lt; -4.5 or SSI &gt; 4.5 will now be clipped to those
+bounds. The new default rejects gamma-tail extrapolation artifacts that
+arise when transforming flows below the fitted support, while still
+leaving room for genuine extremes. Pass an explicit cdf_epsilon to
+restore a different bound (e.g. cdf_epsilon=1e-3 for the SSI literature
+standard of +/- 3.09).</p>
+</details>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Basic usage with default gamma distribution</span>

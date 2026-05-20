@@ -1369,13 +1369,13 @@
 <a href="https://github.com/TrevorJA/SynHydro/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/TrevorJA/SynHydro/actions/workflows/docs.yml/badge.svg" /></a>
 <a href="https://www.python.org/"><img alt="Python" src="https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue" /></a>
 <a href="https://github.com/TrevorJA/SynHydro/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green" /></a></p>
-<p>SynHydro provides parametric and nonparametric stochastic generation methods under a unified API. All generators share the same <code>fit()</code> and <code>generate()</code> workflow.</p>
+<p>SynHydro provides parametric, hybrid, and non-parametric stochastic generation methods under a unified API. All generators share the same <code>fit()</code> and <code>generate()</code> workflow. See the <a href="algorithms/">Algorithms overview</a> for the classification and plain-language descriptions of each class.</p>
 <h2 id="generators">Generators<a class="headerlink" href="#generators" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
+<th>Generator</th>
 <th>Class</th>
-<th>Type</th>
 <th>Frequency</th>
 <th>Sites</th>
 <th>Reference</th>
@@ -1384,87 +1384,87 @@
 <tbody>
 <tr>
 <td><a class="autorefs autorefs-internal" title="ThomasFieringGenerator" href="api/generators/#synhydro.methods.generation.parametric.thomas_fiering.ThomasFieringGenerator"><code>ThomasFieringGenerator</code></a></td>
-<td>Parametric AR(1)</td>
+<td>Parametric</td>
 <td>Monthly</td>
 <td>Single</td>
 <td>Thomas &amp; Fiering (1962)</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="MatalasGenerator" href="api/generators/#synhydro.methods.generation.parametric.matalas.MatalasGenerator"><code>MatalasGenerator</code></a></td>
-<td>Parametric MAR(1)</td>
+<td>Parametric</td>
 <td>Monthly</td>
 <td>Multi</td>
 <td>Matalas (1967)</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="ARFIMAGenerator" href="api/generators/#synhydro.methods.generation.parametric.arfima.ARFIMAGenerator"><code>ARFIMAGenerator</code></a></td>
-<td>Fractional ARIMA</td>
+<td>Parametric</td>
 <td>Monthly/Annual</td>
 <td>Single</td>
 <td>Hosking (1984)</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="SPARTAGenerator" href="api/generators/#synhydro.methods.generation.parametric.sparta.SPARTAGenerator"><code>SPARTAGenerator</code></a></td>
-<td>PAR-to-Anything</td>
+<td>Parametric</td>
 <td>Monthly</td>
 <td>Multi</td>
 <td>Tsoukalas et al. (2018)</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="SMARTAGenerator" href="api/generators/#synhydro.methods.generation.parametric.smarta.SMARTAGenerator"><code>SMARTAGenerator</code></a></td>
-<td>SMA-to-Anything</td>
+<td>Parametric</td>
 <td>Annual</td>
 <td>Multi</td>
 <td>Tsoukalas et al. (2018)</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="MultiSiteHMMGenerator" href="api/generators/#synhydro.methods.generation.parametric.multisite_hmm.MultiSiteHMMGenerator"><code>MultiSiteHMMGenerator</code></a></td>
-<td>Hidden Markov Model</td>
+<td>Parametric</td>
 <td>Annual</td>
 <td>Multi</td>
 <td>Gold et al. (2024)</td>
 </tr>
 <tr>
-<td><a class="autorefs autorefs-internal" title="HMMKNNGenerator" href="api/generators/#synhydro.methods.generation.parametric.hmm_knn.HMMKNNGenerator"><code>HMMKNNGenerator</code></a></td>
-<td>HMM + KNN resampling</td>
-<td>Annual</td>
-<td>Multi</td>
-<td>Prairie et al. (2008)</td>
-</tr>
-<tr>
-<td><a class="autorefs autorefs-internal" title="WARMGenerator" href="api/generators/#synhydro.methods.generation.parametric.warm.WARMGenerator"><code>WARMGenerator</code></a></td>
-<td>Wavelet AR</td>
-<td>Annual</td>
-<td>Single</td>
-<td>Nowak et al. (2011)</td>
-</tr>
-<tr>
-<td><a class="autorefs autorefs-internal" title="KirschGenerator" href="api/generators/#synhydro.methods.generation.nonparametric.kirsch.KirschGenerator"><code>KirschGenerator</code></a></td>
-<td>Nonparametric Bootstrap</td>
+<td><a class="autorefs autorefs-internal" title="KirschGenerator" href="api/generators/#synhydro.methods.generation.hybrid.kirsch.KirschGenerator"><code>KirschGenerator</code></a></td>
+<td>Hybrid</td>
 <td>Monthly</td>
 <td>Multi</td>
 <td>Kirsch et al. (2013)</td>
 </tr>
 <tr>
-<td><a class="autorefs autorefs-internal" title="KNNBootstrapGenerator" href="api/generators/#synhydro.methods.generation.nonparametric.knn_bootstrap.KNNBootstrapGenerator"><code>KNNBootstrapGenerator</code></a></td>
-<td>K-Nearest Neighbor</td>
-<td>Daily/Monthly/Annual</td>
-<td>Multi</td>
-<td>Lall &amp; Sharma (1996)</td>
+<td><a class="autorefs autorefs-internal" title="WARMGenerator" href="api/generators/#synhydro.methods.generation.hybrid.warm.WARMGenerator"><code>WARMGenerator</code></a></td>
+<td>Hybrid</td>
+<td>Annual</td>
+<td>Single</td>
+<td>Nowak et al. (2011)</td>
 </tr>
 <tr>
-<td><a class="autorefs autorefs-internal" title="PhaseRandomizationGenerator" href="api/generators/#synhydro.methods.generation.nonparametric.phase_randomization.PhaseRandomizationGenerator"><code>PhaseRandomizationGenerator</code></a></td>
-<td>Spectral</td>
+<td><a class="autorefs autorefs-internal" title="PhaseRandomizationGenerator" href="api/generators/#synhydro.methods.generation.hybrid.phase_randomization.PhaseRandomizationGenerator"><code>PhaseRandomizationGenerator</code></a></td>
+<td>Hybrid</td>
 <td>Daily</td>
 <td>Single</td>
 <td>Brunner et al. (2019)</td>
 </tr>
 <tr>
-<td><a class="autorefs autorefs-internal" title="MultisitePhaseRandomizationGenerator" href="api/generators/#synhydro.methods.generation.nonparametric.multisite_phase_randomization.MultisitePhaseRandomizationGenerator"><code>MultisitePhaseRandomizationGenerator</code></a></td>
-<td>Wavelet phase-random</td>
+<td><a class="autorefs autorefs-internal" title="MultisitePhaseRandomizationGenerator" href="api/generators/#synhydro.methods.generation.hybrid.multisite_phase_randomization.MultisitePhaseRandomizationGenerator"><code>MultisitePhaseRandomizationGenerator</code></a></td>
+<td>Hybrid</td>
 <td>Daily</td>
 <td>Multi</td>
 <td>Brunner &amp; Gilleland (2020)</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="HMMKNNGenerator" href="api/generators/#synhydro.methods.generation.hybrid.hmm_knn.HMMKNNGenerator"><code>HMMKNNGenerator</code></a></td>
+<td>Hybrid</td>
+<td>Annual</td>
+<td>Multi</td>
+<td>Prairie et al. (2008)</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="KNNBootstrapGenerator" href="api/generators/#synhydro.methods.generation.nonparametric.knn_bootstrap.KNNBootstrapGenerator"><code>KNNBootstrapGenerator</code></a></td>
+<td>Non-parametric</td>
+<td>Daily/Monthly/Annual</td>
+<td>Multi</td>
+<td>Lall &amp; Sharma (1996)</td>
 </tr>
 </tbody>
 </table>

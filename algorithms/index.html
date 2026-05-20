@@ -747,11 +747,44 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#generation-methods" class="md-nav__link">
+  <a href="#generator-classification" class="md-nav__link">
     <span class="md-ellipsis">
-      Generation Methods
+      Generator classification
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Generator classification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parametric" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parametric
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hybrid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Hybrid
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-parametric" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-parametric
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -768,6 +801,15 @@
   <a href="#key-properties-preserved" class="md-nav__link">
     <span class="md-ellipsis">
       Key Properties Preserved
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reference
     </span>
   </a>
   
@@ -1325,11 +1367,44 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#generation-methods" class="md-nav__link">
+  <a href="#generator-classification" class="md-nav__link">
     <span class="md-ellipsis">
-      Generation Methods
+      Generator classification
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Generator classification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parametric" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parametric
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hybrid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Hybrid
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-parametric" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-parametric
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1346,6 +1421,15 @@
   <a href="#key-properties-preserved" class="md-nav__link">
     <span class="md-ellipsis">
       Key Properties Preserved
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reference
     </span>
   </a>
   
@@ -1371,13 +1455,14 @@
 
 
 <h1 id="algorithms">Algorithms<a class="headerlink" href="#algorithms" title="Permanent link">&para;</a></h1>
-<p>SynHydro implements the following stochastic generation and disaggregation methods.</p>
-<h2 id="generation-methods">Generation Methods<a class="headerlink" href="#generation-methods" title="Permanent link">&para;</a></h2>
+<p>SynHydro's generators are classified into three bins by the mathematical character of their generative mechanism. The classification follows the parametric / non-parametric distinction set out by Studnicka and Panu (2025), with the third "hybrid" bin reserved for methods whose synthesis path combines both parametric and non-parametric components.</p>
+<h2 id="generator-classification">Generator classification<a class="headerlink" href="#generator-classification" title="Permanent link">&para;</a></h2>
+<h3 id="parametric">Parametric<a class="headerlink" href="#parametric" title="Permanent link">&para;</a></h3>
+<p>Fit a probability model (AR, MAR, ARFIMA, PAR, SMA, HMM) to the historical record, then synthesize new flows by drawing random innovations from the fitted model. The generative step samples from a fitted distribution. Parametric generators are interpretable and data-efficient, but bound by the assumed model structure.</p>
 <table>
 <thead>
 <tr>
 <th>Algorithm</th>
-<th>Type</th>
 <th>Resolution</th>
 <th>Sites</th>
 </tr>
@@ -1385,75 +1470,101 @@
 <tbody>
 <tr>
 <td><a href="thomas_fiering/">Thomas-Fiering AR(1)</a></td>
-<td>Parametric</td>
 <td>Monthly</td>
 <td>Univariate</td>
 </tr>
 <tr>
 <td><a href="matalas/">Matalas MAR(1)</a></td>
-<td>Parametric</td>
 <td>Monthly</td>
 <td>Multisite</td>
 </tr>
 <tr>
 <td><a href="arfima/">ARFIMA</a></td>
-<td>Parametric</td>
 <td>Monthly/Annual</td>
 <td>Univariate</td>
 </tr>
 <tr>
 <td><a href="sparta/">SPARTA</a></td>
-<td>Parametric</td>
 <td>Monthly</td>
 <td>Multisite</td>
 </tr>
 <tr>
 <td><a href="smarta/">SMARTA</a></td>
-<td>Parametric</td>
 <td>Annual</td>
 <td>Multisite</td>
 </tr>
 <tr>
 <td><a href="multisite_hmm/">Multi-Site HMM</a></td>
-<td>Parametric</td>
 <td>Annual</td>
 <td>Multisite</td>
 </tr>
+</tbody>
+</table>
+<h3 id="hybrid">Hybrid<a class="headerlink" href="#hybrid" title="Permanent link">&para;</a></h3>
+<p>Combine a parametric structure (standardization, marginal distributions, regime states, AR-per-band) with a non-parametric resampling step (bootstrap, k-NN, phase shuffle, wavelet decomposition). The parametric layer enforces statistical properties such as monthly moments, intra-annual correlation, or marginal shape; the non-parametric layer preserves empirical detail the parametric layer would smooth away.</p>
+<table>
+<thead>
 <tr>
-<td><a href="hmm_knn/">HMM-KNN</a></td>
-<td>Parametric</td>
-<td>Annual</td>
-<td>Multisite</td>
+<th>Algorithm</th>
+<th>Parametric component</th>
+<th>Non-parametric component</th>
+<th>Resolution</th>
+<th>Sites</th>
 </tr>
-<tr>
-<td><a href="warm/">WARM</a></td>
-<td>Parametric</td>
-<td>Annual</td>
-<td>Univariate</td>
-</tr>
+</thead>
+<tbody>
 <tr>
 <td><a href="kirsch/">Kirsch Bootstrap</a></td>
-<td>Nonparametric</td>
+<td>Monthly mean/std, intra-annual Cholesky correlation</td>
+<td>Bootstrap of standardized residuals</td>
 <td>Monthly</td>
 <td>Multisite</td>
 </tr>
 <tr>
-<td><a href="knn_bootstrap/">KNN Bootstrap</a></td>
-<td>Nonparametric</td>
-<td>Monthly/Annual</td>
-<td>Univariate/Multisite</td>
+<td><a href="warm/">WARM</a></td>
+<td>AR(p) per spectral band</td>
+<td>Continuous wavelet decomposition</td>
+<td>Annual</td>
+<td>Univariate</td>
 </tr>
 <tr>
 <td><a href="phase_randomization/">Phase Randomization</a></td>
-<td>Nonparametric</td>
+<td>Four-parameter kappa marginal per day-of-year</td>
+<td>FFT phase shuffle</td>
 <td>Daily</td>
 <td>Univariate</td>
 </tr>
 <tr>
 <td><a href="multisite_phase_randomization/">Multisite Phase Randomization</a></td>
-<td>Nonparametric</td>
+<td>Per-site kappa marginals per day-of-year</td>
+<td>Wavelet CWT phase shuffle (shared across sites)</td>
 <td>Daily</td>
 <td>Multisite</td>
+</tr>
+<tr>
+<td><a href="hmm_knn/">HMM-KNN</a></td>
+<td>Hidden Markov regime sequencer</td>
+<td>k-NN resample within state</td>
+<td>Annual</td>
+<td>Multisite</td>
+</tr>
+</tbody>
+</table>
+<h3 id="non-parametric">Non-parametric<a class="headerlink" href="#non-parametric" title="Permanent link">&para;</a></h3>
+<p>Generate new flows by direct resampling of the historical record with no fitted probability distribution. The generative step is empirical. Non-parametric generators preserve the empirical distribution and complex nonlinear dependence structures by construction; the trade-off is that they cannot extrapolate beyond observed values and need an adequate historical record.</p>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Resolution</th>
+<th>Sites</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="knn_bootstrap/">KNN Bootstrap</a></td>
+<td>Daily/Monthly/Annual</td>
+<td>Univariate/Multisite</td>
 </tr>
 </tbody>
 </table>
@@ -1469,7 +1580,7 @@
 <tbody>
 <tr>
 <td><a href="nowak_disaggregation/">Nowak KNN</a></td>
-<td>Nonparametric</td>
+<td>Non-parametric</td>
 <td>Monthly to Daily</td>
 </tr>
 <tr>
@@ -1485,15 +1596,16 @@
 <tr>
 <th>Property</th>
 <th style="text-align: center;">Thomas-Fiering</th>
-<th style="text-align: center;">Kirsch</th>
 <th style="text-align: center;">Matalas</th>
-<th style="text-align: center;">Phase Random</th>
-<th style="text-align: center;">WARM</th>
-<th style="text-align: center;">HMM</th>
 <th style="text-align: center;">ARFIMA</th>
-<th style="text-align: center;">KNN Bootstrap</th>
 <th style="text-align: center;">SMARTA</th>
 <th style="text-align: center;">SPARTA</th>
+<th style="text-align: center;">MS-HMM</th>
+<th style="text-align: center;">Kirsch</th>
+<th style="text-align: center;">WARM</th>
+<th style="text-align: center;">Phase Random</th>
+<th style="text-align: center;">HMM-KNN</th>
+<th style="text-align: center;">KNN-Bootstrap</th>
 </tr>
 </thead>
 <tbody>
@@ -1503,10 +1615,11 @@
 <td style="text-align: center;">x</td>
 <td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
-<td style="text-align: center;">-</td>
+<td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">x</td>
-<td style="text-align: center;">x</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">x</td>
 </tr>
@@ -1522,17 +1635,19 @@
 <td style="text-align: center;">x</td>
 <td style="text-align: center;">x</td>
 <td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
 </tr>
 <tr>
 <td>Spatial correlation</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">x</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
 <td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
-<td style="text-align: center;">x</td>
-<td style="text-align: center;">-</td>
-<td style="text-align: center;">x</td>
 <td style="text-align: center;">x</td>
 <td style="text-align: center;">x</td>
 </tr>
@@ -1540,13 +1655,14 @@
 <td>Long-range persistence</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
-<td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
-<td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
 </tr>
 <tr>
@@ -1555,9 +1671,10 @@
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
 <td style="text-align: center;">x</td>
-<td style="text-align: center;">-</td>
-<td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
@@ -1573,18 +1690,20 @@
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
+<td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
 </tr>
 <tr>
 <td>Power spectrum</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">x</td>
 <td style="text-align: center;">x</td>
-<td style="text-align: center;">-</td>
-<td style="text-align: center;">x</td>
-<td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 </tr>
@@ -1593,18 +1712,18 @@
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
-<td style="text-align: center;">-</td>
-<td style="text-align: center;">-</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">x</td>
-<td style="text-align: center;">x</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
 </tr>
 <tr>
 <td>Empirical distribution</td>
 <td style="text-align: center;">-</td>
-<td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
@@ -1613,9 +1732,13 @@
 <td style="text-align: center;">x</td>
 <td style="text-align: center;">-</td>
 <td style="text-align: center;">-</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
 </tr>
 </tbody>
 </table>
+<h2 id="reference">Reference<a class="headerlink" href="#reference" title="Permanent link">&para;</a></h2>
+<p>Studnicka, S. and Panu, U.S. (2025). Techniques and Developments in Stochastic Streamflow Synthesis: A Comprehensive Review. <em>Encyclopedia</em>, 5, 198. <a href="https://doi.org/10.3390/encyclopedia5040198">https://doi.org/10.3390/encyclopedia5040198</a></p>
 
 
 

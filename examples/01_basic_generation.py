@@ -15,7 +15,7 @@ Key parameters to explore:
 
 import matplotlib.pyplot as plt
 from synhydro import load_example_data, ThomasFieringGenerator
-from synhydro.methods.generation.nonparametric.kirsch import KirschGenerator
+from synhydro.methods.generation.hybrid.kirsch import KirschGenerator
 
 from synhydro.plotting import plot_timeseries, plot_flow_duration_curve
 

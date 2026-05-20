@@ -62,7 +62,7 @@ class MultisitePhaseRandomizationGenerator(Generator):
     Examples
     --------
     >>> import pandas as pd
-    >>> from synhydro.methods.generation.nonparametric import (
+    >>> from synhydro.methods.generation.hybrid import (
     ...     MultisitePhaseRandomizationGenerator,
     ... )
     >>> Q_daily = pd.read_csv('daily_flows.csv', index_col=0, parse_dates=True)

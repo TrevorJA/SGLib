@@ -67,7 +67,7 @@ class WARMGenerator(Generator):
     Examples
     --------
     >>> import pandas as pd
-    >>> from synhydro.methods.generation.parametric.warm import WARMGenerator
+    >>> from synhydro.methods.generation.hybrid.warm import WARMGenerator
     >>> Q_annual = pd.read_csv('annual_flows.csv', index_col=0, parse_dates=True)
     >>> warm = WARMGenerator(wavelet='morl', background_spectrum='red')
     >>> warm.fit(Q_annual.iloc[:, [0]])

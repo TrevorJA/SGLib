@@ -19,6 +19,13 @@ All notable changes to SynHydro are documented in this file.
 - MkDocs documentation site with algorithm reference pages
 
 ### Changed
+- Reorganized generators into three classification bins based on the
+  mathematical character of their generative mechanism (Studnicka and Panu,
+  2025): `synhydro.methods.generation.parametric` (Thomas-Fiering, Matalas,
+  ARFIMA, SPARTA, SMARTA, MS-HMM), `synhydro.methods.generation.hybrid`
+  (Kirsch, WARM, Phase Randomization, MS Phase Randomization, HMM-KNN), and
+  `synhydro.methods.generation.nonparametric` (KNN-Bootstrap). Top-level
+  `synhydro.<Generator>` imports are unchanged.
 - Migrated all generators to `np.random.Generator` (replaces legacy `np.random`)
 - Replaced all `print()` with `logging.getLogger(__name__)`
 - Major API refactor: standardized preprocessing/fit/generate interface

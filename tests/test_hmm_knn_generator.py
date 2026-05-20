@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synhydro.methods.generation.parametric.hmm_knn import HMMKNNGenerator
+from synhydro.methods.generation.hybrid.hmm_knn import HMMKNNGenerator
 from synhydro.core.ensemble import Ensemble
 
 

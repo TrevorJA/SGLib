@@ -107,7 +107,7 @@ class HMMKNNGenerator(Generator):
     Examples
     --------
     >>> import pandas as pd
-    >>> from synhydro.methods.generation.parametric import HMMKNNGenerator
+    >>> from synhydro.methods.generation.hybrid import HMMKNNGenerator
     >>>
     >>> Q_annual = pd.read_csv('annual_flows.csv', index_col=0, parse_dates=True)
     >>>

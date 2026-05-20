@@ -9,7 +9,7 @@ import pickle
 import numpy as np
 import pandas as pd
 
-from synhydro.methods.generation.parametric.warm import WARMGenerator
+from synhydro.methods.generation.hybrid.warm import WARMGenerator
 from synhydro.core.ensemble import Ensemble
 
 

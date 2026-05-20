@@ -6,72 +6,78 @@
 
 ---
 
-## KirschGenerator
+## Parametric
 
-::: synhydro.methods.generation.nonparametric.kirsch.KirschGenerator
-
----
-
-## KNNBootstrapGenerator
-
-::: synhydro.methods.generation.nonparametric.knn_bootstrap.KNNBootstrapGenerator
-
----
-
-## PhaseRandomizationGenerator
-
-::: synhydro.methods.generation.nonparametric.phase_randomization.PhaseRandomizationGenerator
-
----
-
-## ThomasFieringGenerator
+### ThomasFieringGenerator
 
 ::: synhydro.methods.generation.parametric.thomas_fiering.ThomasFieringGenerator
 
 ---
 
-## MatalasGenerator
+### MatalasGenerator
 
 ::: synhydro.methods.generation.parametric.matalas.MatalasGenerator
 
 ---
 
-## MultiSiteHMMGenerator
-
-::: synhydro.methods.generation.parametric.multisite_hmm.MultiSiteHMMGenerator
-
----
-
-## WARMGenerator
-
-::: synhydro.methods.generation.parametric.warm.WARMGenerator
-
----
-
-## ARFIMAGenerator
+### ARFIMAGenerator
 
 ::: synhydro.methods.generation.parametric.arfima.ARFIMAGenerator
 
 ---
 
-## SPARTAGenerator
+### SPARTAGenerator
 
 ::: synhydro.methods.generation.parametric.sparta.SPARTAGenerator
 
 ---
 
-## SMARTAGenerator
+### SMARTAGenerator
 
 ::: synhydro.methods.generation.parametric.smarta.SMARTAGenerator
 
 ---
 
-## HMMKNNGenerator
+### MultiSiteHMMGenerator
 
-::: synhydro.methods.generation.parametric.hmm_knn.HMMKNNGenerator
+::: synhydro.methods.generation.parametric.multisite_hmm.MultiSiteHMMGenerator
 
 ---
 
-## MultisitePhaseRandomizationGenerator
+## Hybrid
 
-::: synhydro.methods.generation.nonparametric.multisite_phase_randomization.MultisitePhaseRandomizationGenerator
+### KirschGenerator
+
+::: synhydro.methods.generation.hybrid.kirsch.KirschGenerator
+
+---
+
+### WARMGenerator
+
+::: synhydro.methods.generation.hybrid.warm.WARMGenerator
+
+---
+
+### PhaseRandomizationGenerator
+
+::: synhydro.methods.generation.hybrid.phase_randomization.PhaseRandomizationGenerator
+
+---
+
+### MultisitePhaseRandomizationGenerator
+
+::: synhydro.methods.generation.hybrid.multisite_phase_randomization.MultisitePhaseRandomizationGenerator
+
+---
+
+### HMMKNNGenerator
+
+::: synhydro.methods.generation.hybrid.hmm_knn.HMMKNNGenerator
+
+---
+
+## Non-parametric
+
+### KNNBootstrapGenerator
+
+::: synhydro.methods.generation.nonparametric.knn_bootstrap.KNNBootstrapGenerator

@@ -12,7 +12,7 @@ Data is not passed at construction time. Use ``preprocessing(Q_obs)`` or
 from typing import Optional
 
 from synhydro.core.pipeline import GeneratorDisaggregatorPipeline
-from synhydro.methods.generation.nonparametric.kirsch import KirschGenerator
+from synhydro.methods.generation.hybrid.kirsch import KirschGenerator
 from synhydro.methods.generation.parametric.thomas_fiering import ThomasFieringGenerator
 from synhydro.methods.disaggregation.temporal.nowak import NowakDisaggregator
 

@@ -1,9 +1,15 @@
 """
-Kirsch Nonparametric Bootstrap Generator (Kirsch et al. 2013)
+Kirsch Hybrid Bootstrap Generator (Kirsch et al. 2013)
 
 Generates synthetic multi-site monthly streamflow by bootstrapping standardized
 residuals and imposing fitted correlation structure via Cholesky decomposition.
 A cross-year shifted matrix preserves December-to-January correlations.
+
+The generator is hybrid (semi-parametric): observations are standardized by
+fitted monthly mean and standard deviation (parametric pre-whitening) and a
+Cholesky-decomposed intra-annual correlation matrix is imposed on synthetic
+output (parametric correlation structure), while the new variability itself
+comes from non-parametric bootstrap resampling of the standardized residuals.
 
 Per Kirsch et al. (2013, eqs. 4-5), the correlation matrix and its Cholesky
 factor are intra-annual (within-year) operators defined for a single site at a
@@ -47,10 +53,13 @@ from synhydro.core.statistics import (
 
 class KirschGenerator(Generator):
     """
-    Kirsch nonparametric bootstrap generator for monthly streamflow synthesis.
+    Kirsch hybrid bootstrap generator for monthly streamflow synthesis.
 
-    Generates monthly synthetic flows using bootstrap resampling with
-    correlation preservation via Cholesky decomposition.
+    Generates monthly synthetic flows by bootstrap-resampling standardized
+    residuals and imposing a fitted intra-annual correlation structure via
+    Cholesky decomposition. Hybrid because parametric (mean, standard
+    deviation, correlation) standardization wraps a non-parametric resampling
+    core.
 
     References
     ----------

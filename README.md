@@ -25,20 +25,22 @@ ensemble = gen.generate(n_realizations=50, n_years=30, seed=42)
 
 ## Supported generators
 
-| Generator | Type | Frequency | Sites | Reference |
+Generators are classified into three bins by the mathematical character of their generative mechanism: **parametric** (sample from a fitted probability model), **hybrid** (combine a parametric structure with a non-parametric resampling step), and **non-parametric** (resample the historical record directly). See the [Algorithms page](https://trevorja.github.io/SynHydro/algorithms/) for full descriptions.
+
+| Generator | Class | Frequency | Sites | Reference |
 |---|---|---|---|---|
-| `ThomasFieringGenerator` | Parametric AR(1) | Monthly | Single | Thomas & Fiering (1962) |
-| `MatalasGenerator` | Parametric MAR(1) | Monthly | Multi | Matalas (1967) |
-| `ARFIMAGenerator` | Fractional ARIMA | Monthly/Annual | Single | Hosking (1984) |
-| `SPARTAGenerator` | PAR-to-Anything | Monthly | Multi | Tsoukalas et al. (2018) |
-| `SMARTAGenerator` | SMA-to-Anything | Annual | Multi | Tsoukalas et al. (2018) |
-| `MultiSiteHMMGenerator` | Hidden Markov Model | Annual | Multi | Gold et al. (2024) |
-| `HMMKNNGenerator` | HMM + KNN resampling | Annual | Multi | Prairie et al. (2008) |
-| `WARMGenerator` | Wavelet AR | Annual | Single | Nowak et al. (2011) |
-| `KirschGenerator` | Nonparametric Bootstrap | Monthly | Multi | Kirsch et al. (2013) |
-| `KNNBootstrapGenerator` | K-Nearest Neighbor | Daily/Monthly/Annual | Multi | Lall & Sharma (1996) |
-| `PhaseRandomizationGenerator` | Spectral | Daily | Single | Brunner et al. (2019) |
-| `MultisitePhaseRandomizationGenerator` | Wavelet phase-random | Daily | Multi | Brunner & Gilleland (2020) |
+| `ThomasFieringGenerator` | Parametric | Monthly | Single | Thomas & Fiering (1962) |
+| `MatalasGenerator` | Parametric | Monthly | Multi | Matalas (1967) |
+| `ARFIMAGenerator` | Parametric | Monthly/Annual | Single | Hosking (1984) |
+| `SPARTAGenerator` | Parametric | Monthly | Multi | Tsoukalas et al. (2018) |
+| `SMARTAGenerator` | Parametric | Annual | Multi | Tsoukalas et al. (2018) |
+| `MultiSiteHMMGenerator` | Parametric | Annual | Multi | Gold et al. (2024) |
+| `KirschGenerator` | Hybrid | Monthly | Multi | Kirsch et al. (2013) |
+| `WARMGenerator` | Hybrid | Annual | Single | Nowak et al. (2011) |
+| `PhaseRandomizationGenerator` | Hybrid | Daily | Single | Brunner et al. (2019) |
+| `MultisitePhaseRandomizationGenerator` | Hybrid | Daily | Multi | Brunner & Gilleland (2020) |
+| `HMMKNNGenerator` | Hybrid | Annual | Multi | Prairie et al. (2008) |
+| `KNNBootstrapGenerator` | Non-parametric | Daily/Monthly/Annual | Multi | Lall & Sharma (1996) |
 
 ## Supported disaggregators
 

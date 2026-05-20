@@ -8,7 +8,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from synhydro.methods.generation.nonparametric.multisite_phase_randomization import (
+from synhydro.methods.generation.hybrid.multisite_phase_randomization import (
     MultisitePhaseRandomizationGenerator,
 )
 from synhydro.core.ensemble import Ensemble

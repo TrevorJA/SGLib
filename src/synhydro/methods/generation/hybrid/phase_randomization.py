@@ -52,7 +52,7 @@ class PhaseRandomizationGenerator(Generator):
     Examples
     --------
     >>> import pandas as pd
-    >>> from synhydro.methods.generation.nonparametric import PhaseRandomizationGenerator
+    >>> from synhydro.methods.generation.hybrid import PhaseRandomizationGenerator
     >>> Q_daily = pd.read_csv('daily_flows.csv', index_col=0, parse_dates=True)
     >>> gen = PhaseRandomizationGenerator(marginal='kappa')
     >>> gen.preprocessing(Q_daily)

@@ -7,7 +7,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from synhydro.methods.generation.nonparametric.kirsch import KirschGenerator
+from synhydro.methods.generation.hybrid.kirsch import KirschGenerator
 from synhydro.core.ensemble import Ensemble
 
 

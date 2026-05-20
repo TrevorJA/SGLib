@@ -39,7 +39,7 @@ class GeneratorDisaggregatorPipeline:
 
     Examples
     --------
-    >>> from synhydro.methods.generation.nonparametric.kirsch import KirschGenerator
+    >>> from synhydro.methods.generation.hybrid.kirsch import KirschGenerator
     >>> from synhydro.methods.disaggregation.temporal.nowak import NowakDisaggregator
     >>> from synhydro.core.pipeline import GeneratorDisaggregatorPipeline
     >>>

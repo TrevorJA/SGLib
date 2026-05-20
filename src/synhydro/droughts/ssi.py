@@ -17,6 +17,11 @@ from synhydro.droughts.distributions import get_distribution, validate_distribut
 _PANDAS_VERSION = tuple(int(x) for x in pd.__version__.split(".")[:2])
 _MONTH_END_FREQ = "ME" if _PANDAS_VERSION >= (2, 2) else "M"
 
+# Default CDF clip floor. Chosen so that abs(norm.ppf(epsilon)) == 4.5,
+# which bounds SSI within +/- 4.5. This suppresses gamma-tail extrapolation
+# artifacts when transforming flows below the fitted support.
+_DEFAULT_CDF_EPSILON = float(norm.cdf(-4.5))  # approx 3.397673e-06
+
 
 def _normalize_freq(freq: str | None) -> str | None:
     """Normalize frequency aliases for cross-pandas-version compatibility.
@@ -178,6 +183,31 @@ class SSI:
         Whether to use normal scores transform instead of parametric fitting.
     agg_func : {'sum', 'mean'}, default 'sum'
         Aggregation function for rolling window.
+    cdf_epsilon : float, keyword-only, default norm.cdf(-4.5) (approx 3.4e-6)
+        CDF clip floor applied before the inverse-normal transform. The CDF
+        is clipped to [cdf_epsilon, 1 - cdf_epsilon] so that saturated tail
+        probabilities do not map to +/- inf via norm.ppf. This implicitly
+        bounds the SSI series within +/- abs(norm.ppf(cdf_epsilon)):
+
+            SSI_bound is approximately abs(norm.ppf(cdf_epsilon))
+
+        Reasonable values:
+
+            cdf_epsilon = 1e-3   -> SSI bound approx +/- 3.09 (literature standard)
+            cdf_epsilon = 3e-5   -> SSI bound approx +/- 4.00
+            cdf_epsilon = 3.4e-6 -> SSI bound approx +/- 4.50 (new default)
+
+    Notes
+    -----
+    The default cdf_epsilon changed from an implicit floating-point safety
+    value (1e-10, bounding SSI at approx +/- 6.36) to a value that bounds SSI
+    within +/- 4.5. This is a behavior change: any monthly value that
+    previously produced SSI < -4.5 or SSI > 4.5 will now be clipped to those
+    bounds. The new default rejects gamma-tail extrapolation artifacts that
+    arise when transforming flows below the fitted support, while still
+    leaving room for genuine extremes. Pass an explicit cdf_epsilon to
+    restore a different bound (e.g. cdf_epsilon=1e-3 for the SSI literature
+    standard of +/- 3.09).
 
     Examples
     --------
@@ -199,6 +229,7 @@ class SSI:
     prob_zero: bool = field(default=False)
     normal_scores_transform: bool = field(default=False)
     agg_func: Literal["sum", "mean"] = "sum"
+    cdf_epsilon: float = field(default=_DEFAULT_CDF_EPSILON, kw_only=True)
 
     # Internal state
     _fitted_si: SI = field(init=False, repr=False, compare=False)
@@ -284,10 +315,11 @@ class SSI:
         # Calculate CDF for new data using fitted distributions
         cdf = self._calculate_cdf_for_new_data(new_series)
 
-        # Clip CDF values to avoid -inf/+inf from norm.ppf
-        # Use small epsilon to prevent exactly 0 or 1
-        epsilon = 1e-10
-        cdf_clipped = np.clip(cdf.values, epsilon, 1 - epsilon)
+        # Clip CDF tails to bound SSI within +/- abs(norm.ppf(cdf_epsilon));
+        # default cdf_epsilon yields SSI in [-4.5, +4.5]. This suppresses
+        # gamma-tail extrapolation artifacts when transforming flows below
+        # the fitted support (e.g. synthetic traces from MOEA search).
+        cdf_clipped = np.clip(cdf.values, self.cdf_epsilon, 1 - self.cdf_epsilon)
 
         # Convert to standard normal (SSI values)
         ssi = Series(

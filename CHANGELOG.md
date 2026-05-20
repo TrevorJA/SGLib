@@ -27,6 +27,10 @@ All notable changes to SynHydro are documented in this file.
   when the formula produces values outside the valid range
 - Pinned minimum dependency versions in pyproject.toml
 - Test fixtures produce physically realistic (non-negative) streamflow data
+- SSI clip floor is now configurable via `cdf_epsilon` (keyword-only); the
+  default changed from an implicit +/- 6.36 bound to +/- 4.5 to suppress
+  gamma-tail extrapolation artifacts. Pre-existing values previously below
+  -4.5 or above +4.5 will now be clipped to those bounds.
 - Renamed package from SGLib to SynHydro
 
 ### Fixed

@@ -86,6 +86,33 @@ class TestSSI:
             ssi_values = ssi.fit_transform(sample_monthly_series)
             assert isinstance(ssi_values, pd.Series)
 
+    def test_cdf_epsilon_bounds_ssi(self):
+        """SSI is bounded at +/- abs(norm.ppf(cdf_epsilon)); default yields +/- 4.5."""
+        from scipy.stats import norm
+
+        # Build a small monthly training series, then probe with an extreme low.
+        rng = np.random.default_rng(0)
+        train_idx = pd.date_range("1990-01-01", "2010-12-01", freq="MS")
+        train = pd.Series(
+            rng.gamma(shape=2.0, scale=50.0, size=len(train_idx)),
+            index=train_idx,
+            name="flow",
+        )
+        probe_idx = pd.date_range("2011-01-01", "2011-12-01", freq="MS")
+        probe = pd.Series(1e-10, index=probe_idx, name="flow")  # below support
+
+        # Default cdf_epsilon -> SSI bound at -4.5
+        ssi_default = SSI(timescale=1, fit_freq="ME").fit(train).transform(probe)
+        assert np.allclose(ssi_default.dropna().min(), -4.5, atol=1e-6)
+
+        # Explicit literature-standard epsilon -> SSI bound at norm.ppf(1e-3)
+        ssi_lit = (
+            SSI(timescale=1, fit_freq="ME", cdf_epsilon=1e-3)
+            .fit(train)
+            .transform(probe)
+        )
+        assert np.allclose(ssi_lit.dropna().min(), norm.ppf(1e-3), atol=1e-6)
+
     def test_prob_zero_parameter(self, sample_daily_series):
         """Test SSI with prob_zero parameter."""
         # With prob_zero=True

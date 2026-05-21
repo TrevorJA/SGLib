@@ -70,10 +70,11 @@ ROW_SUPER: Dict[str, str] = {
 SUPER_ORDER: Tuple[str, ...] = ("Parametric", "Hybrid", "Non-param.")
 
 PILL_HEIGHT = 0.058
-PILL_HALF_WIDTH = 0.105
+PILL_HALF_WIDTH = 0.118
 PILL_VGAP = 0.014
 SPAN_INSET = 0.018
 BAR_HEIGHT_FRAC = 0.22
+PILL_LABEL_FONTSIZE = 7.5
 
 COLOR_SINGLE = COLORS["observed"]
 COLOR_MULTI = COLORS["ensemble_median"]
@@ -92,20 +93,23 @@ class GenSpec:
     sites: str
     col: Optional[str] = None
     span: Optional[Tuple[str, str]] = None
+    fontsize: Optional[float] = None
 
 
 GENERATORS: Tuple[GenSpec, ...] = (
     GenSpec("ARFIMA", "AR", 0, "single", span=("Monthly", "Annual")),
-    GenSpec("Thomas-Fiering", "AR", 1, "single", col="Monthly"),
+    GenSpec("ThomasFiering", "AR", 1, "single", col="Monthly"),
     GenSpec("Matalas", "AR", 2, "multi", col="Monthly"),
     GenSpec("SMARTA", "AR", 2, "multi", col="Annual"),
     GenSpec("SPARTA", "AR", 3, "multi", col="Monthly"),
-    GenSpec("MS-HMM", "HMM", 0, "multi", col="Annual"),
-    GenSpec("Phase Rand.", "Spectral", 0, "single", col="Daily"),
-    GenSpec("MS Phase Rand.", "Spectral", 1, "multi", col="Daily"),
+    GenSpec("MultiSiteHMM", "HMM", 0, "multi", col="Annual"),
+    GenSpec("PhaseRandomization", "Spectral", 0, "single", col="Daily"),
+    GenSpec(
+        "MultisitePhaseRandomization", "Spectral", 1, "multi", col="Daily", fontsize=6
+    ),
     GenSpec("WARM", "Spectral", 0.5, "single", col="Annual"),
     GenSpec("Kirsch", "Bootstrap", 0, "multi", span=("Weekly", "Monthly")),
-    GenSpec("KNN-Bootstrap", "k-NN", 0, "multi", span=("Monthly", "Annual")),
+    GenSpec("KNNBootstrap", "k-NN", 0, "multi", span=("Monthly", "Annual")),
 )
 
 
@@ -164,7 +168,13 @@ def _pill_x_extent(spec: GenSpec) -> Tuple[float, float]:
 
 
 def _draw_pill(
-    ax: plt.Axes, x_left: float, x_right: float, y_center: float, label: str, sites: str
+    ax: plt.Axes,
+    x_left: float,
+    x_right: float,
+    y_center: float,
+    label: str,
+    sites: str,
+    fontsize: float,
 ) -> None:
     """Render a pill and its embedded site color bar."""
     width = x_right - x_left
@@ -210,7 +220,7 @@ def _draw_pill(
         label,
         ha="center",
         va="center",
-        fontsize=9,
+        fontsize=fontsize,
         color=COLOR_TEXT,
         zorder=5,
         clip_on=False,
@@ -283,57 +293,55 @@ def _draw_supergroup_bracket(
 
 
 def _draw_legend(ax: plt.Axes, y: float) -> None:
-    """Draw a compact two-swatch legend below the grid."""
+    """Draw two stacked legend rows centered horizontally below the grid."""
     swatch_w = 0.045
     swatch_h = 0.012
     text_gap = 0.010
-    single_x = 0.08
-    multi_x = 0.48
+    row_gap = 0.045
+    center_x = 0.5
 
-    ax.add_patch(
-        FancyBboxPatch(
-            (single_x, y - swatch_h / 2.0),
-            swatch_w,
-            swatch_h,
-            boxstyle=f"round,pad=0,rounding_size={swatch_h / 2.0}",
-            facecolor=COLOR_SINGLE,
-            edgecolor="none",
-            zorder=5,
+    rows = (
+        (y + row_gap / 2.0, COLOR_SINGLE, "Single site generation only"),
+        (y - row_gap / 2.0, COLOR_MULTI, "Multiple-site (MS) generation supported"),
+    )
+
+    text_objs = []
+    for row_y, _, label in rows:
+        t = ax.text(
+            0.0,
+            row_y,
+            label,
+            ha="left",
+            va="center",
+            fontsize=10,
+            color=COLOR_TEXT,
             clip_on=False,
         )
-    )
-    ax.text(
-        single_x + swatch_w + text_gap,
-        y,
-        "Single site generation only",
-        ha="left",
-        va="center",
-        fontsize=10,
-        color=COLOR_TEXT,
-        clip_on=False,
-    )
-    ax.add_patch(
-        FancyBboxPatch(
-            (multi_x, y - swatch_h / 2.0),
-            swatch_w,
-            swatch_h,
-            boxstyle=f"round,pad=0,rounding_size={swatch_h / 2.0}",
-            facecolor=COLOR_MULTI,
-            edgecolor="none",
-            zorder=5,
-            clip_on=False,
+        text_objs.append(t)
+
+    ax.figure.canvas.draw()
+    inv = ax.transData.inverted()
+
+    for (row_y, color, _), t in zip(rows, text_objs):
+        bbox = t.get_window_extent()
+        x0, _y0 = inv.transform((bbox.x0, 0))
+        x1, _y1 = inv.transform((bbox.x1, 0))
+        text_width = x1 - x0
+        total_width = swatch_w + text_gap + text_width
+        swatch_x = center_x - total_width / 2.0
+        t.set_x(swatch_x + swatch_w + text_gap)
+        ax.add_patch(
+            FancyBboxPatch(
+                (swatch_x, row_y - swatch_h / 2.0),
+                swatch_w,
+                swatch_h,
+                boxstyle=f"round,pad=0,rounding_size={swatch_h / 2.0}",
+                facecolor=color,
+                edgecolor="none",
+                zorder=5,
+                clip_on=False,
+            )
         )
-    )
-    ax.text(
-        multi_x + swatch_w + text_gap,
-        y,
-        "Multiple-site (MS) generation supported",
-        ha="left",
-        va="center",
-        fontsize=10,
-        color=COLOR_TEXT,
-        clip_on=False,
-    )
 
 
 def build() -> Tuple[Path, Path]:
@@ -453,7 +461,8 @@ def build() -> Tuple[Path, Path]:
         n_slots = ROW_SLOTS[spec.row]
         y_center = _slot_y_center(y0, y1, spec.slot, n_slots)
         x_left, x_right = _pill_x_extent(spec)
-        _draw_pill(ax, x_left, x_right, y_center, spec.label, spec.sites)
+        fontsize = spec.fontsize if spec.fontsize is not None else PILL_LABEL_FONTSIZE
+        _draw_pill(ax, x_left, x_right, y_center, spec.label, spec.sites, fontsize)
 
     _draw_legend(ax, y=-0.12)
 

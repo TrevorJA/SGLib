@@ -11,6 +11,10 @@ SynHydro provides parametric, hybrid, and non-parametric stochastic generation m
 
 ## Generators
 
+![Matrix of SynHydro generators arranged by method family (Parametric, Hybrid, Non-parametric) on the vertical axis and timescale (Daily, Weekly, Monthly, Annual) on the horizontal axis, with capability bars indicating single-site vs. multi-site support](assets/images/generator_matrix.png){: width="700px" }
+
+See the [Algorithms overview](algorithms/index.md) for definitions of the method-family groups.
+
 | Generator | Class | Frequency | Sites | Reference |
 |-----------|-------|-----------|-------|-----------|
 | [`ThomasFieringGenerator`][synhydro.methods.generation.parametric.thomas_fiering.ThomasFieringGenerator] | Parametric | Monthly | Single | Thomas & Fiering (1962) |

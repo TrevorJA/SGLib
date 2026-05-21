@@ -15,7 +15,6 @@ character of their generative mechanism (Studnicka and Panu, 2025):
 """
 
 from synhydro.methods.generation.hybrid import (
-    HMMKNNGenerator,
     KirschGenerator,
     MultisitePhaseRandomizationGenerator,
     PhaseRandomizationGenerator,
@@ -35,7 +34,6 @@ from synhydro.methods.generation.parametric import (
 
 __all__ = [
     "ARFIMAGenerator",
-    "HMMKNNGenerator",
     "KirschGenerator",
     "KNNBootstrapGenerator",
     "MatalasGenerator",

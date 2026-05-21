@@ -9,6 +9,7 @@ edit_uri: edit/main/docs/
 
 exclude_docs: |
   dev/
+  algorithms/hmm_knn.md
 
 theme:
   name: material
@@ -106,7 +107,6 @@ nav:
     - SPARTA: algorithms/sparta.md
     - SMARTA: algorithms/smarta.md
     - Multi-Site HMM: algorithms/multisite_hmm.md
-    - HMM-KNN: algorithms/hmm_knn.md
     - WARM: algorithms/warm.md
     - Kirsch Bootstrap: algorithms/kirsch.md
     - KNN Bootstrap: algorithms/knn_bootstrap.md

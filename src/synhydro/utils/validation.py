@@ -3,6 +3,7 @@ Data validation utilities.
 
 Provides common validation functions for generator inputs and outputs.
 """
+
 import logging
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ def validate_timeseries(
     require_datetime_index: bool = True,
     allow_nan: bool = True,
     min_length: int = 10,
-    variable_name: str = "data"
+    variable_name: str = "data",
 ) -> None:
     """
     Validate timeseries data for generator input.
@@ -94,7 +95,7 @@ def validate_timeseries(
 def validate_frequency(
     data: Union[pd.Series, pd.DataFrame],
     expected_freq: Optional[str] = None,
-    allow_irregular: bool = False
+    allow_irregular: bool = False,
 ) -> str:
     """
     Validate and infer the frequency of timeseries data.
@@ -104,7 +105,7 @@ def validate_frequency(
     data : pd.Series or pd.DataFrame
         Timeseries data with DatetimeIndex.
     expected_freq : str, optional
-        Expected frequency code ('D', 'MS', 'AS', etc.).
+        Expected frequency code ('D', 'MS', 'YS', etc.).
         If provided, validates data matches this frequency.
     allow_irregular : bool, default=False
         If True, allow irregular time series.
@@ -172,7 +173,7 @@ def validate_positive(
     data: Union[pd.Series, pd.DataFrame, np.ndarray],
     variable_name: str = "data",
     allow_zero: bool = True,
-    strict: bool = False
+    strict: bool = False,
 ) -> None:
     """
     Validate that data contains only positive values.
@@ -209,7 +210,11 @@ def validate_positive(
     # Get min value
     if isinstance(data, (pd.Series, pd.DataFrame)):
         min_val = data.min().min() if isinstance(data, pd.DataFrame) else data.min()
-        n_negative = (data < 0).sum().sum() if isinstance(data, pd.DataFrame) else (data < 0).sum()
+        n_negative = (
+            (data < 0).sum().sum()
+            if isinstance(data, pd.DataFrame)
+            else (data < 0).sum()
+        )
     else:
         min_val = np.min(data)
         n_negative = np.sum(data < 0)
@@ -226,7 +231,11 @@ def validate_positive(
     # Check for zero values if not allowed
     if not allow_zero:
         if isinstance(data, (pd.Series, pd.DataFrame)):
-            n_zero = (data == 0).sum().sum() if isinstance(data, pd.DataFrame) else (data == 0).sum()
+            n_zero = (
+                (data == 0).sum().sum()
+                if isinstance(data, pd.DataFrame)
+                else (data == 0).sum()
+            )
         else:
             n_zero = np.sum(data == 0)
 
@@ -237,7 +246,7 @@ def validate_positive(
 def validate_columns(
     data: pd.DataFrame,
     required_columns: Optional[List[str]] = None,
-    allow_extra: bool = True
+    allow_extra: bool = True,
 ) -> None:
     """
     Validate DataFrame columns.
@@ -283,8 +292,8 @@ def validate_columns(
 
 
 __all__ = [
-    'validate_timeseries',
-    'validate_frequency',
-    'validate_positive',
-    'validate_columns',
+    "validate_timeseries",
+    "validate_frequency",
+    "validate_positive",
+    "validate_columns",
 ]

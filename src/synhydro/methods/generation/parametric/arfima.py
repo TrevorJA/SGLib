@@ -155,7 +155,7 @@ class ARFIMAGenerator(Generator):
             if 25 <= median_days <= 35:
                 freq = "MS"
             elif 350 <= median_days <= 380:
-                freq = "AS"
+                freq = "YS"
 
         freq_str = getattr(freq, "freqstr", str(freq)) if freq is not None else None
         if freq_str is not None and freq_str in ("MS", "M", "ME"):

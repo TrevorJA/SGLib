@@ -10,6 +10,8 @@
 
 The K-Nearest Neighbor (KNN) bootstrap generates synthetic streamflow by conditionally resampling from the historical record. At each time step, the most recent generated value defines a query point in feature space; the $K$ closest historical states are identified, and one is selected with probability inversely proportional to its rank (Lall-Sharma kernel). The generated value is the historical successor of the selected neighbor. This nonparametric approach preserves the empirical marginal distribution exactly and can capture nonlinear dependence structures that parametric models may miss.
 
+This implementation supports **monthly** (Lall and Sharma, 1996; Prairie et al., 2006) and **annual** (Prairie et al., 2008) streamflow only. Daily KNN bootstrap is not established for streamflow synthesis in the primary literature: Rajagopalan and Lall (1999) apply daily KNN to weather variables (precipitation, temperature, wind), not streamflow, and Nowak et al. (2010) use KNN at the daily timescale only as a disaggregation step from annual flows. For daily streamflow output, generate an annual realization and disaggregate with `NowakDisaggregator`.
+
 ## Notation
 
 | Symbol | Description |
@@ -84,11 +86,14 @@ However, generated values cannot exceed the historical range (a fundamental boot
 
 ## References
 
-**Primary:**
-Lall, U., and Sharma, A. (1996). A nearest neighbor bootstrap for resampling hydrologic time series. *Water Resources Research*, 32(3), 679-693. https://doi.org/10.1029/95WR02966
+**Primary (streamflow generator):**
+- Lall, U., and Sharma, A. (1996). A nearest neighbor bootstrap for resampling hydrologic time series. *Water Resources Research*, 32(3), 679-693. https://doi.org/10.1029/95WR02966 -- introduces the method, applied to monthly streamflow on the Weber River, Utah.
+- Prairie, J., Rajagopalan, B., Fulp, T., and Zagona, E. (2006). Modified K-NN model for stochastic streamflow simulation. *Journal of Hydrologic Engineering*, 11(4), 371-378. https://doi.org/10.1061/(ASCE)1084-0699(2006)11:4(371) -- monthly streamflow at Lees Ferry, Colorado River.
+- Prairie, J., Nowak, K., Rajagopalan, B., Lall, U., and Fulp, T. (2008). A stochastic nonparametric approach for streamflow generation combining observational and paleoreconstructed data. *Water Resources Research*, 44, W06423. https://doi.org/10.1029/2007WR006684 -- annual streamflow at Lees Ferry conditioned on paleo-derived hydrologic state.
 
-**See also:**
-- Rajagopalan, B., and Lall, U. (1999). A k-nearest-neighbor simulator for daily precipitation and other weather variables. *Water Resources Research*, 35(10), 3089-3101. https://doi.org/10.1029/1999WR900028
+**Related (not the basis for this generator):**
+- Rajagopalan, B., and Lall, U. (1999). A k-nearest-neighbor simulator for daily precipitation and other weather variables. *Water Resources Research*, 35(10), 3089-3101. https://doi.org/10.1029/1999WR900028 -- daily KNN bootstrap applied to weather variables, not streamflow.
+- Nowak, K., Prairie, J., Rajagopalan, B., and Lall, U. (2010). A nonparametric stochastic approach for multisite disaggregation of annual to daily streamflow. *Water Resources Research*, 46, W08529. https://doi.org/10.1029/2009WR008530 -- daily KNN used as a disaggregation step on annual realizations; see `NowakDisaggregator`.
 - Lall, U. (1995). Recent advances in nonparametric function estimation: Hydrologic applications. *Reviews of Geophysics*, 33(S2), 1093-1102.
 
 ---

@@ -41,10 +41,12 @@ generator = "Kirsch"  # options: 'ThomasFiering', 'Kirsch', etc.
 if generator == "ThomasFiering":
     monthly_gen = ThomasFieringGenerator(name="TF_Example", seed=SEED)
     monthly_gen.fit(Q_daily[site])
+    observed_aggregated = monthly_gen.Q_obs_monthly
 elif generator == "Kirsch":
 
     monthly_gen = KirschGenerator(name="Kirsch_Example", seed=SEED)
     monthly_gen.fit(Q_daily[site])
+    observed_aggregated = monthly_gen.Q_obs_aggregated
 
 
 # ============================================================================
@@ -61,7 +63,7 @@ fig, axes = plt.subplots(2, 1, figsize=(12, 8))
 ax = axes[0]
 plot_timeseries(
     ensemble,
-    observed=monthly_gen.Q_obs_monthly,
+    observed=observed_aggregated,
     site=site,
     ax=ax,
     title=f"Synthetic Monthly Flows - {site}",
@@ -73,7 +75,7 @@ plot_timeseries(
 ax = axes[1]
 plot_flow_duration_curve(
     ensemble,
-    observed=monthly_gen.Q_obs_monthly,
+    observed=observed_aggregated,
     site=site,
     ax=ax,
     title="Flow Duration Curve Comparison",

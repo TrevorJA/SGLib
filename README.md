@@ -35,12 +35,11 @@ Generators are classified into three bins by the mathematical character of their
 | `SPARTAGenerator` | Parametric | Monthly | Multi | Tsoukalas et al. (2018) |
 | `SMARTAGenerator` | Parametric | Annual | Multi | Tsoukalas et al. (2018) |
 | `MultiSiteHMMGenerator` | Parametric | Annual | Multi | Gold et al. (2024) |
-| `KirschGenerator` | Hybrid | Monthly | Multi | Kirsch et al. (2013) |
+| `KirschGenerator` | Hybrid | Weekly/Monthly | Multi | Kirsch et al. (2013) |
 | `WARMGenerator` | Hybrid | Annual | Single | Nowak et al. (2011) |
 | `PhaseRandomizationGenerator` | Hybrid | Daily | Single | Brunner et al. (2019) |
 | `MultisitePhaseRandomizationGenerator` | Hybrid | Daily | Multi | Brunner & Gilleland (2020) |
-| `HMMKNNGenerator` | Hybrid | Annual | Multi | Prairie et al. (2008) |
-| `KNNBootstrapGenerator` | Non-parametric | Daily/Monthly/Annual | Multi | Lall & Sharma (1996) |
+| `KNNBootstrapGenerator` | Non-parametric | Monthly/Annual | Multi | Lall & Sharma (1996); Prairie et al. (2006, 2008) |
 
 ## Supported disaggregators
 

@@ -39,7 +39,6 @@ from synhydro.core.validation import (
 )
 
 # Generators
-from synhydro.methods.generation.hybrid.hmm_knn import HMMKNNGenerator
 from synhydro.methods.generation.hybrid.kirsch import KirschGenerator
 from synhydro.methods.generation.hybrid.multisite_phase_randomization import (
     MultisitePhaseRandomizationGenerator,
@@ -78,7 +77,6 @@ __all__ = [
     "Disaggregator",
     # Individual generators
     "ARFIMAGenerator",
-    "HMMKNNGenerator",
     "KirschGenerator",
     "KNNBootstrapGenerator",
     "MatalasGenerator",

@@ -19,12 +19,11 @@ SynHydro provides parametric, hybrid, and non-parametric stochastic generation m
 | [`SPARTAGenerator`][synhydro.methods.generation.parametric.sparta.SPARTAGenerator] | Parametric | Monthly | Multi | Tsoukalas et al. (2018) |
 | [`SMARTAGenerator`][synhydro.methods.generation.parametric.smarta.SMARTAGenerator] | Parametric | Annual | Multi | Tsoukalas et al. (2018) |
 | [`MultiSiteHMMGenerator`][synhydro.methods.generation.parametric.multisite_hmm.MultiSiteHMMGenerator] | Parametric | Annual | Multi | Gold et al. (2024) |
-| [`KirschGenerator`][synhydro.methods.generation.hybrid.kirsch.KirschGenerator] | Hybrid | Monthly | Multi | Kirsch et al. (2013) |
+| [`KirschGenerator`][synhydro.methods.generation.hybrid.kirsch.KirschGenerator] | Hybrid | Weekly/Monthly | Multi | Kirsch et al. (2013) |
 | [`WARMGenerator`][synhydro.methods.generation.hybrid.warm.WARMGenerator] | Hybrid | Annual | Single | Nowak et al. (2011) |
 | [`PhaseRandomizationGenerator`][synhydro.methods.generation.hybrid.phase_randomization.PhaseRandomizationGenerator] | Hybrid | Daily | Single | Brunner et al. (2019) |
 | [`MultisitePhaseRandomizationGenerator`][synhydro.methods.generation.hybrid.multisite_phase_randomization.MultisitePhaseRandomizationGenerator] | Hybrid | Daily | Multi | Brunner & Gilleland (2020) |
-| [`HMMKNNGenerator`][synhydro.methods.generation.hybrid.hmm_knn.HMMKNNGenerator] | Hybrid | Annual | Multi | Prairie et al. (2008) |
-| [`KNNBootstrapGenerator`][synhydro.methods.generation.nonparametric.knn_bootstrap.KNNBootstrapGenerator] | Non-parametric | Daily/Monthly/Annual | Multi | Lall & Sharma (1996) |
+| [`KNNBootstrapGenerator`][synhydro.methods.generation.nonparametric.knn_bootstrap.KNNBootstrapGenerator] | Non-parametric | Monthly/Annual | Multi | Lall & Sharma (1996); Prairie et al. (2006, 2008) |
 
 ## Quick Example
 

@@ -248,7 +248,7 @@ def infer_datetime_frequency(df: pd.DataFrame) -> str:
     Returns
     -------
     str
-        Frequency string: 'D', 'W', 'M', or 'A'.
+        Frequency string: 'D', 'W', 'ME', or 'YE'.
     """
     if not isinstance(df.index, pd.DatetimeIndex):
         raise ValueError("Index must be a pd.DatetimeIndex.")
@@ -270,9 +270,9 @@ def infer_datetime_frequency(df: pd.DataFrame) -> str:
         pd.Timedelta(days=30),
         pd.Timedelta(days=31),
     ]:
-        freq = "M"
+        freq = "ME"
     elif time_delta in [pd.Timedelta(days=365), pd.Timedelta(days=366)]:
-        freq = "A"
+        freq = "YE"
     else:
         raise ValueError(
             f"Unsupported frequency detected with time delta: {time_delta}."

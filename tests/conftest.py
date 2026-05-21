@@ -58,6 +58,21 @@ def sample_monthly_dataframe():
 
 
 @pytest.fixture
+def sample_weekly_dataframe():
+    """Generate a sample weekly multi-site DataFrame for testing."""
+    dates = pd.date_range(start="2010-01-03", end="2020-12-27", freq="W-SUN")
+    np.random.seed(42)
+    n_sites = 3
+    data = {}
+    for i in range(n_sites):
+        base = np.random.gamma(shape=2.0, scale=25.0, size=len(dates))
+        seasonal = 12 * np.sin(2 * np.pi * np.arange(len(dates)) / 52)
+        noise = np.random.normal(0, 5, size=len(dates))
+        data[f"site_{i+1}"] = np.clip(base + seasonal + noise, 0.01, None)
+    return pd.DataFrame(data, index=dates)
+
+
+@pytest.fixture
 def sample_correlation_matrix():
     """Generate a sample correlation matrix for testing."""
     np.random.seed(42)
@@ -108,7 +123,7 @@ def sample_ensemble_data():
 @pytest.fixture
 def sample_annual_series():
     """Generate a sample annual time series for testing."""
-    dates = pd.date_range(start="2000-01-01", end="2020-12-31", freq="AS")
+    dates = pd.date_range(start="2000-01-01", end="2020-12-31", freq="YS")
     np.random.seed(42)
     values = np.random.gamma(shape=2.0, scale=1000.0, size=len(dates))
     return pd.Series(values, index=dates, name="site_1")
@@ -117,7 +132,7 @@ def sample_annual_series():
 @pytest.fixture
 def sample_annual_dataframe():
     """Generate a sample annual multi-site DataFrame for testing."""
-    dates = pd.date_range(start="2000-01-01", end="2020-12-31", freq="AS")
+    dates = pd.date_range(start="2000-01-01", end="2020-12-31", freq="YS")
     np.random.seed(42)
     n_sites = 3
     data = {}

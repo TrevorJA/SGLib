@@ -66,11 +66,23 @@ class TestKNNBootstrapGeneratorPreprocessing:
         gen.preprocessing(sample_monthly_dataframe)
         assert gen.output_frequency == "MS"
 
-    def test_preprocessing_detects_daily_frequency(self, sample_daily_dataframe):
-        """Test frequency detection for daily data."""
+    def test_preprocessing_rejects_daily_frequency(self, sample_daily_dataframe):
+        """Test that daily input is rejected.
+
+        KNNBootstrapGenerator targets monthly and annual streamflow only
+        (Lall & Sharma 1996; Prairie et al. 2006, 2008). Daily streamflow
+        synthesis is not established for KNN bootstrap in the primary
+        literature, so sub-monthly input raises ValueError.
+        """
         gen = KNNBootstrapGenerator()
-        gen.preprocessing(sample_daily_dataframe)
-        assert gen.output_frequency == "D"
+        with pytest.raises(ValueError, match="Sub-monthly input"):
+            gen.preprocessing(sample_daily_dataframe)
+
+    def test_preprocessing_detects_annual_frequency(self, sample_annual_dataframe):
+        """Test frequency detection for annual data (Prairie et al. 2008)."""
+        gen = KNNBootstrapGenerator()
+        gen.preprocessing(sample_annual_dataframe)
+        assert gen.output_frequency == "YS"
 
     def test_preprocessing_n_neighbors_heuristic(self, sample_monthly_dataframe):
         """Test n_neighbors is set via sqrt(n) heuristic if not provided."""
@@ -272,13 +284,13 @@ class TestKNNBootstrapGeneratorGeneration:
         assert ensemble.metadata.n_realizations == 3
         assert ensemble.metadata.n_sites == 3
 
-    def test_generate_with_daily_data(self, sample_daily_dataframe):
-        """Test generation with daily data."""
+    def test_generate_with_annual_data(self, sample_annual_dataframe):
+        """Test generation with annual data (Prairie et al. 2008)."""
         gen = KNNBootstrapGenerator()
-        gen.fit(sample_daily_dataframe)
-        ensemble = gen.generate(n_realizations=1, n_years=1)
+        gen.fit(sample_annual_dataframe)
+        ensemble = gen.generate(n_realizations=1, n_years=10)
         realization_df = ensemble.data_by_realization[0]
-        assert len(realization_df) == 365
+        assert len(realization_df) == 10
 
 
 class TestKNNBootstrapGeneratorEdgeCases:
@@ -371,14 +383,14 @@ class TestKNNBootstrapGeneratorWorkflow:
             assert df.shape[1] == 3  # 3 sites
             assert df.notna().all().all()
 
-    def test_complete_workflow_daily(self, sample_daily_dataframe):
-        """Test complete workflow with daily data."""
-        gen = KNNBootstrapGenerator(n_neighbors=20)
-        gen.fit(sample_daily_dataframe)
-        ensemble = gen.generate(n_realizations=2, n_years=1)
+    def test_complete_workflow_annual(self, sample_annual_dataframe):
+        """Test complete workflow with annual data (Prairie et al. 2008)."""
+        gen = KNNBootstrapGenerator(n_neighbors=5)
+        gen.fit(sample_annual_dataframe)
+        ensemble = gen.generate(n_realizations=2, n_years=10)
 
         for real_id, df in ensemble.data_by_realization.items():
-            assert df.shape[0] == 365
+            assert df.shape[0] == 10
             assert df.shape[1] == 3
 
     def test_multisite_joint_resampling(self, sample_monthly_dataframe):

@@ -542,7 +542,7 @@ class Ensemble:
         """
         logger.info(f"Saving ensemble to {filename}")
 
-        with h5py.File(filename, "w") as f:
+        with h5py.File(filename, "w", libver="latest") as f:
             # Save metadata as attributes
             f.attrs["metadata"] = json.dumps(self.metadata.to_dict())
 
@@ -756,7 +756,7 @@ class Ensemble:
         Parameters
         ----------
         freq : str
-            Pandas frequency string ('D', 'W', 'MS', 'AS', etc.).
+            Pandas frequency string ('D', 'W', 'MS', 'YS', etc.).
 
         Returns
         -------

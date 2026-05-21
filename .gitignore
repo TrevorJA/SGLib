@@ -3,8 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Rendered PDF page images (audit artifacts, regeneratable from source PDFs)
+# Rendered PDF page images and text extractions (audit artifacts, regeneratable from source PDFs)
 docs/references/_*_pages/
+docs/references/_*.txt
 
 ./pywrdrb/inputs/stationary_ensemble/*
 ./pywrdrb/outputs/*

@@ -23,11 +23,10 @@ Combine a parametric structure (standardization, marginal distributions, regime 
 
 | Algorithm | Parametric component | Non-parametric component | Resolution | Sites |
 |-----------|----------------------|--------------------------|------------|-------|
-| [Kirsch Bootstrap](kirsch.md) | Monthly mean/std, intra-annual Cholesky correlation | Bootstrap of standardized residuals | Monthly | Multisite |
+| [Kirsch Bootstrap](kirsch.md) | Per-period mean/std, intra-annual Cholesky correlation | Bootstrap of standardized residuals | Weekly/Monthly | Multisite |
 | [WARM](warm.md) | AR(p) per spectral band | Continuous wavelet decomposition | Annual | Univariate |
 | [Phase Randomization](phase_randomization.md) | Four-parameter kappa marginal per day-of-year | FFT phase shuffle | Daily | Univariate |
 | [Multisite Phase Randomization](multisite_phase_randomization.md) | Per-site kappa marginals per day-of-year | Wavelet CWT phase shuffle (shared across sites) | Daily | Multisite |
-| [HMM-KNN](hmm_knn.md) | Hidden Markov regime sequencer | k-NN resample within state | Annual | Multisite |
 
 ### Non-parametric
 
@@ -35,7 +34,7 @@ Generate new flows by direct resampling of the historical record with no fitted 
 
 | Algorithm | Resolution | Sites |
 |-----------|------------|-------|
-| [KNN Bootstrap](knn_bootstrap.md) | Daily/Monthly/Annual | Univariate/Multisite |
+| [KNN Bootstrap](knn_bootstrap.md) | Monthly/Annual | Univariate/Multisite |
 
 ## Disaggregation Methods
 
@@ -46,17 +45,17 @@ Generate new flows by direct resampling of the historical record with no fitted 
 
 ## Key Properties Preserved
 
-| Property | Thomas-Fiering | Matalas | ARFIMA | SMARTA | SPARTA | MS-HMM | Kirsch | WARM | Phase Random | HMM-KNN | KNN-Bootstrap |
-|----------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Monthly means/stds | x | x | x | - | x | - | x | - | - | - | x |
-| Temporal correlation | x | x | x | x | x | x | x | x | x | x | x |
-| Spatial correlation | - | x | - | x | x | x | x | - | - | x | x |
-| Long-range persistence | - | - | x | x | - | - | - | x | - | - | - |
-| Non-stationarity | - | - | - | - | - | - | - | x | - | - | - |
-| Drought states | - | - | - | - | - | x | - | - | - | x | - |
-| Power spectrum | - | - | x | - | - | - | - | x | x | - | - |
-| Arbitrary marginals | - | - | - | x | x | - | - | - | x | - | - |
-| Empirical distribution | - | - | - | - | - | - | x | - | - | x | x |
+| Property | Thomas-Fiering | Matalas | ARFIMA | SMARTA | SPARTA | MS-HMM | Kirsch | WARM | Phase Random | KNN-Bootstrap |
+|----------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Monthly means/stds | x | x | x | - | x | - | x | - | - | x |
+| Temporal correlation | x | x | x | x | x | x | x | x | x | x |
+| Spatial correlation | - | x | - | x | x | x | x | - | - | x |
+| Long-range persistence | - | - | x | x | - | - | - | x | - | - |
+| Non-stationarity | - | - | - | - | - | - | - | x | - | - |
+| Drought states | - | - | - | - | - | x | - | - | - | - |
+| Power spectrum | - | - | x | - | - | - | - | x | x | - |
+| Arbitrary marginals | - | - | - | x | x | - | - | - | x | - |
+| Empirical distribution | - | - | - | - | - | - | x | - | - | x |
 
 ## Reference
 

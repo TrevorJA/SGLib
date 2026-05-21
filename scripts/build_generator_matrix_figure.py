@@ -20,13 +20,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
 from synhydro.plotting.config import COLORS, apply_plotting_style
@@ -37,31 +36,32 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = REPO_ROOT / "docs" / "assets" / "images"
 
+COL_NAMES: Tuple[str, ...] = ("Daily", "Weekly", "Monthly", "Annual")
 COL_CENTERS: Dict[str, float] = {
-    "Daily": 1.0 / 6.0,
-    "Monthly": 0.5,
-    "Annual": 5.0 / 6.0,
+    name: (i + 0.5) / len(COL_NAMES) for i, name in enumerate(COL_NAMES)
 }
-COL_BOUNDS: Tuple[float, ...] = (0.0, 1.0 / 3.0, 2.0 / 3.0, 1.0)
-COL_INDEX: Dict[str, int] = {"Daily": 0, "Monthly": 1, "Annual": 2}
+COL_BOUNDS: Tuple[float, ...] = tuple(
+    i / len(COL_NAMES) for i in range(len(COL_NAMES) + 1)
+)
+COL_INDEX: Dict[str, int] = {name: i for i, name in enumerate(COL_NAMES)}
 
-ROW_ORDER: Tuple[str, ...] = ("AR-family", "HMM", "Spectral", "Bootstrap", "k-NN")
+ROW_ORDER: Tuple[str, ...] = ("AR", "HMM", "Spectral", "Bootstrap", "k-NN")
 ROW_SLOTS: Dict[str, int] = {
-    "AR-family": 4,
+    "AR": 4,
     "HMM": 1,
     "Spectral": 2,
     "Bootstrap": 1,
     "k-NN": 1,
 }
 ROW_WEIGHTS: Dict[str, float] = {
-    "AR-family": 2.4,
+    "AR": 2.4,
     "HMM": 1.0,
     "Spectral": 1.5,
     "Bootstrap": 1.0,
     "k-NN": 1.25,
 }
 ROW_SUPER: Dict[str, str] = {
-    "AR-family": "Parametric",
+    "AR": "Parametric",
     "HMM": "Parametric",
     "Spectral": "Hybrid",
     "Bootstrap": "Hybrid",
@@ -70,9 +70,9 @@ ROW_SUPER: Dict[str, str] = {
 SUPER_ORDER: Tuple[str, ...] = ("Parametric", "Hybrid", "Non-param.")
 
 PILL_HEIGHT = 0.058
-PILL_HALF_WIDTH = 0.135
+PILL_HALF_WIDTH = 0.105
 PILL_VGAP = 0.014
-SPAN_INSET = 0.020
+SPAN_INSET = 0.018
 BAR_HEIGHT_FRAC = 0.22
 
 COLOR_SINGLE = COLORS["observed"]
@@ -80,7 +80,6 @@ COLOR_MULTI = COLORS["ensemble_median"]
 COLOR_EDGE = COLORS["observed"]
 COLOR_TEXT = COLORS["observed"]
 COLOR_DIVIDER = COLORS["grid"]
-COLOR_BLUR = COLORS["observed"]
 
 
 @dataclass
@@ -96,17 +95,16 @@ class GenSpec:
 
 
 GENERATORS: Tuple[GenSpec, ...] = (
-    GenSpec("ARFIMA", "AR-family", 0, "single", span=("Monthly", "Annual")),
-    GenSpec("Thomas-Fiering", "AR-family", 1, "single", col="Monthly"),
-    GenSpec("Matalas", "AR-family", 2, "multi", col="Monthly"),
-    GenSpec("SMARTA", "AR-family", 2, "multi", col="Annual"),
-    GenSpec("SPARTA", "AR-family", 3, "multi", col="Monthly"),
+    GenSpec("ARFIMA", "AR", 0, "single", span=("Monthly", "Annual")),
+    GenSpec("Thomas-Fiering", "AR", 1, "single", col="Monthly"),
+    GenSpec("Matalas", "AR", 2, "multi", col="Monthly"),
+    GenSpec("SMARTA", "AR", 2, "multi", col="Annual"),
+    GenSpec("SPARTA", "AR", 3, "multi", col="Monthly"),
     GenSpec("MS-HMM", "HMM", 0, "multi", col="Annual"),
     GenSpec("Phase Rand.", "Spectral", 0, "single", col="Daily"),
     GenSpec("MS Phase Rand.", "Spectral", 1, "multi", col="Daily"),
     GenSpec("WARM", "Spectral", 0.5, "single", col="Annual"),
-    GenSpec("Kirsch", "Bootstrap", 0, "multi", col="Monthly"),
-    GenSpec("HMM-KNN", "Bootstrap", 0, "multi", col="Annual"),
+    GenSpec("Kirsch", "Bootstrap", 0, "multi", span=("Weekly", "Monthly")),
     GenSpec("KNN-Bootstrap", "k-NN", 0, "both", span=("Daily", "Annual")),
 )
 
@@ -254,40 +252,15 @@ def _draw_pill(
     )
 
 
-def _draw_blurred_border(
-    ax: plt.Axes, y: float, x0: float, x1: float, spread: float = 0.022
-) -> None:
-    """Draw a Gaussian-faded horizontal divider centered at ``y``."""
-    n_y = 220
-    ys = np.linspace(-spread, spread, n_y)
-    sigma = spread / 2.0
-    gauss = np.exp(-(ys**2) / (2 * sigma**2))
-    r, g, b = 0x2C / 255.0, 0x3E / 255.0, 0x50 / 255.0
-    rgba = np.zeros((n_y, 2, 4))
-    rgba[..., 0] = r
-    rgba[..., 1] = g
-    rgba[..., 2] = b
-    rgba[..., 3] = gauss[:, None] * 0.55
-    ax.imshow(
-        rgba,
-        extent=(x0, x1, y - spread, y + spread),
-        aspect="auto",
-        interpolation="bilinear",
-        zorder=1,
-        clip_on=False,
-        origin="lower",
-    )
-
-
-def _draw_subclass_divider(ax: plt.Axes, y: float, x0: float, x1: float) -> None:
-    """Draw a faint dashed within-super-group divider at ``y``."""
+def _draw_row_divider(ax: plt.Axes, y: float, x0: float, x1: float) -> None:
+    """Draw a faint dotted horizontal divider centered at ``y``."""
     ax.plot(
         [x0, x1],
         [y, y],
         color=COLOR_DIVIDER,
         linestyle=":",
         linewidth=0.6,
-        alpha=0.6,
+        alpha=0.7,
         zorder=1,
         clip_on=False,
     )
@@ -337,10 +310,9 @@ def _draw_supergroup_bracket(
         label,
         ha="center",
         va="center",
-        fontsize=12,
+        fontsize=11,
         rotation=90,
         color=COLOR_TEXT,
-        fontweight="bold",
         clip_on=False,
     )
 
@@ -406,8 +378,8 @@ def build() -> Tuple[Path, Path]:
     """
     apply_plotting_style()
 
-    fig, ax = plt.subplots(figsize=(10.0, 6.5))
-    ax.set_xlim(-0.40, 1.04)
+    fig, ax = plt.subplots(figsize=(9.5, 6.5))
+    ax.set_xlim(-0.24, 1.04)
     ax.set_ylim(-0.20, 1.18)
     ax.set_aspect("auto")
     ax.grid(False)
@@ -448,26 +420,20 @@ def build() -> Tuple[Path, Path]:
         zorder=1,
     )
 
-    border_x0, border_x1 = -0.05, 1.02
     for name in ROW_ORDER[:-1]:
         y_border = row_bounds[name][0]
-        curr_super = ROW_SUPER[name]
-        next_idx = ROW_ORDER.index(name) + 1
-        next_super = ROW_SUPER[ROW_ORDER[next_idx]]
-        if curr_super != next_super:
-            _draw_blurred_border(ax, y_border, border_x0, border_x1)
-        else:
-            _draw_subclass_divider(ax, y_border, 0.0, 1.0)
+        _draw_row_divider(ax, y_border, 0.0, 1.0)
 
     for name in ROW_ORDER:
         y0, y1 = row_bounds[name]
         ax.text(
-            -0.012,
+            -0.030,
             (y0 + y1) / 2.0,
             name,
-            ha="right",
+            ha="center",
             va="center",
-            fontsize=10,
+            fontsize=8,
+            rotation=90,
             color=COLOR_TEXT,
             clip_on=False,
         )
@@ -475,10 +441,10 @@ def build() -> Tuple[Path, Path]:
     for super_name in SUPER_ORDER:
         y_bot, y_top = super_bounds[super_name]
         _draw_supergroup_bracket(
-            ax, y_bot, y_top, super_name, x_label=-0.34, x_bracket=-0.27
+            ax, y_bot, y_top, super_name, x_label=-0.155, x_bracket=-0.100
         )
 
-    for col in ("Daily", "Monthly", "Annual"):
+    for col in COL_NAMES:
         ax.text(
             COL_CENTERS[col],
             1.040,
@@ -487,7 +453,6 @@ def build() -> Tuple[Path, Path]:
             va="bottom",
             fontsize=11,
             color=COLOR_TEXT,
-            fontweight="bold",
             clip_on=False,
         )
 
@@ -503,7 +468,7 @@ def build() -> Tuple[Path, Path]:
         clip_on=False,
     )
     ax.text(
-        -0.42,
+        -0.215,
         0.5,
         "Method family",
         ha="center",

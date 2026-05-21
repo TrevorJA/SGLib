@@ -70,12 +70,6 @@
 
 ---
 
-### HMMKNNGenerator
-
-::: synhydro.methods.generation.hybrid.hmm_knn.HMMKNNGenerator
-
----
-
 ## Non-parametric
 
 ### KNNBootstrapGenerator

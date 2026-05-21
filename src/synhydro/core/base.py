@@ -303,7 +303,9 @@ class Generator(ABC):
             )
 
         # Frequency detection and validation
-        freq = data.index.freq or pd.infer_freq(data.index)
+        freq = pd.infer_freq(data.index)
+        if freq is None and data.index.freq is not None:
+            freq = data.index.freq.freqstr
         if freq is not None:
             # Normalize common frequency aliases
             freq_str = str(freq)
@@ -323,9 +325,15 @@ class Generator(ABC):
                 "<YearEnd: month=12>": "YS",
                 "YS-JAN": "YS",
                 "YE-DEC": "YS",
-                "MS": "MS",
-                "ME": "MS",
                 "<Day>": "D",
+                "W": "W-SUN",
+                "W-SUN": "W-SUN",
+                "W-MON": "W-SUN",
+                "W-TUE": "W-SUN",
+                "W-WED": "W-SUN",
+                "W-THU": "W-SUN",
+                "W-FRI": "W-SUN",
+                "W-SAT": "W-SUN",
             }
             normalized = freq_map.get(freq_str, freq_str)
             if (

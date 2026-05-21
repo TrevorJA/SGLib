@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#kirsch-monthly-bootstrap-kirsch-et-al-2013" class="md-skip">
+        <a href="#kirsch-hybrid-bootstrap-kirsch-et-al-2013" class="md-skip">
           Skip to content
         </a>
       
@@ -937,21 +937,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Overview">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#generalization-note" class="md-nav__link">
-    <span class="md-ellipsis">
-      Generalization note
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -1004,6 +989,15 @@
   <a href="#synthesis-procedure" class="md-nav__link">
     <span class="md-ellipsis">
       Synthesis Procedure
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-indexing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Output indexing
     </span>
   </a>
   
@@ -1392,21 +1386,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Overview">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#generalization-note" class="md-nav__link">
-    <span class="md-ellipsis">
-      Generalization note
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -1464,6 +1443,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#output-indexing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Output indexing
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1515,7 +1503,7 @@
   
 
 
-<h1 id="kirsch-monthly-bootstrap-kirsch-et-al-2013">Kirsch Monthly Bootstrap (Kirsch et al., 2013)<a class="headerlink" href="#kirsch-monthly-bootstrap-kirsch-et-al-2013" title="Permanent link">&para;</a></h1>
+<h1 id="kirsch-hybrid-bootstrap-kirsch-et-al-2013">Kirsch Hybrid Bootstrap (Kirsch et al., 2013)<a class="headerlink" href="#kirsch-hybrid-bootstrap-kirsch-et-al-2013" title="Permanent link">&para;</a></h1>
 <table>
 <thead>
 <tr>
@@ -1526,11 +1514,11 @@
 <tbody>
 <tr>
 <td><strong>Type</strong></td>
-<td>Nonparametric</td>
+<td>Hybrid</td>
 </tr>
 <tr>
 <td><strong>Resolution</strong></td>
-<td>Monthly</td>
+<td>Weekly or Monthly</td>
 </tr>
 <tr>
 <td><strong>Sites</strong></td>
@@ -1539,10 +1527,10 @@
 </tbody>
 </table>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The Kirsch method generates synthetic multi-site monthly streamflow by bootstrapping standardized residuals and imposing fitted temporal and spatial correlation structure through Cholesky decomposition. A cross-year shifted matrix construction preserves December-to-January continuity. An optional normal score transform reduces bias when operating in log-transformed space. The method is nonparametric in that the generated values are drawn from the historical record rather than from a parametric distribution.</p>
-<h3 id="generalization-note">Generalization note<a class="headerlink" href="#generalization-note" title="Permanent link">&para;</a></h3>
-<p>Kirsch et al. (2013) describe the method on weekly timesteps (52 columns per year, 26-week halves for the cross-year shift). SynHydro implements it on monthly timesteps (12 columns per year, 6-month halves). The mathematical structure is identical; only the column dimension and the half-year split change. The implementation is straightforwardly generalizable to any sub-annual period count <span class="arithmatex">\(n\)</span>, with the half split at <span class="arithmatex">\(n/2\)</span>.</p>
+<p>The Kirsch method generates synthetic multi-site streamflow by bootstrapping standardized residuals and imposing fitted intra-annual correlation structure through Cholesky decomposition. A cross-year shifted matrix construction preserves continuity across the year boundary. An optional normal score transform reduces bias when operating in log-transformed space. The method is hybrid: a parametric layer (per-period mean, standard deviation, intra-annual correlation) wraps a non-parametric bootstrap of the standardized residuals.</p>
+<p>The published algorithm (Kirsch et al., 2013) is described on weekly timesteps with 52 columns per year. SynHydro implements both <strong>weekly</strong> (52 columns, 26-period half-shift) and <strong>monthly</strong> (12 columns, 6-period half-shift) resolutions from a single code path. The algebra is identical at both resolutions; only the period count and the half-year split change. The implementation derives the number of periods per year and the half-shift from the input data frequency in <code>preprocessing</code>, so calling code does not pick the resolution explicitly except through the input timestep.</p>
 <h2 id="notation">Notation<a class="headerlink" href="#notation" title="Permanent link">&para;</a></h2>
+<p>Let <span class="arithmatex">\(P\)</span> denote the number of periods per year (<span class="arithmatex">\(P = 52\)</span> for weekly, <span class="arithmatex">\(P = 12\)</span> for monthly), and let <span class="arithmatex">\(H = P / 2\)</span> be the half-year split point used in the cross-year shifted matrix.</p>
 <table>
 <thead>
 <tr>
@@ -1552,32 +1540,40 @@
 </thead>
 <tbody>
 <tr>
-<td><span class="arithmatex">\(Q_{y,m,s}\)</span></td>
-<td>Observed monthly flow for year <span class="arithmatex">\(y\)</span>, month <span class="arithmatex">\(m\)</span>, site <span class="arithmatex">\(s\)</span></td>
+<td><span class="arithmatex">\(P\)</span></td>
+<td>Number of periods per year (<span class="arithmatex">\(52\)</span> weekly, <span class="arithmatex">\(12\)</span> monthly)</td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(\hat{Q}_{y,m,s}\)</span></td>
-<td>Synthetic monthly flow</td>
+<td><span class="arithmatex">\(H\)</span></td>
+<td>Half-year split, <span class="arithmatex">\(H = P / 2\)</span></td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(\mu_{m,s}\)</span></td>
-<td>Sample mean of flows at site <span class="arithmatex">\(s\)</span> in month <span class="arithmatex">\(m\)</span></td>
+<td><span class="arithmatex">\(Q_{y,p,s}\)</span></td>
+<td>Observed flow for year <span class="arithmatex">\(y\)</span>, period <span class="arithmatex">\(p \in \{1, \dots, P\}\)</span>, site <span class="arithmatex">\(s\)</span></td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(\sigma_{m,s}\)</span></td>
-<td>Sample standard deviation of flows at site <span class="arithmatex">\(s\)</span> in month <span class="arithmatex">\(m\)</span></td>
+<td><span class="arithmatex">\(\hat{Q}_{y,p,s}\)</span></td>
+<td>Synthetic flow</td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(Z_{y,m,s}\)</span></td>
+<td><span class="arithmatex">\(\mu_{p,s}\)</span></td>
+<td>Sample mean of flows at site <span class="arithmatex">\(s\)</span> in period <span class="arithmatex">\(p\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\sigma_{p,s}\)</span></td>
+<td>Sample standard deviation of flows at site <span class="arithmatex">\(s\)</span> in period <span class="arithmatex">\(p\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(Z_{y,p,s}\)</span></td>
 <td>Standardized residual</td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(Y_{y,m,s}\)</span></td>
+<td><span class="arithmatex">\(Y_{y,p,s}\)</span></td>
 <td>Normal score-transformed residual</td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(\mathbf{Y}^{(s)} \in \mathbb{R}^{N \times 12}\)</span></td>
-<td>Matrix of normal scores for site <span class="arithmatex">\(s\)</span> (years by months)</td>
+<td><span class="arithmatex">\(\mathbf{Y}^{(s)} \in \mathbb{R}^{N \times P}\)</span></td>
+<td>Matrix of normal scores for site <span class="arithmatex">\(s\)</span> (years by periods)</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(\mathbf{Y}'^{(s)}\)</span></td>
@@ -1585,7 +1581,7 @@
 </tr>
 <tr>
 <td><span class="arithmatex">\(\mathbf{R}^{(s)}, \mathbf{R}'^{(s)}\)</span></td>
-<td><span class="arithmatex">\(12 \times 12\)</span> correlation matrices of <span class="arithmatex">\(\mathbf{Y}^{(s)}\)</span> and <span class="arithmatex">\(\mathbf{Y}'^{(s)}\)</span></td>
+<td><span class="arithmatex">\(P \times P\)</span> correlation matrices of <span class="arithmatex">\(\mathbf{Y}^{(s)}\)</span> and <span class="arithmatex">\(\mathbf{Y}'^{(s)}\)</span></td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(\mathbf{U}^{(s)}\)</span></td>
@@ -1601,47 +1597,49 @@
 </tr>
 </tbody>
 </table>
+<p>The original paper uses "<span class="arithmatex">\(j\)</span>" for the column (period) index and assumes weekly (<span class="arithmatex">\(P = 52\)</span>); the symbol <span class="arithmatex">\(p\)</span> used here is interchangeable with the paper's <span class="arithmatex">\(j\)</span> at either resolution.</p>
 <h2 id="formulation">Formulation<a class="headerlink" href="#formulation" title="Permanent link">&para;</a></h2>
 <h3 id="standardization-and-normal-score-transform">Standardization and Normal Score Transform<a class="headerlink" href="#standardization-and-normal-score-transform" title="Permanent link">&para;</a></h3>
-<p>Monthly flows are first (optionally) log-transformed: <span class="arithmatex">\(Q' = \ln(\max(Q, 10^{-6}))\)</span>. Standardized residuals are computed for each year <span class="arithmatex">\(y\)</span>, month <span class="arithmatex">\(m\)</span>, and site <span class="arithmatex">\(s\)</span>:</p>
+<p>Flows are first (optionally) log-transformed: <span class="arithmatex">\(Q' = \ln(\max(Q, 10^{-6}))\)</span>. Standardized residuals are computed for each year <span class="arithmatex">\(y\)</span>, period <span class="arithmatex">\(p\)</span>, and site <span class="arithmatex">\(s\)</span> (Kirsch et al., 2013, eq. 3):</p>
 <div class="arithmatex">\[
-Z_{y,m,s} = \frac{Q'_{y,m,s} - \mu_{m,s}}{\sigma_{m,s}}
+Z_{y,p,s} = \frac{Q'_{y,p,s} - \mu_{p,s}}{\sigma_{p,s}}
 \]</div>
-<p>When operating in log space, a normal score transform (NST) is applied to each <span class="arithmatex">\((m, s)\)</span> pair. The residuals are ranked, mapped to Hazen plotting positions <span class="arithmatex">\(p_i = (i - 0.5)/n\)</span>, and converted to standard normal quantiles:</p>
+<p>When operating in log space, a normal score transform (NST) is applied to each <span class="arithmatex">\((p, s)\)</span> pair. The residuals are ranked and mapped to standard normal quantiles via Hazen plotting positions:</p>
 <div class="arithmatex">\[
-Y_{y,m,s} = \Phi^{-1}\!\left(\frac{r(Z_{y,m,s}) - 0.5}{N}\right)
+Y_{y,p,s} = \Phi^{-1}\!\left(\frac{r(Z_{y,p,s}) - 0.5}{N}\right)
 \]</div>
 <p>where <span class="arithmatex">\(r(\cdot)\)</span> denotes the rank among the <span class="arithmatex">\(N\)</span> values and <span class="arithmatex">\(\Phi^{-1}\)</span> is the standard normal inverse CDF.</p>
-<p><strong>Note:</strong> The normal score transform is a SynHydro-specific extension to the original Kirsch (2013) method. Kirsch (2013, eq. 3) only applies z-score standardization. NST is added in log-space here to prevent bias in the back-transformed marginal distribution when standardized log-residuals are non-Gaussian; the inverse NST (with linear tail extrapolation) maps Cholesky-mixed values back to the empirical <span class="arithmatex">\((m, s)\)</span> marginal. To run the algorithm closer to the published version, set <code>generate_using_log_flow=False</code> (which also skips NST).</p>
+<p><strong>Note:</strong> The normal score transform is a SynHydro-specific extension to the original Kirsch (2013) method, which only applies z-score standardization (his eq. 3). NST is added in log-space here to prevent bias in the back-transformed marginal distribution when standardized log-residuals are non-Gaussian; the inverse NST (with linear tail extrapolation) maps Cholesky-mixed values back to the empirical <span class="arithmatex">\((p, s)\)</span> marginal. Set <code>generate_using_log_flow=False</code> to skip both the log transform and NST and run the algorithm closer to the published version.</p>
 <h3 id="cross-year-shifted-matrix">Cross-Year Shifted Matrix<a class="headerlink" href="#cross-year-shifted-matrix" title="Permanent link">&para;</a></h3>
-<p>To preserve inter-annual correlation (particularly the December-January transition), a shifted matrix <span class="arithmatex">\(\mathbf{Y}'^{(s)}\)</span> is constructed for each site <span class="arithmatex">\(s\)</span>:</p>
+<p>To preserve inter-annual correlation across the year boundary, a shifted matrix <span class="arithmatex">\(\mathbf{Y}'^{(s)}\)</span> is constructed for each site <span class="arithmatex">\(s\)</span> by stacking the second half of year <span class="arithmatex">\(y\)</span> on top of the first half of year <span class="arithmatex">\(y+1\)</span>:</p>
 <div class="arithmatex">\[
-\mathbf{Y}'^{(s)}_{y,\,1:6} = \mathbf{Y}^{(s)}_{y,\,7:12}, \qquad \mathbf{Y}'^{(s)}_{y,\,7:12} = \mathbf{Y}^{(s)}_{y+1,\,1:6}
+\mathbf{Y}'^{(s)}_{y,\,1:H} = \mathbf{Y}^{(s)}_{y,\,H+1:P}, \qquad \mathbf{Y}'^{(s)}_{y,\,H+1:P} = \mathbf{Y}^{(s)}_{y+1,\,1:H}
 \]</div>
-<p>This re-indexes the data so that July-December of year <span class="arithmatex">\(y\)</span> is paired with January-June of year <span class="arithmatex">\(y+1\)</span>, enabling the Cholesky factor to capture cross-year correlations.</p>
+<p>For weekly (<span class="arithmatex">\(H = 26\)</span>) this pairs weeks 27-52 of year <span class="arithmatex">\(y\)</span> with weeks 1-26 of year <span class="arithmatex">\(y+1\)</span>. For monthly (<span class="arithmatex">\(H = 6\)</span>) it pairs July-December of year <span class="arithmatex">\(y\)</span> with January-June of year <span class="arithmatex">\(y+1\)</span>. Either way the Cholesky factor of the shifted matrix captures correlations that straddle the calendar boundary.</p>
 <h3 id="cholesky-decomposition">Cholesky Decomposition<a class="headerlink" href="#cholesky-decomposition" title="Permanent link">&para;</a></h3>
-<p>For each site <span class="arithmatex">\(s\)</span>, the <span class="arithmatex">\(12 \times 12\)</span> sample correlation matrices <span class="arithmatex">\(\mathbf{R}^{(s)}\)</span> and <span class="arithmatex">\(\mathbf{R}'^{(s)}\)</span> are computed from <span class="arithmatex">\(\mathbf{Y}^{(s)}\)</span> and <span class="arithmatex">\(\mathbf{Y}'^{(s)}\)</span> respectively. If either matrix is not positive definite, it is repaired via spectral projection (negative eigenvalues are clipped to a small positive constant and the matrix is rescaled to unit diagonal). The upper Cholesky factors <span class="arithmatex">\(\mathbf{U}^{(s)}\)</span> and <span class="arithmatex">\(\mathbf{U}'^{(s)}\)</span> are then computed.</p>
-<p>Per Kirsch et al. (2013, eqs. 4-5), the correlation matrix and its Cholesky factor are intra-annual operators defined for a single site at a time. Cross-site correlation is preserved through the <strong>shared bootstrap index matrix <span class="arithmatex">\(\mathbf{M}\)</span></strong> (Kirsch et al. 2013, p. 7), not through a joint multi-site correlation matrix. This implementation therefore computes per-site Cholesky factors <span class="arithmatex">\(\mathbf{U}^{(s)}, \mathbf{U}'^{(s)}\)</span> and reuses one <span class="arithmatex">\(\mathbf{M}\)</span> across all sites in the synthesis step below.</p>
+<p>For each site <span class="arithmatex">\(s\)</span>, the <span class="arithmatex">\(P \times P\)</span> sample correlation matrices <span class="arithmatex">\(\mathbf{R}^{(s)}\)</span> and <span class="arithmatex">\(\mathbf{R}'^{(s)}\)</span> are computed from <span class="arithmatex">\(\mathbf{Y}^{(s)}\)</span> and <span class="arithmatex">\(\mathbf{Y}'^{(s)}\)</span> respectively. If either matrix is not positive definite, it is repaired (default: spectral projection — negative eigenvalues are clipped to a small positive constant and the matrix is rescaled to unit diagonal). The upper Cholesky factors <span class="arithmatex">\(\mathbf{U}^{(s)}\)</span> and <span class="arithmatex">\(\mathbf{U}'^{(s)}\)</span> are then computed.</p>
+<p>Per Kirsch et al. (2013, eqs. 4-5), the correlation matrix and its Cholesky factor are intra-annual operators defined for a single site at a time. Cross-site correlation is preserved through the <strong>shared bootstrap index matrix <span class="arithmatex">\(\mathbf{M}\)</span></strong> (Kirsch et al., 2013, p. 7), not through a joint multi-site correlation matrix. This implementation therefore computes per-site Cholesky factors <span class="arithmatex">\(\mathbf{U}^{(s)}, \mathbf{U}'^{(s)}\)</span> and reuses one <span class="arithmatex">\(\mathbf{M}\)</span> across all sites in the synthesis step below.</p>
 <h3 id="synthesis-procedure">Synthesis Procedure<a class="headerlink" href="#synthesis-procedure" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>Bootstrap</strong>: For each synthetic realization, draw a single matrix <span class="arithmatex">\(\mathbf{M} \in \{1, \dots, N\}^{(N_{\text{syn}}+1) \times 12}\)</span> of year indices sampled with replacement from the historical record. The same <span class="arithmatex">\(\mathbf{M}\)</span> is reused across all sites so that cross-site correlation is preserved (Kirsch et al. 2013, p. 7). Construct the bootstrap matrix <span class="arithmatex">\(\mathbf{X}^{(s)}\)</span> by extracting the normal scores of site <span class="arithmatex">\(s\)</span> at the sampled indices. Construct the corresponding shifted matrix <span class="arithmatex">\(\mathbf{X}'^{(s)}\)</span> <strong>deterministically</strong> from <span class="arithmatex">\(\mathbf{X}^{(s)}\)</span> using the same 6-month shift that produced <span class="arithmatex">\(\mathbf{Y}'^{(s)}\)</span> from <span class="arithmatex">\(\mathbf{Y}^{(s)}\)</span>:</li>
+<li><strong>Bootstrap</strong>: For each synthetic realization, draw a single matrix <span class="arithmatex">\(\mathbf{M} \in \{1, \dots, N\}^{(N_{\text{syn}}+1) \times P}\)</span> of year indices sampled with replacement from the historical record. The same <span class="arithmatex">\(\mathbf{M}\)</span> is reused across all sites so cross-site correlation is preserved (Kirsch et al., 2013, p. 7). Construct the bootstrap matrix <span class="arithmatex">\(\mathbf{X}^{(s)}\)</span> by extracting the normal scores of site <span class="arithmatex">\(s\)</span> at the sampled indices. Construct the corresponding shifted matrix <span class="arithmatex">\(\mathbf{X}'^{(s)}\)</span> <strong>deterministically</strong> from <span class="arithmatex">\(\mathbf{X}^{(s)}\)</span> using the same half-year shift that produced <span class="arithmatex">\(\mathbf{Y}'^{(s)}\)</span> from <span class="arithmatex">\(\mathbf{Y}^{(s)}\)</span>:</li>
 </ol>
 <div class="arithmatex">\[
-\mathbf{X}'^{(s)}_{y,\,1:6} = \mathbf{X}^{(s)}_{y,\,7:12}, \qquad \mathbf{X}'^{(s)}_{y,\,7:12} = \mathbf{X}^{(s)}_{y+1,\,1:6}
+\mathbf{X}'^{(s)}_{y,\,1:H} = \mathbf{X}^{(s)}_{y,\,H+1:P}, \qquad \mathbf{X}'^{(s)}_{y,\,H+1:P} = \mathbf{X}^{(s)}_{y+1,\,1:H}
 \]</div>
 <p>Following Kirsch et al. (2013, p. 6): "The matrix X is converted to X' just as Y was converted to Y'". There is exactly one bootstrap draw per realization; <span class="arithmatex">\(\mathbf{X}'^{(s)}\)</span> is not resampled independently.</p>
 <ol>
-<li><strong>Impose correlation</strong>: Multiply each bootstrap matrix by its Cholesky factor:</li>
+<li><strong>Impose correlation</strong>: Multiply each bootstrap matrix by its Cholesky factor (Kirsch et al., 2013, eq. 5):</li>
 </ol>
 <div class="arithmatex">\[
 \tilde{\mathbf{Z}}^{(s)} = \mathbf{X}^{(s)} \mathbf{U}^{(s)}, \qquad \tilde{\mathbf{Z}}'^{(s)} = \mathbf{X}'^{(s)} \mathbf{U}'^{(s)}
 \]</div>
 <ol>
-<li><strong>Combine shifted and unshifted results</strong>: The final correlated matrix <span class="arithmatex">\(\mathbf{Z}_C\)</span> takes the first half of each year from the shifted result and the second half from the unshifted result:</li>
+<li><strong>Combine shifted and unshifted results</strong>: The final correlated matrix <span class="arithmatex">\(\mathbf{Z}_C\)</span> takes the first half of each year from the shifted result and the second half from the unshifted result of the following year:</li>
 </ol>
 <div class="arithmatex">\[
-\mathbf{Z}_{C,y,1:6,s} = \tilde{\mathbf{Z}}'_{y,7:12,s}, \qquad \mathbf{Z}_{C,y,7:12,s} = \tilde{\mathbf{Z}}_{y+1,7:12,s}
+\mathbf{Z}_{C,\,y,\,1:H,\,s} = \tilde{\mathbf{Z}}'_{y,\,H+1:P,\,s}, \qquad \mathbf{Z}_{C,\,y,\,H+1:P,\,s} = \tilde{\mathbf{Z}}_{y+1,\,H+1:P,\,s}
 \]</div>
+<p>This stitch is what gives the cross-year boundary correlation: each row of <span class="arithmatex">\(\mathbf{Z}_C\)</span> inherits its first half from <span class="arithmatex">\(\tilde{\mathbf{Z}}'\)</span> (which was correlated across the calendar boundary) and its second half from <span class="arithmatex">\(\tilde{\mathbf{Z}}\)</span> (which was correlated within the standard year).</p>
 <ol>
 <li>
 <p><strong>Inverse normal score transform</strong>: Map back from normal space to the original residual space using the stored rank mappings, with linear extrapolation in the tails for values outside the historical range.</p>
@@ -1651,15 +1649,21 @@ Y_{y,m,s} = \Phi^{-1}\!\left(\frac{r(Z_{y,m,s}) - 0.5}{N}\right)
 </li>
 </ol>
 <div class="arithmatex">\[
-\hat{Q}'_{y,m,s} = Z_{C,y,m,s} \cdot \sigma_{m,s} + \mu_{m,s}, \qquad \hat{Q}_{y,m,s} = \exp(\hat{Q}'_{y,m,s})
+\hat{Q}'_{y,\,p,\,s} = Z_{C,\,y,\,p,\,s} \cdot \sigma_{p,s} + \mu_{p,s}, \qquad \hat{Q}_{y,\,p,\,s} = \exp(\hat{Q}'_{y,\,p,\,s})
 \]</div>
+<h3 id="output-indexing">Output indexing<a class="headerlink" href="#output-indexing" title="Permanent link">&para;</a></h3>
+<p>The synthetic ensemble's DatetimeIndex is constructed so that ordinal position <span class="arithmatex">\(p\)</span> of synthetic year <span class="arithmatex">\(y\)</span> lands on a date that falls in calendar period <span class="arithmatex">\(p\)</span> of <span class="arithmatex">\(y\)</span>:</p>
+<ul>
+<li><strong>Monthly</strong> (<span class="arithmatex">\(P = 12\)</span>): a <code>MS</code>-frequency range produces month-start timestamps that already align period <span class="arithmatex">\(p\)</span> with calendar month <span class="arithmatex">\(p\)</span>.</li>
+<li><strong>Weekly</strong> (<span class="arithmatex">\(P = 52\)</span>): each (year, period) pair is mapped to the Sunday of ISO week <span class="arithmatex">\(p\)</span> of year <span class="arithmatex">\(y\)</span> via <code>pd.Timestamp.fromisocalendar(y, p, 7)</code>. This per-year reset prevents the ~1.25 day/year drift that an unanchored <code>pd.date_range(freq="W-SUN")</code> would accumulate (since <span class="arithmatex">\(52 \times 7 = 364 &lt; 365\)</span> days). ISO week 53 is treated as out-of-domain at both fit and generate time, so each retained year has exactly <span class="arithmatex">\(P = 52\)</span> periods.</li>
+</ul>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
-<p>The method preserves monthly means and standard deviations at each site (by construction through standardization and destandardization), spatial cross-site correlations (all sites share the same bootstrap indices for each year), and intra-annual temporal correlation (through the Cholesky decomposition of the 12-month correlation matrix). The cross-year shifted matrix construction maintains continuity across the December-January boundary.</p>
-<p>Because the method resamples from the historical record, the empirical marginal distribution is approximately preserved. The normal score transform and its inverse allow modest extrapolation beyond the observed range in the tails. However, the generated values remain close to the historical envelope, and genuinely novel extremes cannot be produced.</p>
+<p>The method preserves per-period (monthly or weekly) means and standard deviations at each site (by construction through standardization and destandardization), spatial cross-site correlations (all sites share the same bootstrap indices for each year), and intra-annual temporal correlation (through the Cholesky decomposition of the <span class="arithmatex">\(P \times P\)</span> correlation matrix). The cross-year shifted matrix construction maintains continuity across the year boundary.</p>
+<p>Because the method resamples from the historical record, the empirical marginal distribution is approximately preserved. The normal score transform and its inverse allow modest extrapolation beyond the observed range in the tails. However, generated values remain close to the historical envelope, and genuinely novel extremes cannot be produced.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Generated values are bounded near the historical range (bootstrap limitation).</li>
-<li>Requires complete years; the cross-year shifted matrix loses one year of data.</li>
+<li>Requires complete years; the cross-year shifted matrix loses one year of data, and the weekly path additionally drops ISO week 53 from years that have one.</li>
 <li>Sample correlation matrices may need positive-definiteness repair, which can inflate apparent correlations.</li>
 <li>The method does not model long-range persistence or nonstationarity.</li>
 </ul>
@@ -1667,7 +1671,7 @@ Y_{y,m,s} = \Phi^{-1}\!\left(\frac{r(Z_{y,m,s}) - 0.5}{N}\right)
 <p><strong>Primary:</strong>
 Kirsch, B.R., Characklis, G.W., and Zeff, H.B. (2013). Evaluating the impact of alternative hydro-climate scenarios on transfer agreements: A practical improvement for generating synthetic streamflows. <em>Journal of Water Resources Planning and Management</em>, 139(4), 396-406. https://doi.org/10.1061/(ASCE)WR.1943-5452.0000287</p>
 <hr />
-<p><strong>Implementation:</strong> <code>src/synhydro/methods/generation/nonparametric/kirsch.py</code></p>
+<p><strong>Implementation:</strong> <code>src/synhydro/methods/generation/hybrid/kirsch.py</code></p>
 
 
 

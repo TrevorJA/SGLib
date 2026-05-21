@@ -26,7 +26,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch, Rectangle
+from matplotlib.patches import FancyBboxPatch
 
 from synhydro.plotting.config import COLORS, apply_plotting_style
 
@@ -105,7 +105,7 @@ GENERATORS: Tuple[GenSpec, ...] = (
     GenSpec("MS Phase Rand.", "Spectral", 1, "multi", col="Daily"),
     GenSpec("WARM", "Spectral", 0.5, "single", col="Annual"),
     GenSpec("Kirsch", "Bootstrap", 0, "multi", span=("Weekly", "Monthly")),
-    GenSpec("KNN-Bootstrap", "k-NN", 0, "both", span=("Daily", "Annual")),
+    GenSpec("KNN-Bootstrap", "k-NN", 0, "multi", span=("Monthly", "Annual")),
 )
 
 
@@ -189,54 +189,19 @@ def _draw_pill(
     bar_y = y0 + bar_inset
     bar_w = width - 2.0 * bar_inset
 
-    if sites == "single":
-        ax.add_patch(
-            Rectangle(
-                (bar_x, bar_y),
-                bar_w,
-                bar_h,
-                facecolor=COLOR_SINGLE,
-                edgecolor="none",
-                zorder=4,
-                clip_on=False,
-            )
+    bar_color = COLOR_SINGLE if sites == "single" else COLOR_MULTI
+    ax.add_patch(
+        FancyBboxPatch(
+            (bar_x, bar_y),
+            bar_w,
+            bar_h,
+            boxstyle=f"round,pad=0,rounding_size={bar_h / 2.0}",
+            facecolor=bar_color,
+            edgecolor="none",
+            zorder=4,
+            clip_on=False,
         )
-    elif sites == "multi":
-        ax.add_patch(
-            Rectangle(
-                (bar_x, bar_y),
-                bar_w,
-                bar_h,
-                facecolor=COLOR_MULTI,
-                edgecolor="none",
-                zorder=4,
-                clip_on=False,
-            )
-        )
-    elif sites == "both":
-        half = bar_w / 2.0
-        ax.add_patch(
-            Rectangle(
-                (bar_x, bar_y),
-                half,
-                bar_h,
-                facecolor=COLOR_SINGLE,
-                edgecolor="none",
-                zorder=4,
-                clip_on=False,
-            )
-        )
-        ax.add_patch(
-            Rectangle(
-                (bar_x + half, bar_y),
-                half,
-                bar_h,
-                facecolor=COLOR_MULTI,
-                edgecolor="none",
-                zorder=4,
-                clip_on=False,
-            )
-        )
+    )
 
     text_y = y_center + bar_h / 2.0
     ax.text(
@@ -319,16 +284,18 @@ def _draw_supergroup_bracket(
 
 def _draw_legend(ax: plt.Axes, y: float) -> None:
     """Draw a compact two-swatch legend below the grid."""
-    swatch_w = 0.022
-    swatch_h = 0.018
-    single_x = 0.30
-    multi_x = 0.52
+    swatch_w = 0.045
+    swatch_h = 0.012
+    text_gap = 0.010
+    single_x = 0.08
+    multi_x = 0.48
 
     ax.add_patch(
-        Rectangle(
+        FancyBboxPatch(
             (single_x, y - swatch_h / 2.0),
             swatch_w,
             swatch_h,
+            boxstyle=f"round,pad=0,rounding_size={swatch_h / 2.0}",
             facecolor=COLOR_SINGLE,
             edgecolor="none",
             zorder=5,
@@ -336,9 +303,9 @@ def _draw_legend(ax: plt.Axes, y: float) -> None:
         )
     )
     ax.text(
-        single_x + swatch_w + 0.008,
+        single_x + swatch_w + text_gap,
         y,
-        "Single-site",
+        "Single site generation only",
         ha="left",
         va="center",
         fontsize=10,
@@ -346,10 +313,11 @@ def _draw_legend(ax: plt.Axes, y: float) -> None:
         clip_on=False,
     )
     ax.add_patch(
-        Rectangle(
+        FancyBboxPatch(
             (multi_x, y - swatch_h / 2.0),
             swatch_w,
             swatch_h,
+            boxstyle=f"round,pad=0,rounding_size={swatch_h / 2.0}",
             facecolor=COLOR_MULTI,
             edgecolor="none",
             zorder=5,
@@ -357,9 +325,9 @@ def _draw_legend(ax: plt.Axes, y: float) -> None:
         )
     )
     ax.text(
-        multi_x + swatch_w + 0.008,
+        multi_x + swatch_w + text_gap,
         y,
-        "Multi-site",
+        "Multiple-site (MS) generation supported",
         ha="left",
         va="center",
         fontsize=10,

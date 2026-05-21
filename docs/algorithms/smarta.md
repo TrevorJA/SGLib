@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Type** | Parametric |
-| **Resolution** | Monthly (or Annual) |
+| **Resolution** | Annual |
 | **Sites** | Multisite |
 
 ## Overview

@@ -5,6 +5,12 @@ All notable changes to SynHydro are documented in this file.
 ## [Unreleased]
 
 ### Added
+- `KirschGenerator` now supports weekly resolution in addition to monthly.
+  `preprocessing(..., timestep="weekly")` aggregates daily input to ISO weekly
+  (W-SUN) buckets, drops ISO week 53, and runs the Kirsch (2013) algorithm with
+  52 periods per year and a 26-period half-shift. Monthly remains the default
+  and is auto-detected when no `timestep` is supplied. Pre-aggregated weekly
+  input (W-SUN family aliases) is also accepted.
 - ARFIMA MA(q) component with CSS estimation and BIC-based order selection
 - KNN Bootstrap generator for nonparametric multi-site generation
 - Valencia-Schaake temporal disaggregation method
@@ -19,6 +25,18 @@ All notable changes to SynHydro are documented in this file.
 - MkDocs documentation site with algorithm reference pages
 
 ### Changed
+- `KNNBootstrapGenerator` no longer accepts sub-monthly input. Restricted to
+  monthly (Lall & Sharma, 1996; Prairie et al., 2006) and annual (Prairie et
+  al., 2008) per the primary streamflow literature. Sub-monthly input now
+  raises `ValueError`; for daily output, generate an annual realization and
+  disaggregate with `NowakDisaggregator`. Daily KNN bootstrap in the
+  literature is established only for weather variables (Rajagopalan and Lall,
+  1999) or as a disaggregation step (Nowak et al., 2010), not as a standalone
+  daily streamflow generator.
+- Updated pandas frequency strings to current preferred names: `'AS'` ->
+  `'YS'`, `'A'` -> `'YE'`, `'M'` -> `'ME'`. Input-alias sets in ARFIMA,
+  WARM, and SMARTA still accept both old and new aliases for compatibility
+  with `pd.infer_freq()` on older pandas versions.
 - Reorganized generators into three classification bins based on the
   mathematical character of their generative mechanism (Studnicka and Panu,
   2025): `synhydro.methods.generation.parametric` (Thomas-Fiering, Matalas,
@@ -26,6 +44,13 @@ All notable changes to SynHydro are documented in this file.
   (Kirsch, WARM, Phase Randomization, MS Phase Randomization, HMM-KNN), and
   `synhydro.methods.generation.nonparametric` (KNN-Bootstrap). Top-level
   `synhydro.<Generator>` imports are unchanged.
+- **Breaking:** `KirschGenerator` internal attribute renames to be
+  resolution-agnostic: `n_months` -> `n_periods_per_year`,
+  `mean_month` -> `mean_period`, `std_month` -> `std_period`, and the public
+  property `Q_obs_monthly` -> `Q_obs_aggregated`. Downstream callers
+  referencing these attributes (e.g., custom plotting code) must update.
+  `MatalasGenerator` and `ThomasFieringGenerator` retain their original
+  `Q_obs_monthly` naming.
 - Migrated all generators to `np.random.Generator` (replaces legacy `np.random`)
 - Replaced all `print()` with `logging.getLogger(__name__)`
 - Major API refactor: standardized preprocessing/fit/generate interface
@@ -55,6 +80,15 @@ All notable changes to SynHydro are documented in this file.
   through a shared `_pipeline_from_X` helper. Breaking for seed-level
   reproducibility: `.generate(seed=S)` produces different numerical output
   than prior releases (the corrected distribution).
+- Kirsch weekly output DatetimeIndex is now built per synthetic year using
+  `pd.Timestamp.fromisocalendar(y, w, 7)` instead of a plain
+  `pd.date_range(freq="W-SUN")`. The previous range marched in 7-day steps
+  across year boundaries, accumulating a ~1.25 day/year backward drift (since
+  52 x 7 = 364 days), which manifested as a multi-week leftward shift in
+  seasonal-cycle plots over multi-decade horizons. Each synthetic position
+  `k` of year `y` now lands on the Sunday of ISO week `(k+1)` of `y` so the
+  per-period mean/std applied at fit time aligns with the calendar week of
+  the labeled date.
 - SSI Python version compatibility issue
 - SSI deprecated pandas `"M"` frequency string (now `"ME"`)
 - Valencia-Schaake divide-by-zero in correlation matrix computation

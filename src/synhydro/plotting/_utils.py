@@ -224,7 +224,7 @@ def filter_complete_years(df: pd.DataFrame) -> pd.DataFrame:
     # Infer frequency
     freq = infer_datetime_frequency(df)
 
-    min_periods_per_year = {"D": 365, "W": 52, "M": 12, "A": 1}
+    min_periods_per_year = {"D": 365, "W": 52, "ME": 12, "YE": 1}
 
     df_index = df.index
     complete_years = []

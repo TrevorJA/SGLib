@@ -1,31 +1,31 @@
 #!/bin/bash
-# Run diagnostics for a curated subset of generators.
-# Usage: bash run_all.sh
+#SBATCH --account=pmr82_0001
+#SBATCH --partition=normal
+#SBATCH --job-name=synhydro_diag
+#SBATCH --ntasks=12
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=4G
+#SBATCH --time=01:00:00
+#SBATCH --output=logs/diag_%j.out
+#SBATCH --error=logs/diag_%j.err
+#
+# Run all 14 generator diagnostics in parallel on Hopper via MPI.
+# One MPI rank per generator, one core per rank.
+#
+# Submit:  sbatch run_all.sh
+# Status:  squeue -u $USER
+# Logs:    tail -f logs/diag_<jobid>.out
 
-set -e
+set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+cd "$SLURM_SUBMIT_DIR"
+mkdir -p logs outputs
 
-PYTHON="../../venv/Scripts/python"
+module purge
+module load python/3.11.5
+module load gnu9/9.3.0
+module load openmpi4/4.0.5
 
-GENERATORS=(
-    "Matalas"
-    "ThomasFiering"
-    "GaussianCopula"
-    "Kirsch"
-    "ARFIMA"
-    "SMARTA"
-    "SPARTA"
-)
+source ../../venv/bin/activate
 
-for gen in "${GENERATORS[@]}"; do
-    echo ""
-    echo "============================================================"
-    echo "  Running diagnostic: $gen"
-    echo "============================================================"
-    $PYTHON run_diagnostic.py --generator "$gen" --n_realizations 3 --n_years 30
-done
-
-echo ""
-echo "All diagnostics complete. Results in outputs/"
+mpirun -np "$SLURM_NTASKS" python -u run_all_mpi.py --n_realizations 3 --n_years 30

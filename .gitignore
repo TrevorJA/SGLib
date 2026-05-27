@@ -175,6 +175,9 @@ pywrdrb/*
 local/
 .claude/
 external_source_codes/*
+
+experiments/*/logs/*
+experiments/*/outputs/*
 experiments/disaggregator_diagnostics/*
 experiments/model_diagnostics/outputs/*
 experiments/plotting_module/*

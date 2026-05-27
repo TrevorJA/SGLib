@@ -52,12 +52,6 @@ GENERATORS = {
         "multisite": True,
         "init_kwargs": {"n_states": 2, "covariance_type": "full"},
     },
-    "HMM_KNN": {
-        "class_name": "HMMKNNGenerator",
-        "frequency": "annual",
-        "multisite": True,
-        "init_kwargs": {"n_states": 2, "covariance_type": "full"},
-    },
     "WARM": {
         "class_name": "WARMGenerator",
         "frequency": "annual",

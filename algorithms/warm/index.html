@@ -990,6 +990,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#variance-correction-factor-eq-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      Variance Correction Factor (Eq. 7)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#synthesis-procedure" class="md-nav__link">
     <span class="md-ellipsis">
       Synthesis Procedure
@@ -1498,6 +1507,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#variance-correction-factor-eq-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      Variance Correction Factor (Eq. 7)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#synthesis-procedure" class="md-nav__link">
     <span class="md-ellipsis">
       Synthesis Procedure
@@ -1586,7 +1604,7 @@
 <tbody>
 <tr>
 <td><strong>Type</strong></td>
-<td>Parametric</td>
+<td>Hybrid (wavelet decomposition + parametric AR + nonparametric residual bootstrap)</td>
 </tr>
 <tr>
 <td><strong>Resolution</strong></td>
@@ -1599,8 +1617,8 @@
 </tbody>
 </table>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>WARM generates synthetic annual streamflow that preserves both the marginal distribution and the non-stationary spectral structure of an observed record. The observed series is decomposed by the continuous wavelet transform (CWT) into time-frequency space; significant spectral bands are identified by chi-squared significance testing of the global wavelet spectrum against a red- or white-noise background (Torrence and Compo 1998). For each significant band the time-domain reconstruction is obtained from the band-restricted inverse CWT, divided by the square root of its Scale-Averaged Wavelet Power (SAWP) to remove the time-varying envelope, and modelled with an autoregressive process. A residual "noise" component captures everything outside the significant bands and is also fit with an AR model. Synthesis simulates the AR processes, multiplies each band's stationary signal by the square root of a bootstrapped SAWP series to restore non-stationarity, and sums the resulting bands and noise in the time domain.</p>
-<p>This implementation follows Nowak et al. (2011) Sections 2.1-2.3 exactly: per-band SAWP, time-domain AR fitting on band-reconstructed series after envelope removal, and variance-preserving inverse CWT in the form of Eq. 4.</p>
+<p>WARM generates synthetic annual streamflow that preserves both the marginal distribution and the non-stationary spectral structure of an observed record. The observed series is decomposed by the continuous wavelet transform (CWT) into time-frequency space; significant spectral bands are identified by chi-squared significance testing of the global wavelet spectrum against a red- or white-noise background (Torrence and Compo 1998). For each significant band the time-domain reconstruction is obtained from the band-restricted inverse CWT, divided by the square root of its Scale-Averaged Wavelet Power (SAWP) to remove the time-varying envelope, and modelled with an autoregressive process. A residual "noise" component captures everything outside the significant bands and is also fit with an AR model. Synthesis simulates the AR processes, restores each band's non-stationary envelope by multiplying the stationary signal by the square root of the historical SAWP (read cyclically with a uniformly random starting offset), sums bands and noise in the time domain, and applies the Nowak et al. (2011) Eq. 7 variance correction.</p>
+<p>This implementation follows Nowak et al. (2011) Sections 2.1-2.3 exactly: per-band SAWP, time-domain AR fitting on band-reconstructed series after envelope removal, variance-preserving inverse CWT in the form of Eq. 4, the Eq. 7 variance correction, and the recommended bootstrap of empirical noise innovations.</p>
 <h2 id="notation">Notation<a class="headerlink" href="#notation" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1640,11 +1658,15 @@
 </tr>
 <tr>
 <td><span class="arithmatex">\(C_\delta\)</span></td>
-<td>Wavelet-specific reconstruction factor (T&amp;C 1998 Table 2)</td>
+<td>Wavelet-specific reconstruction factor (T&amp;C 1998 Eq. 12; calibrated for the chosen wavelet)</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(\psi_0(0)\)</span></td>
-<td>Mother wavelet evaluated at zero (T&amp;C 1998 Table 2)</td>
+<td>Real part of the mother wavelet at zero</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\kappa\)</span></td>
+<td>Integrated squared modulus <span class="arithmatex">\(\int \lvert \psi \rvert^2 \, dt\)</span> of the mother wavelet; equals 1 for T&amp;C's unit-energy convention and <span class="arithmatex">\(\approx 0.326\)</span> for PyWavelets <code>cmor1.5-1.0</code></td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(\bar P^{(b)}_t\)</span></td>
@@ -1686,11 +1708,15 @@
 <td><span class="arithmatex">\(P_k\)</span></td>
 <td>Theoretical background spectrum at Fourier wavenumber <span class="arithmatex">\(k\)</span></td>
 </tr>
+<tr>
+<td><span class="arithmatex">\(vf\)</span></td>
+<td>Variance correction factor (Nowak et al. 2011 Eq. 7)</td>
+</tr>
 </tbody>
 </table>
 <h2 id="formulation">Formulation<a class="headerlink" href="#formulation" title="Permanent link">&para;</a></h2>
 <h3 id="continuous-wavelet-transform">Continuous Wavelet Transform<a class="headerlink" href="#continuous-wavelet-transform" title="Permanent link">&para;</a></h3>
-<p>The observed annual flow series <span class="arithmatex">\(\{Q_t\}_{t=1}^{N}\)</span> is mean-centered and decomposed using a mother wavelet <span class="arithmatex">\(\psi\)</span> (default: Morlet) at <span class="arithmatex">\(J + 1\)</span> scales constructed geometrically following Torrence and Compo (1998) Eq. 9-10:</p>
+<p>The observed annual flow series <span class="arithmatex">\(\{Q_t\}_{t=1}^{N}\)</span> is internally mean-centered for numerical stability and decomposed using the complex Morlet wavelet (PyWavelets <code>cmor1.5-1.0</code>, bandwidth <span class="arithmatex">\(B = 1.5\)</span>, center frequency <span class="arithmatex">\(C = 1.0\)</span>, equivalent to <span class="arithmatex">\(\omega_0 = 2 \pi \approx 6.28\)</span>, a close approximation to the Nowak et al. (2011) / Torrence and Compo (1998) convention of <span class="arithmatex">\(\omega_0 = 6\)</span>). The PyWavelets <code>cmor</code> family uses a different normalization than T&amp;C's unit-energy Morlet; the empirically calibrated <span class="arithmatex">\(C_\delta\)</span> and the explicit <span class="arithmatex">\(\kappa\)</span> scaling on the significance threshold compensate for this normalization difference. Scales are constructed geometrically following Torrence and Compo (1998) Eq. 9-10:</p>
 <div class="arithmatex">\[
 a_j = s_0 \, 2^{j \delta_j}, \qquad j = 0, 1, \ldots, J
 \]</div>
@@ -1704,15 +1730,15 @@ a_j = s_0 \, 2^{j \delta_j}, \qquad j = 0, 1, \ldots, J
 <div class="arithmatex">\[
 \nu_j = 2 \sqrt{1 + \left(\frac{N \delta_t}{\gamma a_j}\right)^2}
 \]</div>
-<p>where <span class="arithmatex">\(\gamma\)</span> is the wavelet decorrelation factor (<span class="arithmatex">\(\gamma = 2.32\)</span> for Morlet, <span class="arithmatex">\(\gamma = 1.43\)</span> for Mexican Hat). The significance threshold at confidence level <span class="arithmatex">\(p\)</span> is</p>
+<p>where <span class="arithmatex">\(\gamma\)</span> is the wavelet decorrelation factor (<span class="arithmatex">\(\gamma = 2.32\)</span> for complex Morlet with <span class="arithmatex">\(\omega_0 \approx 6\)</span>, T&amp;C 1998 Table 2). The significance threshold at confidence level <span class="arithmatex">\(p\)</span> is</p>
 <div class="arithmatex">\[
-\bar W_{\text{thr}}(a_j) = P_{k_j} \cdot \frac{\chi^2_{\nu_j}(p)}{\nu_j}
+\bar W_{\text{thr}}(a_j) = \sigma^2 \, \kappa \, P_{k_j} \, \frac{\chi^2_{\nu_j}(p)}{\nu_j}
 \]</div>
-<p>with the theoretical background spectrum</p>
+<p>where <span class="arithmatex">\(\sigma^2 = \mathrm{Var}(Q_t - \bar Q)\)</span> is the variance of the mean-centered observed series, <span class="arithmatex">\(\kappa = \int |\psi|^2 \, dt\)</span> is the integrated squared modulus of the mother wavelet (<span class="arithmatex">\(\kappa = 1\)</span> for T&amp;C's unit-energy Morlet, <span class="arithmatex">\(\kappa = 1/\sqrt{2\pi B} \approx 0.326\)</span> for PyWavelets <code>cmor1.5-1.0</code> with <span class="arithmatex">\(B=1.5\)</span>), and the theoretical background spectrum is</p>
 <div class="arithmatex">\[
 P_k = \frac{1 - \alpha^2}{1 + \alpha^2 - 2 \alpha \cos(2 \pi k)}, \qquad k = 1 / \lambda
 \]</div>
-<p>and lag-1 coefficient <span class="arithmatex">\(\alpha\)</span> either set to zero (white-noise background) or estimated from the data (red-noise background). Bands are identified as contiguous runs of scales for which <span class="arithmatex">\(\bar W(a_j) &gt; \bar W_{\text{thr}}(a_j)\)</span>. Runs shorter than <code>min_band_scales</code> are discarded. Users may instead supply explicit period bands <span class="arithmatex">\([\lambda_{\min}, \lambda_{\max}]\)</span>, in which case all scales whose Fourier period lies within the interval form one band.</p>
+<p>with lag-1 coefficient <span class="arithmatex">\(\alpha\)</span> either set to zero (white-noise background) or estimated from the data (red-noise background). The <span class="arithmatex">\(\sigma^2 \kappa\)</span> scaling on the threshold is essential: T&amp;C 1998 Eq. 18 expresses the null distribution as <span class="arithmatex">\(|W|^2 / \sigma^2 \sim (1/2) P_k \chi^2_2\)</span> for a unit-energy wavelet; for a wavelet with <span class="arithmatex">\(\kappa \neq 1\)</span> the comparable normalization is <span class="arithmatex">\(|W|^2 / (\sigma^2 \kappa)\)</span>. Bands are identified as contiguous runs of scales for which <span class="arithmatex">\(\bar W(a_j) &gt; \bar W_{\text{thr}}(a_j)\)</span>. Runs shorter than <code>min_band_scales</code> are discarded. Users may instead supply explicit period bands <span class="arithmatex">\([\lambda_{\min}, \lambda_{\max}]\)</span>, in which case all scales whose Fourier period lies within the interval form one band.</p>
 <h3 id="per-band-sawp">Per-Band SAWP<a class="headerlink" href="#per-band-sawp" title="Permanent link">&para;</a></h3>
 <p>For each band <span class="arithmatex">\(b\)</span> defined by the scale-index set <span class="arithmatex">\(J_b = \{j_1, \ldots, j_2\}\)</span>, the Scale-Averaged Wavelet Power (Nowak et al. 2011 Eq. 5; Torrence and Compo 1998 Eq. 24) is computed with summation limits restricted to <span class="arithmatex">\(J_b\)</span>:</p>
 <div class="arithmatex">\[
@@ -1724,7 +1750,7 @@ P_k = \frac{1 - \alpha^2}{1 + \alpha^2 - 2 \alpha \cos(2 \pi k)}, \qquad k = 1 /
 <div class="arithmatex">\[
 S^{(b)}_t = \frac{\delta_j \, \delta_t^{1/2}}{C_\delta \, \psi_0(0)} \sum_{j \in J_b} \frac{\Re\!\left[W(a_j, t)\right]}{a_j^{1/2}}
 \]</div>
-<p>The wavelet-specific constants are tabulated in Torrence and Compo (1998) Table 2: for the Morlet wavelet <span class="arithmatex">\(C_\delta = 0.776\)</span> and <span class="arithmatex">\(\psi_0(0) = \pi^{-1/4}\)</span>; for the Mexican Hat <span class="arithmatex">\(C_\delta = 3.541\)</span> and <span class="arithmatex">\(\psi_0(0) = (2/\sqrt{3}) \pi^{-1/4}\)</span>. With these constants, <span class="arithmatex">\(S^{(b)}_t\)</span> is a variance-preserving reconstruction in the units of the original (mean-centered) flow series; no post-hoc moment matching is required.</p>
+<p>For the default complex Morlet <code>cmor1.5-1.0</code>, <span class="arithmatex">\(\psi_0(0) = 1 / \sqrt{1.5 \pi} \approx 0.4607\)</span> (analytic) and <span class="arithmatex">\(C_\delta \approx 0.5587\)</span> (calibrated empirically against the PyWavelets normalization via delta-function reconstruction, T&amp;C 1998 Eq. 12). With these constants, <span class="arithmatex">\(S^{(b)}_t\)</span> is a variance-preserving reconstruction in the units of the original (mean-centered) flow series; no post-hoc moment matching is required.</p>
 <h3 id="stationary-component-and-ar-fitting">Stationary Component and AR Fitting<a class="headerlink" href="#stationary-component-and-ar-fitting" title="Permanent link">&para;</a></h3>
 <p>Each band-reconstructed signal <span class="arithmatex">\(S^{(b)}_t\)</span> is non-stationary because its envelope tracks <span class="arithmatex">\(\sqrt{\bar P^{(b)}_t}\)</span>. Dividing by the square root of SAWP yields an approximately stationary series:</p>
 <div class="arithmatex">\[
@@ -1741,40 +1767,49 @@ R^{(b)} \, \boldsymbol{\phi}^{(b)} = \mathbf{r}^{(b)}, \qquad
 <div class="arithmatex">\[
 \eta_t = (Q_t - \bar Q) - \sum_b S^{(b)}_t
 \]</div>
-<p>An AR<span class="arithmatex">\((p^{(\eta)})\)</span> model is fit to <span class="arithmatex">\(\eta_t\)</span> using the same Yule-Walker procedure. Following the Nowak et al. (2011) Section 4 discussion, this residual contains the stochastic high-frequency content that should not be smoothed by a bandwise wavelet treatment.</p>
+<p>An AR<span class="arithmatex">\((p^{(\eta)})\)</span> model is fit to <span class="arithmatex">\(\eta_t\)</span> using the same Yule-Walker procedure. Following the Nowak et al. (2011) Section 4 discussion, this residual contains the stochastic high-frequency content that should not be smoothed by a bandwise wavelet treatment. The standardized empirical innovations <span class="arithmatex">\(\hat\varepsilon_t = (\eta_t - \sum_k \phi_k^{(\eta)} \eta_{t-k}) / \sigma^{(\eta)}\)</span> are retained for the default bootstrap innovation mode (see Synthesis).</p>
+<h3 id="variance-correction-factor-eq-7">Variance Correction Factor (Eq. 7)<a class="headerlink" href="#variance-correction-factor-eq-7" title="Permanent link">&para;</a></h3>
+<p>Independent simulation of bands and noise introduces two structural differences between observed and synthesized variance. First, the small cross-covariances between components observed in the data (Nowak et al. 2011 Eq. 6) are lost. Second, within each band the synthesized variance is <span class="arithmatex">\(\mathrm{Var}(\hat{\tilde S}^{(b)}_t) \cdot \mathbb{E}[\hat P^{(b)}_t] \approx \mathrm{Var}(\tilde S^{(b)}_t) \cdot \overline{\bar P^{(b)}}\)</span> -- the product of the stationary AR variance and the mean SAWP, because <span class="arithmatex">\(\hat{\tilde S}^{(b)}_t\)</span> and <span class="arithmatex">\(\hat P^{(b)}_t\)</span> are drawn independently in synthesis. The observed band variance <span class="arithmatex">\(\mathrm{Var}(S^{(b)}_t)\)</span> differs from this product because the observed stationary signal and observed SAWP are structurally coupled.</p>
+<p>The centered synthetic is therefore scaled by the variance correction factor</p>
+<div class="arithmatex">\[
+vf = \sqrt{ \frac{ \mathrm{Var}(Q_t - \bar Q) }{ \sum_b \mathrm{Var}(\tilde S^{(b)}_t) \cdot \overline{\bar P^{(b)}} + \mathrm{Var}(\eta_t) } }
+\]</div>
+<p>so that the ensemble total variance matches the observed total variance. The denominator is the expected variance of the independently-simulated sum, not the in-sample variance of the observed reconstructions. The square root reflects that the time series (not the variance) is multiplied by <span class="arithmatex">\(vf\)</span>; the resulting variance scales by <span class="arithmatex">\(vf^2\)</span> to recover <span class="arithmatex">\(\mathrm{Var}(Q_t - \bar Q)\)</span>.</p>
 <h3 id="synthesis-procedure">Synthesis Procedure<a class="headerlink" href="#synthesis-procedure" title="Permanent link">&para;</a></h3>
 <p>For each realization of length <span class="arithmatex">\(T\)</span>:</p>
 <ol>
-<li><strong>Per-band AR simulation.</strong> For each band <span class="arithmatex">\(b\)</span>, simulate a synthetic stationary series:</li>
+<li><strong>Per-band AR simulation.</strong> For each band <span class="arithmatex">\(b\)</span>, simulate a synthetic stationary series with Gaussian innovations:</li>
 </ol>
 <div class="arithmatex">\[
 \hat{\tilde S}^{(b)}_t = \mu^{(b)} + \sum_{k=1}^{p^{(b)}} \phi_k^{(b)} \left( \hat{\tilde S}^{(b)}_{t-k} - \mu^{(b)} \right) + \sigma^{(b)} \, \varepsilon_t
 \]</div>
 <p>with a burn-in to reach stationarity.</p>
 <ol>
-<li>
-<p><strong>SAWP bootstrap.</strong> Sample SAWP indices uniformly with replacement from the historical record to obtain <span class="arithmatex">\(\hat P^{(b)}_t\)</span> for <span class="arithmatex">\(t = 1, \ldots, T\)</span>. This preserves the marginal distribution of historical band power.</p>
-</li>
-<li>
-<p><strong>Re-introduce non-stationarity.</strong> Multiply by the square root of the bootstrapped SAWP to restore the time-varying envelope:</p>
-</li>
+<li><strong>Historical SAWP resampling.</strong> Read the historical SAWP cyclically with a uniformly random integer offset <span class="arithmatex">\(k \sim \mathrm{Uniform}\{0, \ldots, N-1\}\)</span>:</li>
+</ol>
+<div class="arithmatex">\[
+\hat P^{(b)}_t = \bar P^{(b)}_{(t + k) \bmod N}, \qquad t = 1, \ldots, T
+\]</div>
+<p>This preserves the full autocorrelation structure (and therefore the non-stationary envelope) of the historical SAWP series. The random offset varies the envelope phase across realizations without destroying its temporal structure. (An earlier implementation used i.i.d. bootstrap of SAWP, which destroyed the SAWP autocorrelation and produced a scale-mixture-of-Gaussians marginal with heavy tails; cyclic resampling resolves that bias.)</p>
+<ol>
+<li><strong>Re-introduce non-stationarity.</strong> Multiply by the square root of the historical SAWP to restore the time-varying envelope:</li>
 </ol>
 <div class="arithmatex">\[
 \hat S^{(b)}_t = \hat{\tilde S}^{(b)}_t \cdot \sqrt{\hat P^{(b)}_t}
 \]</div>
 <ol>
 <li>
-<p><strong>Noise simulation.</strong> Simulate <span class="arithmatex">\(\hat \eta_t\)</span> from the noise AR model.</p>
+<p><strong>Noise simulation.</strong> Simulate <span class="arithmatex">\(\hat \eta_t\)</span> from the noise AR model. With <code>noise_model='ar_bootstrap'</code> (default, following Nowak et al. 2011 Section 4 for the Lee's Ferry case), innovations are drawn by resampling with replacement from the empirical standardized residuals <span class="arithmatex">\(\hat\varepsilon\)</span>, then rescaled by <span class="arithmatex">\(\sigma^{(\eta)}\)</span>, preserving any non-normal features (skew, heavy tails). With <code>noise_model='ar_gaussian'</code>, innovations are drawn from <span class="arithmatex">\(\mathcal{N}(0, \sigma^{(\eta) 2})\)</span>.</p>
 </li>
 <li>
-<p><strong>Aggregate in the time domain and add the historical mean back:</strong></p>
+<p><strong>Aggregate, apply variance correction, and add the historical mean:</strong></p>
 </li>
 </ol>
 <div class="arithmatex">\[
-\hat Q_t = \bar Q + \sum_b \hat S^{(b)}_t + \hat \eta_t
+\hat Q_t = \bar Q + vf \cdot \left( \sum_b \hat S^{(b)}_t + \hat \eta_t \right)
 \]</div>
 <ol>
-<li>Enforce a lower bound on flow: <span class="arithmatex">\(\hat Q_t \leftarrow \max(\hat Q_t, L)\)</span>, where <span class="arithmatex">\(L\)</span> is the <code>lower_bound</code> parameter (default <span class="arithmatex">\(L = 0\)</span> following Nowak et al. 2011; set <span class="arithmatex">\(L\)</span> to the observed minimum via <code>lower_bound='obs_min'</code> to suppress unphysical near-zero years on perennial rivers, see Tail behavior below).</li>
+<li><strong>Apply the physical lower bound:</strong> <span class="arithmatex">\(\hat Q_t \leftarrow \max(\hat Q_t, L)\)</span> with <span class="arithmatex">\(L = 0\)</span> by default. The combination of Eq. 7 variance correction and bootstrap noise innovations rarely produces negative annual sums, so the clamp is essentially inactive on typical streamflow records.</li>
 </ol>
 <h2 id="multi-site-simulation-via-composition">Multi-site Simulation via Composition<a class="headerlink" href="#multi-site-simulation-via-composition" title="Permanent link">&para;</a></h2>
 <p>WARM as published is a univariate generator. Nowak et al. (2011) Section 2.4 achieves multi-site simulation through a two-stage composition:</p>
@@ -1785,27 +1820,23 @@ R^{(b)} \, \boldsymbol{\phi}^{(b)} = \mathbf{r}^{(b)}, \qquad
 <p>In SynHydro, this composition is implemented by chaining <code>WARMGenerator</code> with <code>synhydro.methods.disaggregation.spatial.NowakDisaggregator</code>. The <code>WARMGenerator</code> class itself remains univariate. Cross-site spectral consistency depends on the spatial homogeneity of the basin: tributaries with substantially different spectral signatures (Nowak et al. 2011 Section 3.3, the San Juan example) may not inherit the aggregate band structure, in which case those gauges should be modeled independently and recombined.</p>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Mean and variance.</strong> Preserved approximately through the variance-preserving inverse CWT and explicit re-addition of the historical mean.</li>
-<li><strong>Marginal distribution.</strong> Reproduced well in practice for near-Gaussian flows; departures appear when the observed record has substantial skewness, in which case a log transform of the input series is recommended (the implementation does not transform automatically).</li>
+<li><strong>Mean.</strong> Preserved by explicit re-addition of the historical mean after variance-corrected band+noise summation.</li>
+<li><strong>Variance.</strong> Preserved by the Nowak et al. (2011) Eq. 7 variance correction factor applied to the centered synthetic.</li>
+<li><strong>Marginal distribution.</strong> Reproduced well for streamflow records typical of temperate basins. The default bootstrap noise innovations preserve any skewness or heavy-tail features present in the residual; the band components themselves use Gaussian innovations on the standardized stationary series and are therefore approximately symmetric per band.</li>
 <li><strong>Lag-1 autocorrelation.</strong> Captured at the band scale through per-band AR fits.</li>
-<li><strong>Spectral structure.</strong> The non-stationary spectral envelope of significant bands is reproduced through the SAWP bootstrap and per-band reconstruction. The global spectrum is reproduced through the variance budget across bands and noise.</li>
-<li><strong>Higher moments.</strong> Skewness is not explicitly modeled and is generally underrepresented when the residual deviates from Gaussianity (Nowak et al. 2011 Fig. 14 caveat).</li>
+<li><strong>Spectral structure.</strong> The non-stationary spectral envelope of significant bands is reproduced through the cyclic historical SAWP resampling and per-band reconstruction. The global spectrum is reproduced through the variance budget across bands and noise.</li>
+<li><strong>Higher moments.</strong> Skewness in the noise residual is reproduced via bootstrap of empirical innovations (<code>noise_model='ar_bootstrap'</code>, default). Setting <code>noise_model='ar_gaussian'</code> falls back to symmetric innovations and may underrepresent the upper tail.</li>
 </ul>
 <h2 id="tail-behavior">Tail behavior<a class="headerlink" href="#tail-behavior" title="Permanent link">&para;</a></h2>
-<p>The Gaussian AR innovations on the standardized band components and on the noise residual can sample several standard deviations into the lower tail. Combined with bootstrap-resampled SAWP and independent simulation of bands and noise (Nowak et al. 2011 Eq. 7 variance correction is not applied here), a small fraction of synthetic annual sums can fall below the observed historical minimum. Empirically, on the Delaware-basin example record (80 years), about 2% of synthetic years fall below the observed minimum and roughly 0.3% would be negative before clamping. For a perennial river where zero-flow years are not physically plausible, the synthesis step
-$$
-\hat Q_t \leftarrow \max(\hat Q_t, L)
-$$
-exposes a tunable floor <span class="arithmatex">\(L\)</span> via the <code>lower_bound</code> parameter. Setting <code>lower_bound='obs_min'</code> floors at the observed annual minimum and removes the unphysical near-zero tail at the cost of a one-sided distortion of the lower percentiles. The default <span class="arithmatex">\(L = 0\)</span> reproduces the published Nowak et al. (2011) behavior.</p>
+<p>With Eq. 7 variance correction, historical SAWP resampling, and bootstrap noise innovations, the synthetic flow distribution closely matches the observed marginal across the full Flow Duration Curve, including the upper and lower tails. The lower-bound clamp <span class="arithmatex">\(\hat Q_t \leftarrow \max(\hat Q_t, 0)\)</span> is essentially inactive on typical perennial records: clamping events are rare because the variance correction prevents the symmetric-Gaussian heavy-tail behavior that an i.i.d. SAWP bootstrap would otherwise produce. Users who require strictly positive flows for non-perennial rivers may pass a small positive value via <code>lower_bound</code>.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Annual frequency only; monthly or daily output requires a downstream temporal disaggregator.</li>
 <li>Univariate; multi-site requires composition with <code>NowakDisaggregator</code> as described above.</li>
 <li>Edge effects in the CWT (the cone of influence) degrade band identification near the start and end of the record. Records shorter than 30 years are discouraged.</li>
 <li>The chi-squared significance test assumes a smoothly varying background spectrum; multi-modal spectra may produce noisy band identification near the threshold.</li>
-<li>Gaussian AR innovations may underrepresent tails; a bootstrap or non-Gaussian AR for the noise component is suggested by Nowak et al. (2011) Section 4 for records with strongly non-Gaussian residuals.</li>
-<li>The variance correction factor of Nowak et al. (2011) Eq. 7 is <em>not</em> applied here; the implementation relies on the variance-preserving form of the inverse CWT and explicit mean re-addition. If the band/noise components exhibit non-trivial cross-correlation in a particular dataset, the user may observe a small variance underestimation.</li>
-<li>Lower-tail clamping at <code>lower_bound</code> introduces a hard discontinuity at the floor; users plotting flow-duration curves should be aware that the lowest one or two percent of synthetic values represent clamped extreme draws rather than smooth tail behavior.</li>
+<li>Cyclic resampling of SAWP preserves its full autocorrelation but produces a finite number of distinct envelope realizations (equal to the historical record length); for very large ensembles, neighboring realizations may share long-window SAWP patterns up to a circular shift.</li>
+<li>Bootstrap innovations cannot generate values outside the empirical residual support; extreme tail behavior beyond the observed record is not extrapolated.</li>
 </ul>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <p><strong>Primary:</strong>
@@ -1818,7 +1849,7 @@ Nowak, K., Prairie, J., Rajagopalan, B., and Lall, U. (2010). A nonparametric st
 - Erkyihun, S.T., Rajagopalan, B., Zagona, E., Lall, U., and Nowak, K. (2016). Wavelet-based time series bootstrap model for multidecadal streamflow simulation using climate indicators. <em>Water Resources Research</em>, 52(5), 4061-4077. https://doi.org/10.1002/2016WR018696
 - Kwon, H.-H., Lall, U., and Khalil, A.F. (2007). Stochastic simulation model for nonstationary time series using an autoregressive wavelet decomposition. <em>Water Resources Research</em>, 43(5).</p>
 <hr />
-<p><strong>Implementation:</strong> <code>src/synhydro/methods/generation/parametric/warm.py</code></p>
+<p><strong>Implementation:</strong> <code>src/synhydro/methods/generation/hybrid/warm.py</code></p>
 
 
 

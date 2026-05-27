@@ -8713,7 +8713,7 @@ number of historic years.</p>
 
 
 <a href="#synhydro.methods.generation.hybrid.warm.WARMGenerator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WARMGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">wavelet</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;morl&#39;</span><span class="p">,</span> <span class="n">scales</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_octaves</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_voices</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span> <span class="n">s0</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ar_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_ar_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">ar_select</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;fixed&#39;</span><span class="p">,</span> <span class="n">bands</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">background_spectrum</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">significance_level</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">,</span> <span class="n">min_band_scales</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">lower_bound</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WARMGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">wavelet</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;cmor1.5-1.0&#39;</span><span class="p">,</span> <span class="n">scales</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_octaves</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_voices</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span> <span class="n">s0</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ar_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_ar_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">ar_select</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;fixed&#39;</span><span class="p">,</span> <span class="n">bands</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">background_spectrum</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">significance_level</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">,</span> <span class="n">min_band_scales</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">noise_model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;ar_bootstrap&#39;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -8749,7 +8749,7 @@ KNN method of Nowak et al. (2010), available in SynHydro as
     <div class="highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">synhydro.methods.generation.hybrid.warm</span><span class="w"> </span><span class="kn">import</span> <span class="n">WARMGenerator</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">Q_annual</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;annual_flows.csv&#39;</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">warm</span> <span class="o">=</span> <span class="n">WARMGenerator</span><span class="p">(</span><span class="n">wavelet</span><span class="o">=</span><span class="s1">&#39;morl&#39;</span><span class="p">,</span> <span class="n">background_spectrum</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">warm</span> <span class="o">=</span> <span class="n">WARMGenerator</span><span class="p">(</span><span class="n">background_spectrum</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">warm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Q_annual</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">ensemble</span> <span class="o">=</span> <span class="n">warm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">n_years</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">n_realizations</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span></code></pre></div>
@@ -8786,14 +8786,16 @@ Bulletin of the American Meteorological Society, 79(1), 61-78.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Wavelet type for the continuous wavelet transform. Supported with
-tabulated reconstruction constants: 'morl' (Morlet) and 'mexh'
-(Mexican Hat). Other PyWavelets continuous wavelets are accepted
-but will fall back to Morlet constants and emit a warning.</p>
+                <p>Wavelet type for the continuous wavelet transform. The default
+complex Morlet (bandwidth=1.5, center frequency=1.0, equivalent to
+omega_0 = 2*pi ~= 6.28) matches the Nowak et al. (2011) and
+Torrence and Compo (1998) convention. Other PyWavelets continuous
+wavelets are accepted but use the cmor1.5-1.0 reconstruction
+constants and may produce slightly biased amplitudes.</p>
               </div>
             </td>
             <td>
-                  <code>&#39;morl&#39;</code>
+                  <code>&#39;cmor1.5-1.0&#39;</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -8997,21 +8999,35 @@ single-scale spurious peaks.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>lower_bound</code>
+                <code>noise_model</code>
             </td>
             <td>
-                  <code><span title="float">float</span> or {<span title="obs_min">obs_min</span>}</code>
+                  <code>(<span title="ar_bootstrap">ar_bootstrap</span>, <span title="ar_gaussian">ar_gaussian</span>)</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Floor applied to synthetic annual values before returning. The
-Gaussian AR + bootstrapped-SAWP synthesis can occasionally produce
-sums that are more negative than the historical record supports,
-and Nowak et al. (2011) clamp these at zero. For perennial rivers
-where zero-flow years are not physically plausible, pass a
-positive float (interpreted in the units of the input series) or
-the string <code>'obs_min'</code> to use the observed minimum as the
-floor. Default of <code>0.0</code> reproduces the original paper.</p>
+                <p>Innovation distribution for the AR model fitted to the noise
+residual. <code>'ar_bootstrap'</code> resamples standardized residuals
+empirically, as recommended in Nowak et al. (2011) for the
+non-normal noise observed at Lee's Ferry. <code>'ar_gaussian'</code> uses
+zero-mean Gaussian innovations matched to the fitted variance.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;ar_bootstrap&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>lower_bound</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Hard floor applied to synthetic annual values before returning.
+Defaults to zero (the physical lower bound on streamflow).</p>
               </div>
             </td>
             <td>

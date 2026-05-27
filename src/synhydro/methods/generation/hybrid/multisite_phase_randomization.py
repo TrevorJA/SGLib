@@ -29,6 +29,8 @@ from synhydro.core.ensemble import Ensemble
 
 logger = logging.getLogger(__name__)
 
+_R_VEC = np.arange(1, 5, dtype=float)
+
 
 class MultisitePhaseRandomizationGenerator(Generator):
     """
@@ -151,10 +153,12 @@ class MultisitePhaseRandomizationGenerator(Generator):
 
         self.par_day_: Dict[str, Dict[int, Optional[Dict[str, float]]]] = {}
         self.cwt_amplitudes_: Dict[str, np.ndarray] = {}
+        self.cwt_amplitudes_stack_: Optional[np.ndarray] = None
         self.norm_: Dict[str, np.ndarray] = {}
         self.obs_mean_: Dict[str, float] = {}
         self.scales_: Optional[np.ndarray] = None
         self.delta_j_: Optional[float] = None
+        self._inv_sqrt_scales_: Optional[np.ndarray] = None
 
     @property
     def output_frequency(self) -> str:
@@ -304,10 +308,20 @@ class MultisitePhaseRandomizationGenerator(Generator):
                 "Site %s: computing CWT (%d scales, N=%d)", site, self.n_scales, N
             )
             coefs, _ = pywt.cwt(
-                self.norm_[site], self.scales_, self.wavelet, sampling_period=1.0
+                self.norm_[site],
+                self.scales_,
+                self.wavelet,
+                sampling_period=1.0,
+                method="fft",
             )
             self.cwt_amplitudes_[site] = np.abs(coefs)  # (n_scales, N)
             self.logger.info("Site %s: CWT complete", site)
+
+        # Cache stacked amplitudes and 1/sqrt(scales) for vectorized inverse CWT
+        self.cwt_amplitudes_stack_ = np.stack(
+            [self.cwt_amplitudes_[s] for s in self._sites], axis=0
+        )
+        self._inv_sqrt_scales_ = (1.0 / np.sqrt(self.scales_))[:, None]
 
         self.update_state(fitted=True)
         self.fitted_params_ = self._compute_fitted_params()
@@ -407,32 +421,29 @@ class MultisitePhaseRandomizationGenerator(Generator):
         # Draw shared phases from a single white-noise CWT
         noise = rng.standard_normal(N)
         noise_coefs, _ = pywt.cwt(
-            noise, self.scales_, self.wavelet, sampling_period=1.0
+            noise,
+            self.scales_,
+            self.wavelet,
+            sampling_period=1.0,
+            method="fft",
         )
         shared_phases = np.angle(noise_coefs)  # (n_scales, N)
 
-        syn_normal: Dict[str, np.ndarray] = {}
-        for site in self._sites:
-            amp = self.cwt_amplitudes_[site]  # (n_scales, N)
-            syn_coefs = amp * np.exp(1j * shared_phases)
+        # Vectorized inverse CWT across all sites at once.
+        # Re(amp * exp(i*phi)) == amp * cos(phi); avoids complex temporaries.
+        weights = np.cos(shared_phases) * self._inv_sqrt_scales_  # (n_scales, N)
+        # raw_all: (n_sites, N) -- sum over scales axis
+        raw_all = (self.cwt_amplitudes_stack_ * weights).sum(axis=1) * self.delta_j_
 
-            # Approximate inverse CWT: sum Re(W(a,t)) / sqrt(a) * delta_j
-            raw = (
-                np.sum(np.real(syn_coefs) / self.scales_[:, None] ** 0.5, axis=0)
-                * self.delta_j_
-            )
-
-            # Standardize to unit variance (per-realization normalization)
-            std = raw.std()
-            if std > 0:
-                raw = raw / std
-            syn_normal[site] = raw
+        # Per-site standardize to unit variance
+        stds = raw_all.std(axis=1, keepdims=True)
+        np.divide(raw_all, stds, out=raw_all, where=stds > 0)
 
         # Back-transform to original units per site
         n_sites = len(self._sites)
         out = np.zeros((N, n_sites))
         for col_idx, site in enumerate(self._sites):
-            out[:, col_idx] = self._back_transform(syn_normal[site], site, rng=rng)
+            out[:, col_idx] = self._back_transform(raw_all[col_idx], site, rng=rng)
 
         return out
 
@@ -519,19 +530,24 @@ class MultisitePhaseRandomizationGenerator(Generator):
         """
         par_day: Dict[int, Optional[Dict[str, float]]] = {}
 
-        day_to_mask = {d: self.day_index_ == d for d in range(1, 366)}
+        # Precompute per-doy window masks once; window topology depends only on
+        # day_index_ and win_h_length, not on obs, so this is shared across sites
+        # and across all 365 iterations.
+        window_masks = self._get_window_masks()
+
+        # Window size n is identical for every doy (n_years * (2*win_h_length+1))
+        # because the record length is a multiple of 365. Precompute L-moment
+        # probability weights once.
+        n_window = int(window_masks[1].sum())
+        lmom_weights = self._lmoment_weights(n_window) if n_window >= 4 else None
 
         last_good_kh: Tuple[float, float] = (1.0, 1.0)
 
         for d in range(1, 366):
-            window_days = self._get_window_days(d)
-            mask = day_to_mask[window_days[0]].copy()
-            for wd in window_days[1:]:
-                mask |= day_to_mask[wd]
-            data_window = obs[mask]
+            data_window = obs[window_masks[d]]
 
             try:
-                lmom = self._compute_lmoments(data_window)
+                lmom = self._compute_lmoments(data_window, weights=lmom_weights)
                 params = self._fit_kappa_params(lmom, x0=last_good_kh)
                 if params is not None:
                     par_day[d] = params
@@ -599,6 +615,50 @@ class MultisitePhaseRandomizationGenerator(Generator):
         obs_mean = float(np.mean(obs))
         return obs - obs_mean, obs_mean
 
+    def _get_window_masks(self) -> Dict[int, np.ndarray]:
+        """
+        Build the pooled per-day-of-year boolean mask used for kappa fitting.
+
+        Returns
+        -------
+        dict of int -> np.ndarray
+            Mapping from day-of-year (1-365) to a boolean mask over the observed
+            record selecting all days within +/- win_h_length of that day-of-year.
+        """
+        day_to_mask = {d: self.day_index_ == d for d in range(1, 366)}
+        window_masks: Dict[int, np.ndarray] = {}
+        for d in range(1, 366):
+            window_days = self._get_window_days(d)
+            mask = day_to_mask[window_days[0]].copy()
+            for wd in window_days[1:]:
+                mask |= day_to_mask[wd]
+            window_masks[d] = mask
+        return window_masks
+
+    @staticmethod
+    def _lmoment_weights(n: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Precompute the probability-weighted-moment coefficient arrays for a
+        sample of size n. These depend only on n, so they can be reused across
+        every day-of-year window of the same size.
+
+        Parameters
+        ----------
+        n : int
+            Sample size.
+
+        Returns
+        -------
+        tuple of (p1, p2, p3) np.ndarray
+            Each of length n, suitable as input to `_compute_lmoments(..., weights=...)`.
+        """
+        pp = np.arange(n, dtype=float)
+        nn = n - 1
+        p1 = pp / nn
+        p2 = p1 * (pp - 1) / max(nn - 1, 1)
+        p3 = p2 * (pp - 2) / max(nn - 2, 1)
+        return p1, p2, p3
+
     def _get_window_days(self, day: int) -> List[int]:
         """
         Return the set of days within a circular window around a target day.
@@ -619,7 +679,11 @@ class MultisitePhaseRandomizationGenerator(Generator):
             window.add((day + w - 1) % 365 + 1)
         return list(window)
 
-    def _compute_lmoments(self, x: np.ndarray) -> Dict[str, float]:
+    def _compute_lmoments(
+        self,
+        x: np.ndarray,
+        weights: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
+    ) -> Dict[str, float]:
         """
         Compute sample L-moments via probability-weighted moments.
 
@@ -627,6 +691,11 @@ class MultisitePhaseRandomizationGenerator(Generator):
         ----------
         x : np.ndarray
             Sample data values.
+        weights : tuple of three np.ndarray, optional
+            Precomputed probability weights (p1, p2, p3) of length len(x), as
+            produced by `_lmoment_weights(len(x))`. Passing them avoids
+            re-allocating these arrays on every call when the sample size is
+            constant (e.g. across all 365 days within one site's kappa fit).
 
         Returns
         -------
@@ -644,12 +713,14 @@ class MultisitePhaseRandomizationGenerator(Generator):
         if n < 4:
             raise ValueError("Need at least 4 observations for L-moments")
 
-        pp = np.arange(n, dtype=float)
-        nn = n - 1
-
-        p1 = pp / nn
-        p2 = p1 * (pp - 1) / max(nn - 1, 1)
-        p3 = p2 * (pp - 2) / max(nn - 2, 1)
+        if weights is not None and len(weights[0]) == n:
+            p1, p2, p3 = weights
+        else:
+            pp = np.arange(n, dtype=float)
+            nn = n - 1
+            p1 = pp / nn
+            p2 = p1 * (pp - 1) / max(nn - 1, 1)
+            p3 = p2 * (pp - 2) / max(nn - 2, 1)
 
         b0 = np.mean(x_sorted)
         b1 = np.mean(p1 * x_sorted)
@@ -698,6 +769,8 @@ class MultisitePhaseRandomizationGenerator(Generator):
         tau3 = lmom["lca"]
         tau4 = lmom["lkur"]
 
+        r_vec = _R_VEC  # cached np.array([1., 2., 3., 4.])
+
         def theoretical_tau(
             k: float, h: float
         ) -> Tuple[Optional[float], Optional[float]]:
@@ -709,23 +782,22 @@ class MultisitePhaseRandomizationGenerator(Generator):
                     5 * (1 - 4 ** (-k)) - 10 * (1 - 3 ** (-k)) + 6 * (1 - 2 ** (-k))
                 ) / (1 - 2 ** (-k))
             else:
-                g = np.zeros(4)
-                for r in range(1, 5):
-                    try:
-                        if h > 0:
-                            g[r - 1] = (r * gamma(1 + k) * gamma(r / h)) / (
-                                h ** (1 + k) * gamma(1 + k + r / h)
-                            )
-                        else:
-                            g[r - 1] = (r * gamma(1 + k) * gamma(-k - r / h)) / (
-                                (-h) ** (1 + k) * gamma(1 - r / h)
-                            )
-                    except (ValueError, ZeroDivisionError):
-                        return None, None
-                if g[0] - g[1] == 0:
+                try:
+                    if h > 0:
+                        g = (r_vec * gamma(1 + k) * gamma(r_vec / h)) / (
+                            h ** (1 + k) * gamma(1 + k + r_vec / h)
+                        )
+                    else:
+                        g = (r_vec * gamma(1 + k) * gamma(-k - r_vec / h)) / (
+                            (-h) ** (1 + k) * gamma(1 - r_vec / h)
+                        )
+                except (ValueError, ZeroDivisionError):
                     return None, None
-                t3 = (-g[0] + 3 * g[1] - 2 * g[2]) / (g[0] - g[1])
-                t4 = -((-g[0] + 6 * g[1] - 10 * g[2] + 5 * g[3]) / (g[0] - g[1]))
+                denom = g[0] - g[1]
+                if denom == 0:
+                    return None, None
+                t3 = (-g[0] + 3 * g[1] - 2 * g[2]) / denom
+                t4 = -((-g[0] + 6 * g[1] - 10 * g[2] + 5 * g[3]) / denom)
             return t3, t4
 
         def objective(kh: np.ndarray) -> float:

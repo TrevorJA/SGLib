@@ -4,8 +4,8 @@
 #SBATCH --job-name=synhydro_diag
 #SBATCH --ntasks=12
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=4G
-#SBATCH --time=03:00:00
+#SBATCH --mem-per-cpu=8G
+#SBATCH --time=06:00:00
 #SBATCH --output=logs/diag_%j.out
 #SBATCH --error=logs/diag_%j.err
 #
@@ -28,4 +28,4 @@ module load openmpi4/4.0.5
 
 source ../../venv/bin/activate
 
-mpirun -np "$SLURM_NTASKS" python -u run_all_mpi.py --n_realizations 3 --n_years 30
+mpirun -np "$SLURM_NTASKS" python -u run_all_mpi.py --n_realizations 50 --n_years 80

@@ -8,7 +8,7 @@ red-noise / white-noise background framework of Torrence and Compo (1998).
 """
 
 import logging
-from typing import Optional, Union, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,19 +22,30 @@ from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 logger = logging.getLogger(__name__)
 
 
-# Wavelet-specific reconstruction constants from Torrence and Compo (1998),
-# Table 2. C_delta is the reconstruction factor used in the inverse CWT and
-# in the SAWP normalization (Nowak et al. 2011, Eqs. 4-5). psi_0 is the
-# value of the (real part of the) mother wavelet at zero, also required
-# in the inverse CWT.
+# Wavelet-specific reconstruction constants used in the inverse CWT, SAWP,
+# and chi-squared significance test (Nowak et al. 2011, Eqs. 4-5;
+# Torrence and Compo 1998, Table 2 and Eqs. 18, 23).
+#
+# - C_delta: reconstruction factor (T&C Eq. 12; calibrated empirically via
+#   delta-function reconstruction for the specific PyWavelets wavelet)
+# - psi_0:   real part of the mother wavelet at zero
+# - gamma:   decorrelation length in scale, used in the equivalent DOF of
+#   the global wavelet spectrum (T&C Eq. 23)
+# - kappa:   integrated squared modulus int|psi|^2 dt of the mother wavelet,
+#   used to renormalize the chi-squared significance threshold for wavelets
+#   whose PyWavelets normalization differs from the unit-energy convention
+#   assumed by T&C (Section 4). For T&C's omega_0=6 Morlet, kappa = 1; for
+#   PyWavelets cmor1.5-1.0, kappa = 1/sqrt(2*pi*B) = 1/sqrt(3*pi) ~= 0.326.
+#
+# The Nowak et al. (2011) algorithm is derived for the complex Morlet with
+# omega_0 = 6 (T&C convention). In PyWavelets this corresponds most closely
+# to 'cmor1.5-1.0' (center frequency = 1.0 -> omega_0 = 2*pi ~= 6.28).
 _WAVELET_CONSTANTS: Dict[str, Dict[str, float]] = {
-    # Morlet, omega_0 = 6
-    "morl": {"C_delta": 0.776, "psi_0": np.pi ** (-0.25), "gamma": 2.32},
-    # Mexican Hat (DOG, m=2)
-    "mexh": {
-        "C_delta": 3.541,
-        "psi_0": (2.0 / np.sqrt(3.0)) * np.pi ** (-0.25),
-        "gamma": 1.43,
+    "cmor1.5-1.0": {
+        "C_delta": 0.5587,
+        "psi_0": 1.0 / float(np.sqrt(1.5 * np.pi)),
+        "gamma": 2.32,
+        "kappa": 1.0 / float(np.sqrt(2.0 * np.pi * 1.5)),
     },
 }
 
@@ -69,7 +80,7 @@ class WARMGenerator(Generator):
     >>> import pandas as pd
     >>> from synhydro.methods.generation.hybrid.warm import WARMGenerator
     >>> Q_annual = pd.read_csv('annual_flows.csv', index_col=0, parse_dates=True)
-    >>> warm = WARMGenerator(wavelet='morl', background_spectrum='red')
+    >>> warm = WARMGenerator(background_spectrum='red')
     >>> warm.fit(Q_annual.iloc[:, [0]])
     >>> ensemble = warm.generate(n_years=100, n_realizations=50, seed=42)
 
@@ -89,7 +100,7 @@ class WARMGenerator(Generator):
     def __init__(
         self,
         *,
-        wavelet: str = "morl",
+        wavelet: str = "cmor1.5-1.0",
         scales: Optional[NDArray] = None,
         n_octaves: Optional[float] = None,
         n_voices: int = 8,
@@ -101,7 +112,8 @@ class WARMGenerator(Generator):
         background_spectrum: str = "red",
         significance_level: float = 0.95,
         min_band_scales: int = 1,
-        lower_bound: Union[float, str] = 0.0,
+        noise_model: str = "ar_bootstrap",
+        lower_bound: float = 0.0,
         name: Optional[str] = None,
         debug: bool = False,
         **kwargs,
@@ -111,11 +123,13 @@ class WARMGenerator(Generator):
 
         Parameters
         ----------
-        wavelet : str, default='morl'
-            Wavelet type for the continuous wavelet transform. Supported with
-            tabulated reconstruction constants: 'morl' (Morlet) and 'mexh'
-            (Mexican Hat). Other PyWavelets continuous wavelets are accepted
-            but will fall back to Morlet constants and emit a warning.
+        wavelet : str, default='cmor1.5-1.0'
+            Wavelet type for the continuous wavelet transform. The default
+            complex Morlet (bandwidth=1.5, center frequency=1.0, equivalent to
+            omega_0 = 2*pi ~= 6.28) matches the Nowak et al. (2011) and
+            Torrence and Compo (1998) convention. Other PyWavelets continuous
+            wavelets are accepted but use the cmor1.5-1.0 reconstruction
+            constants and may produce slightly biased amplitudes.
         scales : array-like of float, optional
             Explicit scales (in units of the sampling period) at which to
             evaluate the CWT. If ``None``, scales are constructed
@@ -161,15 +175,15 @@ class WARMGenerator(Generator):
             Minimum number of contiguous scales above the significance
             threshold required to declare a band. Increase to suppress narrow
             single-scale spurious peaks.
-        lower_bound : float or {'obs_min'}, default=0.0
-            Floor applied to synthetic annual values before returning. The
-            Gaussian AR + bootstrapped-SAWP synthesis can occasionally produce
-            sums that are more negative than the historical record supports,
-            and Nowak et al. (2011) clamp these at zero. For perennial rivers
-            where zero-flow years are not physically plausible, pass a
-            positive float (interpreted in the units of the input series) or
-            the string ``'obs_min'`` to use the observed minimum as the
-            floor. Default of ``0.0`` reproduces the original paper.
+        noise_model : {'ar_bootstrap', 'ar_gaussian'}, default='ar_bootstrap'
+            Innovation distribution for the AR model fitted to the noise
+            residual. ``'ar_bootstrap'`` resamples standardized residuals
+            empirically, as recommended in Nowak et al. (2011) for the
+            non-normal noise observed at Lee's Ferry. ``'ar_gaussian'`` uses
+            zero-mean Gaussian innovations matched to the fitted variance.
+        lower_bound : float, default=0.0
+            Hard floor applied to synthetic annual values before returning.
+            Defaults to zero (the physical lower bound on streamflow).
         name : str, optional
             Name for this generator instance.
         debug : bool, default=False
@@ -204,24 +218,24 @@ class WARMGenerator(Generator):
             )
         if min_band_scales < 1:
             raise ValueError(f"min_band_scales must be >= 1, got {min_band_scales}")
-        if isinstance(lower_bound, str):
-            if lower_bound != "obs_min":
-                raise ValueError(
-                    "lower_bound string must be 'obs_min', got " f"{lower_bound!r}"
-                )
-        else:
-            try:
-                lower_bound = float(lower_bound)
-            except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    "lower_bound must be a float or the string 'obs_min', "
-                    f"got {lower_bound!r}"
-                ) from exc
-        if wavelet not in pywt.wavelist(kind="continuous"):
+        if noise_model not in ("ar_bootstrap", "ar_gaussian"):
             raise ValueError(
-                f"wavelet '{wavelet}' not recognized. "
-                f"Must be one of {pywt.wavelist(kind='continuous')}"
+                "noise_model must be 'ar_bootstrap' or 'ar_gaussian', "
+                f"got {noise_model!r}"
             )
+        try:
+            lower_bound = float(lower_bound)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"lower_bound must be a float, got {lower_bound!r}"
+            ) from exc
+        try:
+            pywt.ContinuousWavelet(wavelet)
+        except (ValueError, RuntimeError) as exc:
+            raise ValueError(
+                f"wavelet '{wavelet}' not recognized. Must be a PyWavelets "
+                "continuous wavelet (e.g. 'cmor1.5-1.0', 'morl', 'mexh')."
+            ) from exc
 
         # Handle the legacy ``scales`` argument: int meaning "this many
         # consecutive integer scales" (kept for backwards-compatible test
@@ -253,6 +267,7 @@ class WARMGenerator(Generator):
         self.background_spectrum = background_spectrum
         self.significance_level = float(significance_level)
         self.min_band_scales = int(min_band_scales)
+        self.noise_model = noise_model
         self.lower_bound = lower_bound
 
         # Backwards-compatible attribute for tests / introspection.
@@ -278,6 +293,7 @@ class WARMGenerator(Generator):
         self.noise_ar_params_: Optional[Dict[str, Any]] = None
         self.noise_residual_: Optional[NDArray] = None
         self.flow_mean_: Optional[float] = None
+        self.variance_correction_: Optional[float] = None
 
         self.init_params.algorithm_params = {
             "wavelet": wavelet,
@@ -290,6 +306,7 @@ class WARMGenerator(Generator):
             "significance_level": self.significance_level,
             "n_voices": self.n_voices,
             "min_band_scales": self.min_band_scales,
+            "noise_model": self.noise_model,
             "lower_bound": self.lower_bound,
         }
 
@@ -404,6 +421,10 @@ class WARMGenerator(Generator):
         Q_centered = Q - self.flow_mean_
 
         # Step 1. Build scales and run the CWT.
+        # Mean-centering is done internally so the band/noise partition is
+        # numerically stable; the mean is added back at synthesis. Wavelets
+        # have zero mean, so CWT(Q) and CWT(Q - mean) differ only by edge
+        # artifacts at the largest scales.
         self.delta_t_ = 1.0
         scales = self._build_scales(n)
         self.logger.info(
@@ -426,8 +447,9 @@ class WARMGenerator(Generator):
         global_spectrum = np.mean(np.abs(coefficients) ** 2, axis=1)
         self.global_spectrum_ = global_spectrum
         self.lag1_ = self._compute_lag1(Q_centered)
+        sigma2_data = float(np.var(Q_centered, ddof=0))
         threshold, background = self._significance_threshold(
-            self.fourier_periods_, n, self.lag1_
+            self.fourier_periods_, n, self.lag1_, sigma2_data
         )
         self.significance_threshold_ = threshold
         self.background_spectrum_values_ = background
@@ -462,6 +484,34 @@ class WARMGenerator(Generator):
         # Noise residual: everything not explained by significant bands.
         self.noise_residual_ = Q_centered - total_band_signal
         self.noise_ar_params_ = self._fit_ar_model(self.noise_residual_)
+
+        # Variance correction factor (Nowak et al. 2011 Eq. 7). When the band
+        # and noise components are simulated independently, the total simulated
+        # variance can deviate from the observed variance for two reasons:
+        # (i) the weak cross-correlations between observed components are lost
+        # under independent simulation, and (ii) within a band, the synthetic
+        # variance is E[stat^2] * E[SAWP] (stat_syn and SAWP_syn drawn
+        # independently in synthesis) rather than the in-sample
+        # var(stat * sqrt(SAWP)) of the observed band reconstruction (where
+        # stat and SAWP are structurally coupled).
+        #
+        # The denominator below is the expected simulated total variance,
+        # so vf = sqrt(observed_var / expected_simulated_var) yields an
+        # ensemble whose variance matches the observed variance.
+        observed_var = float(np.var(Q_centered, ddof=0))
+        expected_simulated_var = float(
+            sum(
+                np.var(band["stationary"], ddof=0) * float(np.mean(band["sawp"]))
+                for band in self.bands_
+            )
+            + np.var(self.noise_residual_, ddof=0)
+        )
+        if expected_simulated_var > 0.0:
+            self.variance_correction_ = float(
+                np.sqrt(observed_var / expected_simulated_var)
+            )
+        else:
+            self.variance_correction_ = 1.0
 
         # Backwards-compatible attribute: SAWP of the first band, falling
         # back to the whole-spectrum SAWP if no bands were detected.
@@ -593,11 +643,11 @@ class WARMGenerator(Generator):
             return _WAVELET_CONSTANTS[self.wavelet]
         self.logger.warning(
             "Reconstruction constants not tabulated for wavelet '%s'. "
-            "Falling back to Morlet values; SAWP and reconstruction "
-            "magnitudes will be approximate.",
+            "Falling back to cmor1.5-1.0 (complex Morlet) values; SAWP and "
+            "reconstruction magnitudes will be approximate.",
             self.wavelet,
         )
-        return _WAVELET_CONSTANTS["morl"]
+        return _WAVELET_CONSTANTS["cmor1.5-1.0"]
 
     # ------------------------------------------------------------------
     # Significance testing (Torrence and Compo 1998, Section 4)
@@ -631,26 +681,38 @@ class WARMGenerator(Generator):
         return float(np.clip(rho, 0.0, 0.999))
 
     def _significance_threshold(
-        self, fourier_periods: NDArray, n: int, lag1: float
+        self,
+        fourier_periods: NDArray,
+        n: int,
+        lag1: float,
+        sigma2_data: float,
     ) -> Tuple[NDArray, NDArray]:
         """
         Compute the chi-squared significance threshold for the global spectrum.
 
-        Implements Torrence and Compo (1998) Eqs. 16-17 with the equivalent
-        degrees of freedom for the global (time-averaged) spectrum from their
-        Eq. 23. The local scale-wise DOF is
+        Implements Torrence and Compo (1998) Eqs. 16-18 and 23. The local
+        wavelet power for an AR(1) (or white) background satisfies
+
+        .. math::
+            \\frac{|W(s,t)|^2}{\\sigma^2 \\, \\kappa}
+                \\sim \\frac{1}{2} P_k \\chi^2_2
+
+        where :math:`\\sigma^2` is the data variance, :math:`\\kappa = \\int
+        |\\psi|^2 dt` is the wavelet's integrated squared modulus, and
+        :math:`P_k` is the normalized AR(1) (or white) background spectrum.
+        For the time-averaged global spectrum the chi-squared DOF becomes
 
         .. math::
             \\nu = 2 \\sqrt{1 + \\left( \\frac{n \\, dt}{\\gamma s} \\right)^2}
 
-        for the Morlet wavelet (their Table 2 ``gamma``), and the threshold
-        on the global spectrum at confidence ``p`` is
+        (T&C Eq. 23) and the 95% threshold on the global spectrum is
 
         .. math::
-            P_k \\cdot \\chi^2_\\nu(p) / \\nu
+            \\sigma^2 \\, \\kappa \\, P_k \\, \\chi^2_\\nu(p) / \\nu
 
-        where :math:`P_k` is the theoretical background spectrum at the
-        Fourier wavenumber corresponding to scale :math:`s`.
+        For PyWavelets ``cmor1.5-1.0``, :math:`\\kappa = 1/\\sqrt{3\\pi}
+        \\approx 0.326`, accounting for the fact that PyWavelets'
+        cmor normalization differs from T&C's unit-energy convention.
 
         Parameters
         ----------
@@ -660,16 +722,20 @@ class WARMGenerator(Generator):
             Length of the input record.
         lag1 : float
             Lag-1 autocorrelation used for the AR(1) red-noise spectrum.
+        sigma2_data : float
+            Variance of the (mean-centered) observed series.
 
         Returns
         -------
         threshold : NDArray
-            Per-scale significance threshold for the global spectrum.
+            Per-scale significance threshold for the global spectrum, in
+            the same units as :math:`|W|^2`.
         background : NDArray
             Per-scale theoretical background spectrum (variance-normalized).
         """
         constants = self._wavelet_constants()
         gamma = constants["gamma"]
+        kappa = constants.get("kappa", 1.0)
 
         if self.background_spectrum == "white":
             alpha = 0.0
@@ -693,7 +759,7 @@ class WARMGenerator(Generator):
         dof = np.clip(dof, 2.0, None)
 
         chi2_p = stats.chi2.ppf(self.significance_level, dof)
-        threshold = background * (chi2_p / dof)
+        threshold = sigma2_data * kappa * background * (chi2_p / dof)
         return threshold, background
 
     # ------------------------------------------------------------------
@@ -943,7 +1009,11 @@ class WARMGenerator(Generator):
         Returns
         -------
         dict
-            See :meth:`_fit_ar_model`.
+            Keys: ``'order'`` (int), ``'coeffs'`` (NDArray of length
+            ``order``), ``'sigma'`` (float, innovation standard deviation),
+            ``'mean'`` (float, sample mean of ``data``), and
+            ``'std_residuals'`` (NDArray, empirical residuals standardized
+            by ``sigma`` for use in bootstrap innovation sampling).
         """
         mean = float(np.mean(data))
         x = np.asarray(data, dtype=float) - mean
@@ -957,11 +1027,14 @@ class WARMGenerator(Generator):
                 order,
             )
             sigma = float(np.std(x)) if n > 1 else 1.0
+            sigma = max(sigma, 1e-12)
+            std_resid = x / sigma if n > 0 else np.zeros(0)
             return {
                 "order": order,
                 "coeffs": np.zeros(order),
-                "sigma": max(sigma, 1e-12),
+                "sigma": sigma,
                 "mean": mean,
+                "std_residuals": std_resid,
             }
 
         # Biased autocovariance, normalized to autocorrelation.
@@ -976,6 +1049,7 @@ class WARMGenerator(Generator):
                 "coeffs": np.zeros(order),
                 "sigma": 1e-12,
                 "mean": mean,
+                "std_residuals": np.zeros(n),
             }
         rho = autocov / gamma_0
 
@@ -992,11 +1066,21 @@ class WARMGenerator(Generator):
 
         innovation_var = gamma_0 * (1.0 - float(np.dot(phi, r)))
         innovation_var = max(innovation_var, 1e-12)
+        sigma = float(np.sqrt(innovation_var))
+
+        # Empirical innovations: e_t = x_t - sum_k phi_k * x_{t-k}, for t >= order.
+        residuals = np.empty(n - order)
+        for t in range(order, n):
+            ar_term = float(np.dot(phi, x[t - order : t][::-1]))
+            residuals[t - order] = x[t] - ar_term
+        std_resid = residuals / sigma
+
         return {
             "order": order,
             "coeffs": phi,
-            "sigma": float(np.sqrt(innovation_var)),
+            "sigma": sigma,
             "mean": mean,
+            "std_residuals": std_resid,
         }
 
     @staticmethod
@@ -1005,6 +1089,7 @@ class WARMGenerator(Generator):
         n: int,
         rng: np.random.Generator,
         burn_in: int = 100,
+        bootstrap_innovations: bool = False,
     ) -> NDArray:
         """
         Simulate an AR(p) process given fitted parameters.
@@ -1020,6 +1105,12 @@ class WARMGenerator(Generator):
         burn_in : int, default=100
             Number of leading samples to discard so the simulation reaches
             stationarity.
+        bootstrap_innovations : bool, default=False
+            If True, draw innovations by resampling (with replacement) from
+            the standardized empirical residuals stored in ``ar_params``,
+            then rescale by ``sigma``. Following Nowak et al. (2011) this
+            preserves non-normal features of the noise component (e.g.
+            skew, heavy tails) that Gaussian innovations cannot reproduce.
 
         Returns
         -------
@@ -1032,7 +1123,15 @@ class WARMGenerator(Generator):
         mean = float(ar_params["mean"])
 
         total = n + burn_in
-        innovations = rng.normal(0.0, sigma, total)
+        if bootstrap_innovations:
+            std_resid = np.asarray(ar_params.get("std_residuals", []), dtype=float)
+            if std_resid.size == 0:
+                innovations = rng.normal(0.0, sigma, total)
+            else:
+                innovations = rng.choice(std_resid, size=total, replace=True) * sigma
+        else:
+            innovations = rng.normal(0.0, sigma, total)
+
         x = np.zeros(total)
         for t in range(total):
             ar_term = 0.0
@@ -1051,10 +1150,15 @@ class WARMGenerator(Generator):
         Generate a single synthetic realization.
 
         For each significant band, an AR-simulated stationary series is
-        re-multiplied by the square root of a bootstrapped SAWP series to
-        restore the non-stationary envelope. The noise component is
-        AR-simulated independently. The resulting band signals plus noise
-        are summed in the time domain and the historical mean is added back.
+        re-multiplied by the square root of the historical SAWP series
+        (Nowak et al. 2011, step iii of Section 2.3, Fig. 6) to restore the
+        non-stationary envelope. For trace lengths different from the
+        historical record, the SAWP is wrapped cyclically with a uniformly
+        random starting offset, which preserves the SAWP autocorrelation
+        structure across realizations. The noise component is AR-simulated
+        independently. Combined band+noise signals are scaled by the
+        variance correction factor (Eq. 7) to recover the observed total
+        variance, then the historical mean is added back.
 
         Parameters
         ----------
@@ -1072,37 +1176,60 @@ class WARMGenerator(Generator):
 
         for band in self.bands_:
             stationary_syn = self._simulate_ar(band["ar_params"], n_years, rng)
-            sawp_obs = band["sawp"]
-            n_obs = len(sawp_obs)
-            # Bootstrap a SAWP series of the requested length cyclically;
-            # using sampling with replacement preserves the marginal
-            # distribution of historical SAWP values per Nowak et al. (2011).
-            idx = rng.integers(0, n_obs, size=n_years)
-            sawp_syn = sawp_obs[idx]
-            band_signal = stationary_syn * np.sqrt(np.maximum(sawp_syn, 0.0))
+            sawp_syn = self._resample_sawp(band["sawp"], n_years, rng)
+            band_signal = stationary_syn * np.sqrt(sawp_syn)
             Q_syn = Q_syn + band_signal
 
         if self.noise_ar_params_ is not None:
-            noise_syn = self._simulate_ar(self.noise_ar_params_, n_years, rng)
+            noise_syn = self._simulate_ar(
+                self.noise_ar_params_,
+                n_years,
+                rng,
+                bootstrap_innovations=(self.noise_model == "ar_bootstrap"),
+            )
             Q_syn = Q_syn + noise_syn
 
+        # Eq. 7 variance correction (centered, before adding the mean back).
+        if self.variance_correction_ is not None:
+            Q_syn = Q_syn * self.variance_correction_
+
         Q_syn = Q_syn + self.flow_mean_
-        Q_syn = np.maximum(Q_syn, self._effective_lower_bound())
+        Q_syn = np.maximum(Q_syn, self.lower_bound)
 
         start_year = self.Q_obs_annual.index[0].year
         dates = pd.date_range(start=f"{start_year}-01-01", periods=n_years, freq="YS")
         return pd.DataFrame(Q_syn, index=dates, columns=[self._sites[0]])
 
-    def _effective_lower_bound(self) -> float:
-        """Resolve the lower_bound option to a numeric floor in flow units.
-
-        'obs_min' resolves at synthesis time to the observed annual minimum
-        so the floor remains attached to the fitted record rather than the
-        constructor argument.
+    @staticmethod
+    def _resample_sawp(
+        sawp_obs: NDArray, n_years: int, rng: np.random.Generator
+    ) -> NDArray:
         """
-        if isinstance(self.lower_bound, str):
-            return float(np.min(self.Q_obs_annual.values))
-        return float(self.lower_bound)
+        Resample observed SAWP cyclically with a uniformly random offset.
+
+        Preserves the full autocorrelation structure of the historical
+        SAWP (and therefore the non-stationary envelope) by reading the
+        observed values in circular order starting from a random position.
+
+        Parameters
+        ----------
+        sawp_obs : NDArray
+            Observed SAWP series for a single band.
+        n_years : int
+            Length of the synthetic SAWP series to return.
+        rng : np.random.Generator
+            Random number generator.
+
+        Returns
+        -------
+        NDArray
+            Per-time-step synthetic SAWP series of length ``n_years``,
+            clipped at zero for numerical safety.
+        """
+        n_obs = len(sawp_obs)
+        offset = int(rng.integers(0, n_obs))
+        idx = (np.arange(n_years) + offset) % n_obs
+        return np.maximum(sawp_obs[idx], 0.0)
 
     # ------------------------------------------------------------------
     # Reporting

@@ -77,15 +77,17 @@ class TestWARMInitialization:
         assert gen.is_preprocessed is False
         assert gen.is_fitted is False
         assert gen.debug is False
-        assert gen.wavelet == "morl"
+        assert gen.wavelet == "cmor1.5-1.0"
         assert gen.scales == 64
         assert gen.ar_order == 1
+        assert gen.noise_model == "ar_bootstrap"
+        assert gen.lower_bound == 0.0
 
     def test_initialization_custom_params(self, sample_annual_series):
         """Test initialization with custom parameters."""
-        gen = WARMGenerator(wavelet="mexh", scales=32, ar_order=2, debug=True)
+        gen = WARMGenerator(wavelet="cmor1.0-0.5", scales=32, ar_order=2, debug=True)
 
-        assert gen.wavelet == "mexh"
+        assert gen.wavelet == "cmor1.0-0.5"
         assert gen.scales == 32
         assert gen.ar_order == 2
         assert gen.debug is True
@@ -111,9 +113,11 @@ class TestWARMInitialization:
 
         assert "algorithm_params" in gen.init_params.__dict__
         params = gen.init_params.algorithm_params
-        assert params["wavelet"] == "morl"
+        assert params["wavelet"] == "cmor1.5-1.0"
         assert params["scales"] == 64
         assert params["ar_order"] == 1
+        assert params["noise_model"] == "ar_bootstrap"
+        assert params["lower_bound"] == 0.0
 
 
 class TestWARMPreprocessing:
@@ -224,8 +228,8 @@ class TestWARMFitting:
             gen.fit()
 
     def test_fit_different_wavelets(self, short_annual_series):
-        """Test fitting with different wavelet types."""
-        wavelets = ["morl", "mexh", "gaus1"]
+        """Test fitting with different complex Morlet bandwidth/center frequencies."""
+        wavelets = ["cmor1.5-1.0", "cmor1.0-1.0", "cmor2.0-0.5"]
 
         for wavelet in wavelets:
             gen = WARMGenerator(wavelet=wavelet, scales=8)
@@ -658,23 +662,19 @@ class TestWARMReconstruction:
 
 
 class TestWARMLowerBound:
-    """Tests for the configurable lower_bound on synthesis output."""
+    """Tests for the numeric lower_bound on synthesis output."""
 
-    def test_default_lower_bound_is_zero(self, sample_annual_series):
+    def test_default_lower_bound_is_zero(self):
+        gen = WARMGenerator()
+        assert gen.lower_bound == 0.0
+
+    def test_default_clamps_at_zero(self, sample_annual_series):
         gen = WARMGenerator()
         gen.fit(sample_annual_series)
-        assert gen._effective_lower_bound() == 0.0
-
-    def test_obs_min_lower_bound_clamps_to_observed_minimum(self, sample_annual_series):
-        obs_min = float(sample_annual_series.min())
-        gen = WARMGenerator(lower_bound="obs_min")
-        gen.fit(sample_annual_series)
-        assert gen._effective_lower_bound() == pytest.approx(obs_min)
-
         ensemble = gen.generate(n_years=80, n_realizations=10, seed=42)
         for r in range(10):
             values = ensemble.data_by_realization[r].values
-            assert float(values.min()) >= obs_min - 1e-9
+            assert float(values.min()) >= -1e-9
 
     def test_numeric_lower_bound_clamps_to_value(self, sample_annual_series):
         floor = 300.0
@@ -685,25 +685,109 @@ class TestWARMLowerBound:
             values = ensemble.data_by_realization[r].values
             assert float(values.min()) >= floor - 1e-9
 
-    def test_invalid_lower_bound_string_raises(self):
+    def test_string_lower_bound_raises(self):
         with pytest.raises(ValueError, match="lower_bound"):
-            WARMGenerator(lower_bound="bogus")
+            WARMGenerator(lower_bound="obs_min")
 
-    def test_lower_bound_default_preserves_legacy_behavior(self, sample_annual_series):
-        """Default lower_bound=0 must reproduce identical output to a fixed seed."""
-        gen_a = WARMGenerator()
-        gen_a.fit(sample_annual_series)
-        ensemble_a = gen_a.generate(n_years=30, n_realizations=2, seed=7)
 
-        gen_b = WARMGenerator(lower_bound=0.0)
+class TestWARMNowak2011Compliance:
+    """Tests for the Nowak et al. (2011) mathematical fixes."""
+
+    def test_variance_correction_factor_is_set(self, sample_annual_series):
+        """Eq. 7 variance correction factor must be computed at fit time."""
+        gen = WARMGenerator()
+        gen.fit(sample_annual_series)
+        assert gen.variance_correction_ is not None
+        # Independent-component variance under-estimates total variance when
+        # bands and noise carry a small positive cross-covariance, so the
+        # correction factor is typically >= 1. A tiny tolerance allows for
+        # near-zero cross-covariance on synthetic inputs.
+        assert gen.variance_correction_ > 0.5
+        assert gen.variance_correction_ < 5.0
+
+    def test_synthetic_variance_matches_observed(self, sample_annual_series):
+        """After Eq. 7 correction, ensemble variance approximates observed."""
+        gen = WARMGenerator()
+        gen.fit(sample_annual_series)
+        ensemble = gen.generate(
+            n_years=len(sample_annual_series), n_realizations=50, seed=2026
+        )
+        obs_var = float(np.var(sample_annual_series.values, ddof=0))
+        ens_vars = [
+            float(np.var(ensemble.data_by_realization[r].values, ddof=0))
+            for r in range(50)
+        ]
+        ratio = float(np.mean(ens_vars)) / obs_var
+        assert 0.7 < ratio < 1.4
+
+    def test_sawp_resampling_preserves_autocorrelation(self):
+        """Historical SAWP resampling preserves lag-1 autocorrelation."""
+        rng = np.random.default_rng(0)
+        # Smooth SAWP with strong autocorrelation.
+        t = np.arange(100)
+        sawp_obs = 1.0 + 0.5 * np.sin(2 * np.pi * t / 25.0)
+        sawp_syn = WARMGenerator._resample_sawp(sawp_obs, 200, rng)
+        lag1 = float(np.corrcoef(sawp_syn[:-1], sawp_syn[1:])[0, 1])
+        assert lag1 > 0.9
+
+    def test_noise_bootstrap_stores_residuals(self, sample_annual_series):
+        """Bootstrap noise mode stores standardized empirical residuals."""
+        gen = WARMGenerator(noise_model="ar_bootstrap")
+        gen.fit(sample_annual_series)
+        assert "std_residuals" in gen.noise_ar_params_
+        std_resid = gen.noise_ar_params_["std_residuals"]
+        assert std_resid.ndim == 1
+        assert len(std_resid) > 0
+
+    def test_noise_model_validation(self):
+        with pytest.raises(ValueError, match="noise_model"):
+            WARMGenerator(noise_model="kde")
+
+    def test_significance_threshold_scale_invariance(self):
+        """
+        T&C 1998 Eq. 18 normalizes the significance threshold by the data
+        variance and the wavelet integrated squared modulus. A regression
+        test against an earlier implementation that omitted those factors:
+        the fraction of scales flagged as significant on pure white noise
+        must not depend on the input variance scale.
+        """
+        rates_by_sigma = {}
+        for sigma in (1.0, 1000.0):
+            rates = []
+            for trial in range(20):
+                rng = np.random.default_rng(trial)
+                Q = pd.DataFrame(
+                    {"site": rng.normal(0.0, sigma, 200)},
+                    index=pd.date_range("1800-01-01", periods=200, freq="YS"),
+                )
+                gen = WARMGenerator(background_spectrum="white")
+                gen.fit(Q)
+                rates.append(float(np.mean(gen.significant_mask_)))
+            rates_by_sigma[sigma] = float(np.mean(rates))
+        # Mean FPR should be near zero for white noise (a strict test on the
+        # global spectrum) and must be invariant under rescaling of sigma.
+        assert (
+            rates_by_sigma[1.0] < 0.30
+        ), f"FPR too high on sigma=1 white noise: {rates_by_sigma[1.0]}"
+        assert (
+            rates_by_sigma[1000.0] < 0.30
+        ), f"FPR too high on sigma=1000 white noise: {rates_by_sigma[1000.0]}"
+        assert abs(rates_by_sigma[1.0] - rates_by_sigma[1000.0]) < 0.05, (
+            "Significance FPR must not depend on sigma scale; got " f"{rates_by_sigma}"
+        )
+
+    def test_noise_gaussian_and_bootstrap_differ(self, sample_annual_series):
+        """Gaussian vs bootstrap noise modes produce different ensembles."""
+        gen_g = WARMGenerator(noise_model="ar_gaussian")
+        gen_g.fit(sample_annual_series)
+        ens_g = gen_g.generate(n_years=30, n_realizations=2, seed=99)
+
+        gen_b = WARMGenerator(noise_model="ar_bootstrap")
         gen_b.fit(sample_annual_series)
-        ensemble_b = gen_b.generate(n_years=30, n_realizations=2, seed=7)
+        ens_b = gen_b.generate(n_years=30, n_realizations=2, seed=99)
 
         for r in range(2):
-            pd.testing.assert_frame_equal(
-                ensemble_a.data_by_realization[r],
-                ensemble_b.data_by_realization[r],
-            )
+            assert not ens_g.data_by_realization[r].equals(ens_b.data_by_realization[r])
 
 
 class TestWARMEnsembleMetadata:

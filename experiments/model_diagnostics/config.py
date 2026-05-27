@@ -57,10 +57,8 @@ GENERATORS = {
         "frequency": "annual",
         "multisite": False,
         "init_kwargs": {
-            "wavelet": "morl",
             "scales": 16,
             "ar_order": 1,
-            "lower_bound": "obs_min",
         },
     },
     "SMARTA": {

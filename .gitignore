@@ -175,7 +175,10 @@ pywrdrb/*
 local/
 .claude/
 external_source_codes/*
-experiments/*
+experiments/disaggregator_diagnostics/*
+experiments/model_diagnostics/outputs/*
+experiments/plotting_module/*
+experiments/release_smoke/*
 .vscode/
 docs/dev/
 

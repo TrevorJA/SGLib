@@ -5444,7 +5444,7 @@ lag-1 (S1) cross-correlation matrices then solves for A and B.</p>
 
 
 <a href="#synhydro.methods.generation.parametric.arfima.ARFIMAGenerator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ARFIMAGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">d_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;whittle&#39;</span><span class="p">,</span> <span class="n">truncation_lag</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">deseasonalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">auto_order</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ARFIMAGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">d_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;whittle&#39;</span><span class="p">,</span> <span class="n">truncation_lag</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">auto_order</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5460,6 +5460,11 @@ preserves Hurst exponent, seasonal patterns (if monthly), and autocorrelation
 structure.</p>
 <p>The Hurst exponent H relates to the fractional differencing parameter via H = d + 0.5,
 providing direct parameterization of long-memory behavior.</p>
+<p>Preprocessing applies a shifted-lognormal transformation (Stedinger and
+Taylor, 1982) followed by per-period z-score standardization. The Gaussian
+ARFIMA process is fit in this transformed space. On back-transform,
+Q = tau + exp(Y) is strictly positive by construction, so no hard-clipping
+of synthetic flows is required (Hosking, 1984; Montanari et al., 1997).</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
@@ -5556,23 +5561,6 @@ https://doi.org/10.1029/WR020i012p01898</p>
             </td>
             <td>
                   <code>100</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>deseasonalize</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Remove seasonal component (monthly means/stds) before fitting.
-Set False for annual data.</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -5704,8 +5692,10 @@ ARFIMA (Huang et al. 2022, Annals of Statistics).</p>
     <div class="doc doc-contents ">
 
         <p>Preprocess observed data for ARFIMA generation.</p>
-<p>Validates input, ensures univariate data, optionally deseasonalizes
-for monthly data, and checks stationarity.</p>
+<p>Validates input, ensures univariate data, applies a shifted-lognormal
+transformation (Stedinger and Taylor, 1982) followed by per-month
+z-score standardization to produce a stationary, approximately Gaussian
+residual series suitable for ARFIMA fitting.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5793,6 +5783,14 @@ for monthly data, and checks stationarity.</p>
       </tbody>
     </table>
 
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>The two-stage transformation guarantees strictly positive synthetic
+flows on back-transform (Q = tau + exp(Y) with tau &gt;= 0), removing
+the need for hard-clipping. See Hosking (1984), Montanari et al.
+(1997), and Stedinger and Taylor (1982).</p>
+</details>
 
     </div>
 
@@ -5927,7 +5925,7 @@ for monthly data, and checks stationarity.</p>
 1. Generate white noise innovations
 2. Apply AR recursion to obtain ARMA differenced series W_t
 3. Invert fractional differencing via MA convolution (FIR filter) to recover X_t
-4. Re-seasonalize if monthly
+4. Un-standardize and inverse Stedinger transform to original streamflow units
 5. Return as Ensemble</p>
 
 

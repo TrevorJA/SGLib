@@ -853,9 +853,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#deseasonalization" class="md-nav__link">
+  <a href="#preprocessing" class="md-nav__link">
     <span class="md-ellipsis">
-      Deseasonalization
+      Preprocessing
     </span>
   </a>
   
@@ -1432,9 +1432,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#deseasonalization" class="md-nav__link">
+  <a href="#preprocessing" class="md-nav__link">
     <span class="md-ellipsis">
-      Deseasonalization
+      Preprocessing
     </span>
   </a>
   
@@ -1576,12 +1576,20 @@
 <td>Synthetic streamflow at time <span class="arithmatex">\(t\)</span></td>
 </tr>
 <tr>
+<td><span class="arithmatex">\(Y_t\)</span></td>
+<td>Shifted-log-transformed streamflow, <span class="arithmatex">\(Y_t = \ln(Q_t - \tau_{m(t)})\)</span></td>
+</tr>
+<tr>
 <td><span class="arithmatex">\(X_t\)</span></td>
-<td>Deseasonalized (stationary) streamflow at time <span class="arithmatex">\(t\)</span></td>
+<td>Standardized stationary residual, fit by ARFIMA</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(W_t\)</span></td>
 <td>Fractionally differenced series</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\tau_m\)</span></td>
+<td>Stedinger-Taylor lower bound for month <span class="arithmatex">\(m\)</span></td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(d\)</span></td>
@@ -1625,7 +1633,7 @@
 </tr>
 <tr>
 <td><span class="arithmatex">\(\mu_m, \sigma_m\)</span></td>
-<td>Monthly mean and standard deviation (for deseasonalization)</td>
+<td>Monthly mean and standard deviation of <span class="arithmatex">\(Y_t\)</span> (log space)</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(N\)</span></td>
@@ -1653,11 +1661,21 @@
 W_t = \sum_{k=0}^{K} \pi_k\,X_{t-k}
 \]</div>
 <p>which, under the ARFIMA model, follows a stationary ARMA(p, q) process.</p>
-<h3 id="deseasonalization">Deseasonalization<a class="headerlink" href="#deseasonalization" title="Permanent link">&para;</a></h3>
-<p>For monthly data, seasonal nonstationarity is removed before fitting. Let <span class="arithmatex">\(\mu_m\)</span> and <span class="arithmatex">\(\sigma_m\)</span> denote the sample mean and standard deviation for month <span class="arithmatex">\(m\)</span>. The deseasonalized series is:</p>
+<h3 id="preprocessing">Preprocessing<a class="headerlink" href="#preprocessing" title="Permanent link">&para;</a></h3>
+<p>Fitting an ARFIMA model with Gaussian innovations directly on raw streamflow produces unphysical negative simulated values, and clipping these to zero introduces upward bias in the mean and distorts the marginal distribution (Stedinger and Taylor, 1982; Salas et al., 1980). The implemented preprocessing applies a two-stage transformation so that the back-transformed synthetic series is strictly positive by construction.</p>
+<p><strong>Stage 1 -- shifted-log transformation</strong> (Stedinger and Taylor, 1982). For each calendar month <span class="arithmatex">\(m\)</span> a lower bound <span class="arithmatex">\(\tau_m\)</span> is estimated:</p>
 <div class="arithmatex">\[
-X_t = \frac{Q_t - \mu_{m(t)}}{\sigma_{m(t)}}
+\tau_m = \frac{q_{\max,m}\, q_{\min,m} - q_{\text{med},m}^2}{q_{\max,m} + q_{\min,m} - 2\,q_{\text{med},m}}
 \]</div>
+<p>with the safety fallback <span class="arithmatex">\(\tau_m = 0\)</span> when the formula yields <span class="arithmatex">\(\tau_m &lt; 0\)</span> or <span class="arithmatex">\(\tau_m \geq q_{\min,m}\)</span> (i.e., the lognormal assumption is invalid for that month). The transformed series is:</p>
+<div class="arithmatex">\[
+Y_t = \ln\!\left(Q_t - \tau_{m(t)}\right)
+\]</div>
+<p><strong>Stage 2 -- per-month z-score.</strong> Let <span class="arithmatex">\(\mu_m\)</span> and <span class="arithmatex">\(\sigma_m\)</span> denote the sample mean and standard deviation of <span class="arithmatex">\(Y_t\)</span> for month <span class="arithmatex">\(m\)</span>. The standardized residual fit by ARFIMA is:</p>
+<div class="arithmatex">\[
+X_t = \frac{Y_t - \mu_{m(t)}}{\sigma_{m(t)}}
+\]</div>
+<p>For annual data (<span class="arithmatex">\(_\text{is\_monthly} = \text{False}\)</span>), the same two stages are applied with a single global <span class="arithmatex">\(\tau\)</span>, <span class="arithmatex">\(\mu\)</span>, and <span class="arithmatex">\(\sigma\)</span> (no per-month branching).</p>
 <h3 id="parameter-estimation">Parameter Estimation<a class="headerlink" href="#parameter-estimation" title="Permanent link">&para;</a></h3>
 <h4 id="estimation-of-d">Estimation of <span class="arithmatex">\(d\)</span><a class="headerlink" href="#estimation-of-d" title="Permanent link">&para;</a></h4>
 <p>Three frequency-domain estimators are available:</p>
@@ -1711,12 +1729,13 @@ e_t = W_t - \sum_{k=1}^{p} \phi_k W_{t-k} - \sum_{j=1}^{q} \theta_j e_{t-j}
 \psi_0 = 1, \qquad \psi_k = \psi_{k-1} \cdot \frac{k - 1 + d}{k}, \quad k \geq 1
 \]</div>
 <ol>
-<li>Re-seasonalize: <span class="arithmatex">\(\hat{Q}_t = \hat{X}_t \cdot \sigma_{m(t)} + \mu_{m(t)}\)</span>.</li>
-<li>Enforce non-negativity.</li>
+<li>Reverse the standardization in log space: <span class="arithmatex">\(\hat{Y}_t = \hat{X}_t \cdot \sigma_{m(t)} + \mu_{m(t)}\)</span>.</li>
+<li>Reverse the shifted-log transformation: <span class="arithmatex">\(\hat{Q}_t = \tau_{m(t)} + \exp(\hat{Y}_t)\)</span>.</li>
 </ol>
+<p>Because <span class="arithmatex">\(\tau_m \geq 0\)</span> and <span class="arithmatex">\(\exp(\hat{Y}_t) &gt; 0\)</span>, the simulated flows are strictly positive without any hard-clipping step.</p>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
 <p>The ARFIMA model directly parameterizes long-range dependence through <span class="arithmatex">\(d\)</span>, reproducing the hyperbolic decay of the autocorrelation function <span class="arithmatex">\(\rho(k) \sim C k^{2d-1}\)</span> as <span class="arithmatex">\(k \to \infty\)</span> and the spectral divergence <span class="arithmatex">\(f(\omega) \sim C' \omega^{-2d}\)</span> near the origin. The short-memory ARMA component captures structure at lags <span class="arithmatex">\(1\)</span> through <span class="arithmatex">\(p\)</span> and the moving-average smoothing at lags <span class="arithmatex">\(1\)</span> through <span class="arithmatex">\(q\)</span>.</p>
-<p>Monthly means and standard deviations are preserved through deseasonalization and re-seasonalization. However, the model assumes Gaussian innovations, which may underrepresent extreme events or heavy-tailed behavior. Spatial dependence is not modeled. Truncation of the infinite coefficient series at lag <span class="arithmatex">\(K\)</span> introduces approximation error that grows as <span class="arithmatex">\(d\)</span> approaches <span class="arithmatex">\(0.5\)</span>.</p>
+<p>Monthly means and standard deviations are preserved through the per-month log-space standardization. The shifted-lognormal preprocessing also preserves the positive support of streamflow and accommodates marginal skewness commonly observed in monthly flow records. The model assumes Gaussian innovations in log space, which may underrepresent extreme events or heavy-tailed behavior. Spatial dependence is not modeled. Truncation of the infinite coefficient series at lag <span class="arithmatex">\(K\)</span> introduces approximation error that grows as <span class="arithmatex">\(d\)</span> approaches <span class="arithmatex">\(0.5\)</span>.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Univariate only; must be combined with spatial methods for multisite applications.</li>
@@ -1733,7 +1752,9 @@ Hosking, J.R.M. (1984). Modeling persistence in hydrological time series using f
 - Geweke, J., and Porter-Hudak, S. (1983). The estimation and application of long memory time series models. <em>Journal of Time Series Analysis</em>, 4(4), 221-238. https://doi.org/10.1111/j.1467-9892.1983.tb00371.x
 - Fox, R., and Taqqu, M.S. (1986). Large-sample properties of parameter estimates for strongly dependent stationary Gaussian time series. <em>The Annals of Statistics</em>, 14(2), 517-532.
 - Montanari, A., Rosso, R., and Taqqu, M.S. (1997). Fractionally differenced ARIMA models applied to hydrologic time series. <em>Water Resources Research</em>, 33(5), 1035-1044. https://doi.org/10.1029/97WR00043
-- Koutsoyiannis, D. (2002). The Hurst phenomenon and fractional Gaussian noise made easy. <em>Hydrological Sciences Journal</em>, 47(4), 573-595.</p>
+- Koutsoyiannis, D. (2002). The Hurst phenomenon and fractional Gaussian noise made easy. <em>Hydrological Sciences Journal</em>, 47(4), 573-595.
+- Stedinger, J.R., and Taylor, M.R. (1982). Synthetic streamflow generation: 1. Model verification and validation. <em>Water Resources Research</em>, 18(4), 909-918. https://doi.org/10.1029/WR018i004p00909
+- Salas, J.D., Delleur, J.W., Yevjevich, V., and Lane, W.L. (1980). <em>Applied Modeling of Hydrologic Time Series</em>. Water Resources Publications.</p>
 <hr />
 <p><strong>Implementation:</strong> <code>src/synhydro/methods/generation/parametric/arfima.py</code></p>
 

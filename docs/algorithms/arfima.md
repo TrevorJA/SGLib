@@ -16,8 +16,10 @@ The ARFIMA(p, d, q) model extends classical ARMA by allowing the differencing pa
 |--------|-------------|
 | $Q_t$ | Observed streamflow at time $t$ |
 | $\hat{Q}_t$ | Synthetic streamflow at time $t$ |
-| $X_t$ | Deseasonalized (stationary) streamflow at time $t$ |
+| $Y_t$ | Shifted-log-transformed streamflow, $Y_t = \ln(Q_t - \tau_{m(t)})$ |
+| $X_t$ | Standardized stationary residual, fit by ARFIMA |
 | $W_t$ | Fractionally differenced series |
+| $\tau_m$ | Stedinger-Taylor lower bound for month $m$ |
 | $d$ | Fractional differencing parameter, $d \in (0, 0.5)$ |
 | $H$ | Hurst exponent, $H = d + 0.5$ |
 | $p, q$ | Orders of the AR and MA components |
@@ -28,7 +30,7 @@ The ARFIMA(p, d, q) model extends classical ARMA by allowing the differencing pa
 | $\psi_k$ | Inverse fractional differencing coefficients |
 | $B$ | Backshift operator, $B X_t = X_{t-1}$ |
 | $K$ | Truncation lag for the infinite coefficient series |
-| $\mu_m, \sigma_m$ | Monthly mean and standard deviation (for deseasonalization) |
+| $\mu_m, \sigma_m$ | Monthly mean and standard deviation of $Y_t$ (log space) |
 | $N$ | Length of the observed record |
 
 ## Formulation
@@ -63,13 +65,29 @@ $$
 
 which, under the ARFIMA model, follows a stationary ARMA(p, q) process.
 
-### Deseasonalization
+### Preprocessing
 
-For monthly data, seasonal nonstationarity is removed before fitting. Let $\mu_m$ and $\sigma_m$ denote the sample mean and standard deviation for month $m$. The deseasonalized series is:
+Fitting an ARFIMA model with Gaussian innovations directly on raw streamflow produces unphysical negative simulated values, and clipping these to zero introduces upward bias in the mean and distorts the marginal distribution (Stedinger and Taylor, 1982; Salas et al., 1980). The implemented preprocessing applies a two-stage transformation so that the back-transformed synthetic series is strictly positive by construction.
+
+**Stage 1 -- shifted-log transformation** (Stedinger and Taylor, 1982). For each calendar month $m$ a lower bound $\tau_m$ is estimated:
 
 $$
-X_t = \frac{Q_t - \mu_{m(t)}}{\sigma_{m(t)}}
+\tau_m = \frac{q_{\max,m}\, q_{\min,m} - q_{\text{med},m}^2}{q_{\max,m} + q_{\min,m} - 2\,q_{\text{med},m}}
 $$
+
+with the safety fallback $\tau_m = 0$ when the formula yields $\tau_m < 0$ or $\tau_m \geq q_{\min,m}$ (i.e., the lognormal assumption is invalid for that month). The transformed series is:
+
+$$
+Y_t = \ln\!\left(Q_t - \tau_{m(t)}\right)
+$$
+
+**Stage 2 -- per-month z-score.** Let $\mu_m$ and $\sigma_m$ denote the sample mean and standard deviation of $Y_t$ for month $m$. The standardized residual fit by ARFIMA is:
+
+$$
+X_t = \frac{Y_t - \mu_{m(t)}}{\sigma_{m(t)}}
+$$
+
+For annual data ($_\text{is\_monthly} = \text{False}$), the same two stages are applied with a single global $\tau$, $\mu$, and $\sigma$ (no per-month branching).
 
 ### Parameter Estimation
 
@@ -147,14 +165,16 @@ $$
 \psi_0 = 1, \qquad \psi_k = \psi_{k-1} \cdot \frac{k - 1 + d}{k}, \quad k \geq 1
 $$
 
-5. Re-seasonalize: $\hat{Q}_t = \hat{X}_t \cdot \sigma_{m(t)} + \mu_{m(t)}$.
-6. Enforce non-negativity.
+5. Reverse the standardization in log space: $\hat{Y}_t = \hat{X}_t \cdot \sigma_{m(t)} + \mu_{m(t)}$.
+6. Reverse the shifted-log transformation: $\hat{Q}_t = \tau_{m(t)} + \exp(\hat{Y}_t)$.
+
+Because $\tau_m \geq 0$ and $\exp(\hat{Y}_t) > 0$, the simulated flows are strictly positive without any hard-clipping step.
 
 ## Statistical Properties
 
 The ARFIMA model directly parameterizes long-range dependence through $d$, reproducing the hyperbolic decay of the autocorrelation function $\rho(k) \sim C k^{2d-1}$ as $k \to \infty$ and the spectral divergence $f(\omega) \sim C' \omega^{-2d}$ near the origin. The short-memory ARMA component captures structure at lags $1$ through $p$ and the moving-average smoothing at lags $1$ through $q$.
 
-Monthly means and standard deviations are preserved through deseasonalization and re-seasonalization. However, the model assumes Gaussian innovations, which may underrepresent extreme events or heavy-tailed behavior. Spatial dependence is not modeled. Truncation of the infinite coefficient series at lag $K$ introduces approximation error that grows as $d$ approaches $0.5$.
+Monthly means and standard deviations are preserved through the per-month log-space standardization. The shifted-lognormal preprocessing also preserves the positive support of streamflow and accommodates marginal skewness commonly observed in monthly flow records. The model assumes Gaussian innovations in log space, which may underrepresent extreme events or heavy-tailed behavior. Spatial dependence is not modeled. Truncation of the infinite coefficient series at lag $K$ introduces approximation error that grows as $d$ approaches $0.5$.
 
 ## Limitations
 
@@ -175,6 +195,8 @@ Hosking, J.R.M. (1984). Modeling persistence in hydrological time series using f
 - Fox, R., and Taqqu, M.S. (1986). Large-sample properties of parameter estimates for strongly dependent stationary Gaussian time series. *The Annals of Statistics*, 14(2), 517-532.
 - Montanari, A., Rosso, R., and Taqqu, M.S. (1997). Fractionally differenced ARIMA models applied to hydrologic time series. *Water Resources Research*, 33(5), 1035-1044. https://doi.org/10.1029/97WR00043
 - Koutsoyiannis, D. (2002). The Hurst phenomenon and fractional Gaussian noise made easy. *Hydrological Sciences Journal*, 47(4), 573-595.
+- Stedinger, J.R., and Taylor, M.R. (1982). Synthetic streamflow generation: 1. Model verification and validation. *Water Resources Research*, 18(4), 909-918. https://doi.org/10.1029/WR018i004p00909
+- Salas, J.D., Delleur, J.W., Yevjevich, V., and Lane, W.L. (1980). *Applied Modeling of Hydrologic Time Series*. Water Resources Publications.
 
 ---
 

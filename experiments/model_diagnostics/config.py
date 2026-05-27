@@ -44,7 +44,7 @@ GENERATORS = {
         "class_name": "ARFIMAGenerator",
         "frequency": "monthly",
         "multisite": False,
-        "init_kwargs": {"p": 1, "q": 0, "d_method": "whittle", "deseasonalize": True},
+        "init_kwargs": {"p": 1, "q": 0, "d_method": "whittle"},
     },
     "HMM": {
         "class_name": "MultiSiteHMMGenerator",

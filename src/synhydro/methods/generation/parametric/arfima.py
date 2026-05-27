@@ -18,6 +18,7 @@ from scipy.signal import correlate
 
 from synhydro.core.base import Generator, FittedParams, GeneratorParams
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata
+from synhydro.transformations import SteddingerTransform, StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,12 @@ class ARFIMAGenerator(Generator):
 
     The Hurst exponent H relates to the fractional differencing parameter via H = d + 0.5,
     providing direct parameterization of long-memory behavior.
+
+    Preprocessing applies a shifted-lognormal transformation (Stedinger and
+    Taylor, 1982) followed by per-period z-score standardization. The Gaussian
+    ARFIMA process is fit in this transformed space. On back-transform,
+    Q = tau + exp(Y) is strictly positive by construction, so no hard-clipping
+    of synthetic flows is required (Hosking, 1984; Montanari et al., 1997).
 
     Examples
     --------
@@ -61,7 +68,6 @@ class ARFIMAGenerator(Generator):
         q: int = 0,
         d_method: str = "whittle",
         truncation_lag: int = 100,
-        deseasonalize: bool = True,
         auto_order: bool = False,
         name: Optional[str] = None,
         debug: bool = False,
@@ -81,9 +87,6 @@ class ARFIMAGenerator(Generator):
             'gph' (Geweke-Porter-Hudak), or 'rs' (R/S analysis).
         truncation_lag : int, default=100
             Truncation lag K for fractional differencing coefficients.
-        deseasonalize : bool, default=True
-            Remove seasonal component (monthly means/stds) before fitting.
-            Set False for annual data.
         auto_order : bool, default=False
             If True, select (p, q) via BIC grid search over
             p in {0, 1, 2} and q in {0, 1, 2}.  Overrides user-supplied
@@ -102,7 +105,6 @@ class ARFIMAGenerator(Generator):
         self.q = q
         self.d_method = d_method
         self.truncation_lag = truncation_lag
-        self.deseasonalize = deseasonalize
         self.auto_order = auto_order
 
         # Store initialization parameters
@@ -111,8 +113,12 @@ class ARFIMAGenerator(Generator):
             "q": q,
             "d_method": d_method,
             "truncation_lag": truncation_lag,
-            "deseasonalize": deseasonalize,
             "auto_order": auto_order,
+        }
+        self.init_params.transformation_params = {
+            "transformation": "SteddingerTransform + StandardScaler",
+            "by_month": "auto (True if monthly input, False if annual)",
+            "reference": "Stedinger & Taylor (1982) WRR 18(4):909-918",
         }
 
     @property
@@ -126,8 +132,10 @@ class ARFIMAGenerator(Generator):
         """
         Preprocess observed data for ARFIMA generation.
 
-        Validates input, ensures univariate data, optionally deseasonalizes
-        for monthly data, and checks stationarity.
+        Validates input, ensures univariate data, applies a shifted-lognormal
+        transformation (Stedinger and Taylor, 1982) followed by per-month
+        z-score standardization to produce a stationary, approximately Gaussian
+        residual series suitable for ARFIMA fitting.
 
         Parameters
         ----------
@@ -142,6 +150,13 @@ class ARFIMAGenerator(Generator):
         ------
         ValueError
             If data has insufficient length or multiple sites.
+
+        Notes
+        -----
+        The two-stage transformation guarantees strictly positive synthetic
+        flows on back-transform (Q = tau + exp(Y) with tau >= 0), removing
+        the need for hard-clipping. See Hosking (1984), Montanari et al.
+        (1997), and Stedinger and Taylor (1982).
         """
         Q = self._store_obs_data(Q_obs, sites=sites)
 
@@ -172,40 +187,21 @@ class ARFIMAGenerator(Generator):
 
         self.Q_obs = Q.iloc[:, 0]  # Convert to Series
 
-        # Deseasonalize if monthly
-        if self._is_monthly and self.deseasonalize:
-            self._deseasonalize_data()
-        else:
-            self.Q_norm = self.Q_obs.copy()
-            self.seasonal_params = None
+        # Two-stage transformation: shifted-lognormal then per-period z-score.
+        # by_month=True for monthly input (per-month tau, mean, std); by_month=False
+        # for annual input (single global tau, mean, std).
+        by_month = self._is_monthly
+        self.log_transform = SteddingerTransform(by_month=by_month)
+        self.scaler = StandardScaler(by_month=by_month)
+
+        self.Q_log = self.log_transform.fit_transform(self.Q_obs)
+        self.Q_norm = self.scaler.fit_transform(self.Q_log)
 
         self.update_state(preprocessed=True)
         self.logger.info(
             f"Preprocessing complete: {len(self.Q_obs)} timesteps, "
             f"frequency={'monthly' if self._is_monthly else 'annual'}"
         )
-
-    def _deseasonalize_data(self) -> None:
-        """
-        Remove monthly seasonality from monthly data.
-
-        Computes monthly means and stds, then standardizes the data
-        to create a stationary residual series.
-        """
-        monthly_means = self.Q_obs.groupby(self.Q_obs.index.month).mean()
-        monthly_stds = self.Q_obs.groupby(self.Q_obs.index.month).std()
-
-        # Avoid division by zero
-        monthly_stds = monthly_stds.replace(0, 1)
-
-        # Standardize by month
-        months = self.Q_obs.index.month
-        self.Q_norm = (self.Q_obs - monthly_means[months].values) / monthly_stds[
-            months
-        ].values
-        self.Q_norm.index = self.Q_obs.index
-
-        self.seasonal_params = {"means": monthly_means, "stds": monthly_stds}
 
     def fit(self, Q_obs=None, *, sites=None, **kwargs) -> None:
         """
@@ -761,8 +757,10 @@ class ARFIMAGenerator(Generator):
             Dataclass containing all fitted ARFIMA parameters.
         """
         n_params = 1 + self.p + self.q + 1  # d, AR, MA, sigma_eps^2
-        if self.seasonal_params:
-            n_params += 24  # 12 means + 12 stds
+        if self._is_monthly:
+            n_params += 36  # 12 tau + 12 means + 12 stds
+        else:
+            n_params += 3  # 1 tau + 1 mean + 1 std
 
         training_period = (
             str(self.Q_obs.index[0].date()),
@@ -778,11 +776,22 @@ class ARFIMAGenerator(Generator):
             "truncation_lag": self.truncation_lag,
         }
 
-        if self.seasonal_params:
-            fitted_models["seasonal"] = {
-                "means": self.seasonal_params["means"].to_dict(),
-                "stds": self.seasonal_params["stds"].to_dict(),
-            }
+        tau = self.log_transform.params_["tau"]
+        scaler_mean = self.scaler.params_["mean"]
+        scaler_std = self.scaler.params_["std"]
+        fitted_models["transformation"] = {
+            "stedinger_tau": tau.to_dict() if hasattr(tau, "to_dict") else float(tau),
+            "log_mean": (
+                scaler_mean.to_dict()
+                if hasattr(scaler_mean, "to_dict")
+                else float(scaler_mean)
+            ),
+            "log_std": (
+                scaler_std.to_dict()
+                if hasattr(scaler_std, "to_dict")
+                else float(scaler_std)
+            ),
+        }
 
         return FittedParams(
             means_=None,
@@ -814,7 +823,7 @@ class ARFIMAGenerator(Generator):
         1. Generate white noise innovations
         2. Apply AR recursion to obtain ARMA differenced series W_t
         3. Invert fractional differencing via MA convolution (FIR filter) to recover X_t
-        4. Re-seasonalize if monthly
+        4. Un-standardize and inverse Stedinger transform to original streamflow units
         5. Return as Ensemble
 
         Parameters
@@ -920,7 +929,7 @@ class ARFIMAGenerator(Generator):
             for k in range(min(t + 1, len(psi))):
                 X[t] += psi[k] * W[t - k]
 
-        # Create index first so we know the start month
+        # Create index first so the per-month transforms can recover calendar info
         if self._is_monthly:
             start_date = self.Q_obs.index[-1] + pd.DateOffset(months=1)
             index = pd.date_range(start=start_date, periods=n_timesteps, freq="MS")
@@ -928,14 +937,16 @@ class ARFIMAGenerator(Generator):
             start_date = self.Q_obs.index[-1] + pd.DateOffset(years=1)
             index = pd.date_range(start=start_date, periods=n_timesteps, freq="YS")
 
-        # Re-seasonalize if monthly
-        if self._is_monthly and self.seasonal_params:
-            X = self._re_seasonalize(X, start_month=index[0].month)
+        # Reverse the two-stage transformation: un-standardize in log space,
+        # then exponentiate and add the Stedinger lower bound. The shifted
+        # lognormal Q = tau + exp(Y) is strictly positive by construction.
+        # The Series name must match the fit-time site name so the per-column
+        # tau lookup inside SteddingerTransform aligns correctly.
+        Y_norm = pd.Series(X, index=index, name=self._sites[0])
+        Y_log = self.scaler.inverse_transform(Y_norm)
+        Q_synth = self.log_transform.inverse_transform(Y_log)
 
-        # Enforce non-negativity
-        X = np.maximum(X, 0)
-
-        return pd.Series(X, index=index)
+        return Q_synth
 
     def _compute_inverse_fractional_diff_coefficients(self, d: float) -> np.ndarray:
         """
@@ -962,32 +973,3 @@ class ARFIMAGenerator(Generator):
             psi[k] = psi[k - 1] * (k - 1 + d) / k
 
         return psi
-
-    def _re_seasonalize(self, X: np.ndarray, start_month: int) -> np.ndarray:
-        """
-        Re-apply seasonal component (multiply by monthly stds and add means).
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Deseasonalized synthetic flows.
-        start_month : int
-            Calendar month (1-12) of the first timestep.
-
-        Returns
-        -------
-        np.ndarray
-            Re-seasonalized flows.
-        """
-        if not self.seasonal_params:
-            return X
-
-        means = self.seasonal_params["means"].values
-        stds = self.seasonal_params["stds"].values
-
-        # Build month indices aligned to the actual start month
-        months = np.array([(start_month - 1 + i) % 12 for i in range(len(X))])
-
-        X_reseasonal = X * stds[months] + means[months]
-
-        return X_reseasonal

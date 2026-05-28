@@ -28,6 +28,8 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 from synhydro import Ensemble, load_example_data
 
@@ -44,8 +46,8 @@ FAMILY_COLOR = {
     "Hybrid": "#9467bd",
     "Non-parametric": "#2ca02c",
 }
-ENSEMBLE_FILL = "#5B86C5"
-ENSEMBLE_FILL_ALPHA = 0.30
+ENSEMBLE_FILL = "#ff7f0e"
+ENSEMBLE_FILL_ALPHA = 0.35
 OBSERVED_COLOR = "#111111"
 
 
@@ -173,7 +175,14 @@ def plot_panel(ax, panel_data: Optional[dict], method: Method, grid: np.ndarray)
     )
 
     obs_ep, obs_v = fdc_curve(panel_data["obs"])
-    ax.plot(obs_ep, obs_v, color=OBSERVED_COLOR, linewidth=1.8, label="Historical")
+    ax.plot(
+        obs_ep,
+        obs_v,
+        color=OBSERVED_COLOR,
+        linewidth=1.0,
+        linestyle="--",
+        label="Historical",
+    )
 
 
 def build_layout(fig):
@@ -185,7 +194,7 @@ def build_layout(fig):
         left=0.07,
         right=0.985,
         top=0.88,
-        bottom=0.10,
+        bottom=0.22,
         wspace=0.20,
         hspace=0.45,
     )
@@ -209,7 +218,7 @@ def build_layout(fig):
     return annual_axes, monthly_axes, daily_axes, gs
 
 
-def tighten_row_ylim(axes_row, methods_row, panel_data, margin=0.20):
+def tighten_row_ylim(axes_row, methods_row, panel_data, margin=0.05):
     """Set a tight log-y range for all panels in a row.
 
     The range covers all observed and synthetic values across the row, with a
@@ -258,7 +267,7 @@ def main():
 
     panel_data = {m.folder: load_method_data(m, Q_daily, PLOT_SITE) for m in METHODS}
 
-    fig = plt.figure(figsize=(14, 8.0))
+    fig = plt.figure(figsize=(14, 9.0))
     annual_axes, monthly_axes, daily_axes, gs = build_layout(fig)
 
     annual_methods = [m for m in METHODS if m.scale == "Annual"]
@@ -277,6 +286,15 @@ def main():
     tighten_row_ylim(annual_axes, annual_methods, panel_data)
     tighten_row_ylim(monthly_axes, monthly_methods, panel_data)
     tighten_row_ylim(daily_axes, daily_methods, panel_data)
+
+    # Cap the daily row at 10^4 cms (sharey propagates to siblings)
+    daily_lo, _ = daily_axes[0].get_ylim()
+    daily_axes[0].set_ylim(daily_lo, 1e4)
+
+    # Only the left-most subplot in each row shows y-ticks and labels
+    for row in (annual_axes, monthly_axes, daily_axes):
+        for ax in row[1:]:
+            ax.tick_params(left=False, labelleft=False)
 
     # Axis labels: y on first panel of each row, x on bottom panels
     for ax in daily_axes:
@@ -313,20 +331,61 @@ def main():
         fontsize=13,
         y=0.965,
     )
-    fig.text(
-        0.5,
-        0.925,
-        "Panel titles colored by method family: "
-        "parametric / hybrid / non-parametric.   "
-        "Shaded band: range across synthetic realizations.   "
-        "Bold line: historical record.",
-        ha="center",
-        va="center",
+    fdc_handles = [
+        Patch(
+            facecolor=ENSEMBLE_FILL,
+            alpha=ENSEMBLE_FILL_ALPHA,
+            edgecolor="none",
+            label=f"Synthetic ensemble range (min–max across {n_real_sample} realizations)",
+        ),
+        Line2D(
+            [0],
+            [0],
+            color=OBSERVED_COLOR,
+            linewidth=1.0,
+            linestyle="--",
+            label=f"Historical observed record at {PLOT_SITE}",
+        ),
+    ]
+    fdc_legend = fig.legend(
+        handles=fdc_handles,
+        title="FDC series",
+        title_fontproperties={"weight": "bold", "size": 9},
+        loc="lower right",
+        bbox_to_anchor=(0.55, 0.005),
+        frameon=True,
+        framealpha=0.9,
+        edgecolor="0.7",
         fontsize=9,
-        color="0.3",
+        handlelength=2.5,
+        borderpad=0.7,
     )
+    fig.add_artist(fdc_legend)
 
-    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    # Generator-type legend: text-only, colored by family
+    family_order = ["Parametric", "Hybrid", "Non-parametric"]
+    family_handles = [
+        Line2D([0], [0], color="none", marker="", label=name) for name in family_order
+    ]
+    family_legend = fig.legend(
+        handles=family_handles,
+        title="Generator type (panel title color)",
+        title_fontproperties={"weight": "bold", "size": 9},
+        loc="lower left",
+        bbox_to_anchor=(0.57, 0.005),
+        frameon=True,
+        framealpha=0.9,
+        edgecolor="0.7",
+        fontsize=9,
+        handlelength=0,
+        handletextpad=0,
+        borderpad=0.7,
+    )
+    for text, name in zip(family_legend.get_texts(), family_order):
+        text.set_color(FAMILY_COLOR[name])
+        text.set_fontweight("bold")
+
+    fig.savefig(out_path, dpi=400, bbox_inches="tight")
     plt.close(fig)
     logger.info("Saved figure to %s", out_path)
 

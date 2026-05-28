@@ -12,13 +12,13 @@
         <meta name="author" content="Trevor Amestoy">
       
       
-        <link rel="canonical" href="https://trevorja.github.io/SynHydro/tutorials/03_pipeline/">
+        <link rel="canonical" href="https://trevorja.github.io/SynHydro/tutorials/03_disaggregator/">
       
       
         <link rel="prev" href="../02_multisite/">
       
       
-        <link rel="next" href="../04_drought_analysis/">
+        <link rel="next" href="../04_pipeline/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Monthly→Daily Pipeline - SynHydro</title>
+        <title>Disaggregator (Nowak) - SynHydro</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#monthly-to-daily-pipeline" class="md-skip">
+        <a href="#monthly-to-daily-disaggregation-with-nowakdisaggregator" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Monthly→Daily Pipeline
+              Disaggregator (Nowak)
             
           </span>
         </div>
@@ -569,7 +569,7 @@
   
   
   <span class="md-ellipsis">
-    Monthly→Daily Pipeline
+    Disaggregator (Nowak)
     
   </span>
   
@@ -582,7 +582,7 @@
   
   
   <span class="md-ellipsis">
-    Monthly→Daily Pipeline
+    Disaggregator (Nowak)
     
   </span>
   
@@ -605,9 +605,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#generate-daily-synthetic-flows" class="md-nav__link">
+  <a href="#how-it-works" class="md-nav__link">
     <span class="md-ellipsis">
-      Generate daily synthetic flows
+      How it works
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generate-a-monthly-ensemble" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate a monthly ensemble
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fit-and-disaggregate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fit and disaggregate
     </span>
   </a>
   
@@ -617,6 +635,15 @@
   <a href="#visualize" class="md-nav__link">
     <span class="md-ellipsis">
       Visualize
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key parameters
     </span>
   </a>
   
@@ -647,7 +674,30 @@
   
   
     <li class="md-nav__item">
-      <a href="../04_drought_analysis/" class="md-nav__link">
+      <a href="../04_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Monthly→Daily Pipeline
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05_drought_analysis/" class="md-nav__link">
         
   
   
@@ -670,7 +720,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../05_validation/" class="md-nav__link">
+      <a href="../06_validation/" class="md-nav__link">
         
   
   
@@ -693,7 +743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../06_plotting/" class="md-nav__link">
+      <a href="../07_plotting/" class="md-nav__link">
         
   
   
@@ -1302,9 +1352,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#generate-daily-synthetic-flows" class="md-nav__link">
+  <a href="#how-it-works" class="md-nav__link">
     <span class="md-ellipsis">
-      Generate daily synthetic flows
+      How it works
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generate-a-monthly-ensemble" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate a monthly ensemble
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fit-and-disaggregate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fit and disaggregate
     </span>
   </a>
   
@@ -1314,6 +1382,15 @@
   <a href="#visualize" class="md-nav__link">
     <span class="md-ellipsis">
       Visualize
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key parameters
     </span>
   </a>
   
@@ -1347,55 +1424,104 @@
   
 
 
-<h1 id="monthly-to-daily-pipeline">Monthly-to-Daily Pipeline<a class="headerlink" href="#monthly-to-daily-pipeline" title="Permanent link">&para;</a></h1>
-<p>Many applications need daily synthetic flows, but the most robust generation
-methods operate at a monthly scale. SynHydro's <strong>pipelines</strong> chain a monthly
-generator with a temporal disaggregator in a single interface.</p>
-<p><code>KirschNowakPipeline</code> combines the Kirsch monthly bootstrap with the Nowak
-KNN disaggregator. You provide daily observed data; it handles the internal
-monthly aggregation and disaggregation automatically.</p>
-<h2 id="generate-daily-synthetic-flows">Generate daily synthetic flows<a class="headerlink" href="#generate-daily-synthetic-flows" title="Permanent link">&para;</a></h2>
+<h1 id="monthly-to-daily-disaggregation-with-nowakdisaggregator">Monthly-to-Daily Disaggregation with NowakDisaggregator<a class="headerlink" href="#monthly-to-daily-disaggregation-with-nowakdisaggregator" title="Permanent link">&para;</a></h1>
+<p>The most robust stochastic generators operate at a monthly timestep, but many
+downstream applications (e.g. reservoir operations, flood analysis) need daily
+flows. <strong>Temporal disaggregators</strong> bridge that gap by splitting each synthetic
+monthly total into a realistic 28-31 day sequence.</p>
+<p>This tutorial uses <code>NowakDisaggregator</code> (Nowak et al., 2010) directly on the
+output of a <code>KirschGenerator</code>. The next tutorial wraps the same two steps in
+<code>KirschNowakPipeline</code> for when you do not need to inspect the intermediate
+monthly ensemble.</p>
+<h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<p>For each synthetic monthly total, the Nowak method finds the <strong>K nearest
+historical months</strong> by total flow magnitude, picks one of them stochastically
+(inverse-distance weighting by default), and rescales that analog month's
+observed daily proportions to match the synthetic monthly total. Monthly
+totals are preserved by construction, and daily dynamics are drawn directly
+from the historical record. See <a href="../../algorithms/nowak_disaggregation/">Nowak Disaggregation</a>
+for the full formulation.</p>
+<h2 id="generate-a-monthly-ensemble">Generate a monthly ensemble<a class="headerlink" href="#generate-a-monthly-ensemble" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">synhydro</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">Q_daily</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">load_example_data</span><span class="p">()</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">pipeline</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">KirschNowakPipeline</span><span class="p">()</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">pipeline</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Q_daily</span><span class="p">)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">daily_ensemble</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">n_years</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">Q_monthly</span> <span class="o">=</span> <span class="n">Q_daily</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s2">&quot;MS&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">gen</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">KirschGenerator</span><span class="p">()</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">gen</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Q_monthly</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">monthly_ensemble</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">n_years</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">Q_syn_daily</span> <span class="o">=</span> <span class="n">daily_ensemble</span><span class="o">.</span><span class="n">data_by_realization</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">Q_syn_daily</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (~10957 days x n_sites)</span>
+<h2 id="fit-and-disaggregate">Fit and disaggregate<a class="headerlink" href="#fit-and-disaggregate" title="Permanent link">&para;</a></h2>
+<p>The disaggregator is fit on the <strong>daily</strong> observed record - the source of
+analog donor months - not on the monthly generator output.</p>
+<div class="highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">disagg</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">NowakDisaggregator</span><span class="p">()</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">disagg</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Q_daily</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">daily_ensemble</span> <span class="o">=</span> <span class="n">disagg</span><span class="o">.</span><span class="n">disaggregate</span><span class="p">(</span><span class="n">monthly_ensemble</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Single-site alternative</p>
-<div class="highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">pipeline</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">ThomasFieringNowakPipeline</span><span class="p">()</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">pipeline</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Q_daily</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+<div class="highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">Q_syn_daily</span> <span class="o">=</span> <span class="n">daily_ensemble</span><span class="o">.</span><span class="n">data_by_realization</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">Q_syn_daily</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># (~10957 days x n_sites)</span>
 </span></code></pre></div>
-</div>
+<p><code>disaggregate</code> returns an <code>Ensemble</code> at daily frequency with the same number
+of realizations and sites as the input monthly ensemble.</p>
 <h2 id="visualize">Visualize<a class="headerlink" href="#visualize" title="Permanent link">&para;</a></h2>
-<p>Plot a one-year window to inspect daily variability:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synhydro.plotting</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_timeseries</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">site</span> <span class="o">=</span> <span class="n">Q_daily</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<p>A 2x2 panel compares the input monthly ensemble (left column) with the
+disaggregated daily ensemble (right column) in both the time domain and as
+a flow duration curve.</p>
+<div class="highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synhydro.plotting</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_timeseries</span><span class="p">,</span> <span class="n">plot_flow_duration_curve</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_timeseries</span><span class="p">(</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">daily_ensemble</span><span class="p">,</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">observed</span><span class="o">=</span><span class="n">Q_daily</span><span class="p">[</span><span class="n">site</span><span class="p">],</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">start_date</span><span class="o">=</span><span class="s2">&quot;2000-01-01&quot;</span><span class="p">,</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">end_date</span><span class="o">=</span><span class="s2">&quot;2000-12-31&quot;</span><span class="p">,</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">show_members</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">site</span> <span class="o">=</span> <span class="n">Q_monthly</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">syn_start</span> <span class="o">=</span> <span class="n">monthly_ensemble</span><span class="o">.</span><span class="n">data_by_realization</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">monthly_end</span> <span class="o">=</span> <span class="nb">str</span><span class="p">((</span><span class="n">syn_start</span> <span class="o">+</span> <span class="n">pd</span><span class="o">.</span><span class="n">DateOffset</span><span class="p">(</span><span class="n">years</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">date</span><span class="p">())</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">daily_end</span> <span class="o">=</span> <span class="nb">str</span><span class="p">((</span><span class="n">syn_start</span> <span class="o">+</span> <span class="n">pd</span><span class="o">.</span><span class="n">DateOffset</span><span class="p">(</span><span class="n">years</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">date</span><span class="p">())</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">start</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">syn_start</span><span class="o">.</span><span class="n">date</span><span class="p">())</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">plot_timeseries</span><span class="p">(</span><span class="n">monthly_ensemble</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">Q_monthly</span><span class="p">[</span><span class="n">site</span><span class="p">],</span> <span class="n">site</span><span class="o">=</span><span class="n">site</span><span class="p">,</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>                <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">start_date</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">end_date</span><span class="o">=</span><span class="n">monthly_end</span><span class="p">,</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>                <span class="n">show_members</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Monthly ensemble&quot;</span><span class="p">)</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="n">plot_timeseries</span><span class="p">(</span><span class="n">daily_ensemble</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">Q_daily</span><span class="p">[</span><span class="n">site</span><span class="p">],</span> <span class="n">site</span><span class="o">=</span><span class="n">site</span><span class="p">,</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>                <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">start_date</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">end_date</span><span class="o">=</span><span class="n">daily_end</span><span class="p">,</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>                <span class="n">show_members</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Disaggregated daily ensemble&quot;</span><span class="p">)</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">plot_flow_duration_curve</span><span class="p">(</span><span class="n">monthly_ensemble</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">Q_monthly</span><span class="p">[</span><span class="n">site</span><span class="p">],</span> <span class="n">site</span><span class="o">=</span><span class="n">site</span><span class="p">,</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>                         <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Monthly FDC&quot;</span><span class="p">)</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="n">plot_flow_duration_curve</span><span class="p">(</span><span class="n">daily_ensemble</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">Q_daily</span><span class="p">[</span><span class="n">site</span><span class="p">],</span> <span class="n">site</span><span class="o">=</span><span class="n">site</span><span class="p">,</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>                         <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Daily FDC&quot;</span><span class="p">)</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 </span></code></pre></div>
-<p><img alt="Daily synthetic hydrograph for one year with ensemble uncertainty and observed flows" src="../../assets/images/tutorials/03_daily_timeseries.png" width="700px" /></p>
+<p><img alt="Four-panel monthly-vs-daily comparison: top row shows ensemble timeseries before and after disaggregation, bottom row shows flow duration curves before and after" src="../../assets/images/tutorials/03_disaggregator_panels.png" width="700px" /></p>
+<p>The top-left and bottom-left panels reproduce the Kirsch monthly behavior
+from <a href="../02_multisite/">Tutorial 02</a>; the right column shows that the
+disaggregator adds realistic daily variability while the daily FDC tracks
+the observed daily distribution.</p>
+<h2 id="key-parameters">Key parameters<a class="headerlink" href="#key-parameters" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>n_neighbors</code> (default 5) - number of historical analogs considered per
+  synthetic month. Larger values give more diverse daily patterns at the
+  cost of weaker analog match.</li>
+<li><code>max_month_shift</code> (default 7) - the candidate window can slide up to this
+  many days around the calendar month center, enlarging the donor pool.</li>
+<li><code>blend_days</code> (default 2) - smooths month-boundary discontinuities while
+  preserving monthly totals. Set to <code>0</code> to disable.</li>
+<li><code>sample_method</code> on <code>.disaggregate(...)</code> - choose <code>"distance_weighted"</code>
+  (default) or <code>"lall_and_sharma_1996"</code> for rank-based harmonic weighting.</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Skip the manual chaining</p>
+<p>If you do not need the intermediate monthly ensemble,
+<code>KirschNowakPipeline</code> runs both steps in a single call. See
+<a href="../04_pipeline/">Tutorial 04</a>.</p>
+</div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Drought analysis</strong> on synthetic flows - <a href="../04_drought_analysis/">Tutorial 04</a></li>
-<li><strong>Ensemble validation</strong> - <a href="../05_validation/">Tutorial 05</a></li>
-<li><strong>Algorithm details</strong> - <a href="../../algorithms/kirsch/">Kirsch Bootstrap</a>,
-  <a href="../../algorithms/nowak_disaggregation/">Nowak Disaggregation</a></li>
+<li><strong>End-to-end pipeline</strong> - <a href="../04_pipeline/">Tutorial 04</a></li>
+<li><strong>Validation of daily ensembles</strong> - <a href="../06_validation/">Tutorial 06</a></li>
+<li><strong>Algorithm details</strong> - <a href="../../algorithms/nowak_disaggregation/">Nowak Disaggregation</a></li>
 </ul>
 <hr />
-<p><strong>Previous:</strong> <a href="../02_multisite/">Multi-Site Monthly (Kirsch)</a> | <strong>Next:</strong> <a href="../04_drought_analysis/">Drought Analysis (SSI)</a></p>
+<p><strong>Previous:</strong> <a href="../02_multisite/">Multi-Site Monthly (Kirsch)</a> | <strong>Next:</strong> <a href="../04_pipeline/">Monthly-to-Daily Pipeline</a></p>
 
 
 

@@ -12,13 +12,13 @@
         <meta name="author" content="Trevor Amestoy">
       
       
-        <link rel="canonical" href="https://trevorja.github.io/SynHydro/tutorials/05_validation/">
+        <link rel="canonical" href="https://trevorja.github.io/SynHydro/tutorials/05_drought_analysis/">
       
       
-        <link rel="prev" href="../04_drought_analysis/">
+        <link rel="prev" href="../04_pipeline/">
       
       
-        <link rel="next" href="../06_plotting/">
+        <link rel="next" href="../06_validation/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Ensemble Validation - SynHydro</title>
+        <title>Drought Analysis (SSI) - SynHydro</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ensemble-validation" class="md-skip">
+        <a href="#drought-analysis-with-ssi" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Ensemble Validation
+              Drought Analysis (SSI)
             
           </span>
         </div>
@@ -555,12 +555,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../03_pipeline/" class="md-nav__link">
+      <a href="../03_disaggregator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Monthly→Daily Pipeline
+    Disaggregator (Nowak)
     
   </span>
   
@@ -578,12 +578,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../04_drought_analysis/" class="md-nav__link">
+      <a href="../04_pipeline/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Drought Analysis (SSI)
+    Monthly→Daily Pipeline
     
   </span>
   
@@ -615,7 +615,7 @@
   
   
   <span class="md-ellipsis">
-    Ensemble Validation
+    Drought Analysis (SSI)
     
   </span>
   
@@ -628,7 +628,7 @@
   
   
   <span class="md-ellipsis">
-    Ensemble Validation
+    Drought Analysis (SSI)
     
   </span>
   
@@ -651,36 +651,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
+  <a href="#calculate-ssi-on-observed-data" class="md-nav__link">
     <span class="md-ellipsis">
-      Setup
+      Calculate SSI on observed data
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#run-validation" class="md-nav__link">
+  <a href="#extract-drought-events" class="md-nav__link">
     <span class="md-ellipsis">
-      Run validation
+      Extract drought events
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#explore-results" class="md-nav__link">
+  <a href="#visualize-ensemble-ssi" class="md-nav__link">
     <span class="md-ellipsis">
-      Explore results
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#visual-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Visual validation
+      Visualize ensemble SSI
     </span>
   </a>
   
@@ -711,7 +702,30 @@
   
   
     <li class="md-nav__item">
-      <a href="../06_plotting/" class="md-nav__link">
+      <a href="../06_validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ensemble Validation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../07_plotting/" class="md-nav__link">
         
   
   
@@ -1320,36 +1334,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
+  <a href="#calculate-ssi-on-observed-data" class="md-nav__link">
     <span class="md-ellipsis">
-      Setup
+      Calculate SSI on observed data
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#run-validation" class="md-nav__link">
+  <a href="#extract-drought-events" class="md-nav__link">
     <span class="md-ellipsis">
-      Run validation
+      Extract drought events
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#explore-results" class="md-nav__link">
+  <a href="#visualize-ensemble-ssi" class="md-nav__link">
     <span class="md-ellipsis">
-      Explore results
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#visual-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Visual validation
+      Visualize ensemble SSI
     </span>
   </a>
   
@@ -1383,124 +1388,71 @@
   
 
 
-<h1 id="ensemble-validation">Ensemble Validation<a class="headerlink" href="#ensemble-validation" title="Permanent link">&para;</a></h1>
-<p>After generating synthetic flows you need to verify that they reproduce the
-statistical properties of the historical record. <code>validate_ensemble</code> computes
-a comprehensive suite of metrics comparing the ensemble against observed data.</p>
-<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
+<h1 id="drought-analysis-with-ssi">Drought Analysis with SSI<a class="headerlink" href="#drought-analysis-with-ssi" title="Permanent link">&para;</a></h1>
+<p>SynHydro provides the <strong>Standardized Streamflow Index (SSI)</strong> for
+characterizing drought from streamflow data. This tutorial covers the
+SSI calculation and drought event extraction workflow.</p>
+<h2 id="calculate-ssi-on-observed-data">Calculate SSI on observed data<a class="headerlink" href="#calculate-ssi-on-observed-data" title="Permanent link">&para;</a></h2>
+<p>SSI transforms raw flows into standardized anomalies by fitting a probability
+distribution within a rolling window. Values below -1 indicate drought;
+below -2 is extreme.</p>
 <div class="highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">synhydro</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">Q_daily</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">load_example_data</span><span class="p">()</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">Q_monthly</span> <span class="o">=</span> <span class="n">Q_daily</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s2">&quot;MS&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">gen</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">KirschGenerator</span><span class="p">()</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">gen</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Q_monthly</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">ensemble</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">n_years</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">site</span> <span class="o">=</span> <span class="n">Q_monthly</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">ssi_calc</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">SSI</span><span class="p">(</span><span class="n">dist</span><span class="o">=</span><span class="s2">&quot;gamma&quot;</span><span class="p">,</span> <span class="n">timescale</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">fit_freq</span><span class="o">=</span><span class="s2">&quot;ME&quot;</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">ssi_calc</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Q_monthly</span><span class="p">[</span><span class="n">site</span><span class="p">])</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">ssi</span> <span class="o">=</span> <span class="n">ssi_calc</span><span class="o">.</span><span class="n">get_training_ssi</span><span class="p">()</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SSI mean: </span><span class="si">{</span><span class="n">ssi</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>   <span class="c1"># ~0</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SSI std:  </span><span class="si">{</span><span class="n">ssi</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>     <span class="c1"># ~1</span>
 </span></code></pre></div>
-<h2 id="run-validation">Run validation<a class="headerlink" href="#run-validation" title="Permanent link">&para;</a></h2>
-<p><code>validate_ensemble</code> compares the ensemble to observed data across eight
-metric categories:</p>
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>What it checks</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Marginal</strong></td>
-<td>Mean, std, skewness, kurtosis, CV, percentiles, KS test</td>
-</tr>
-<tr>
-<td><strong>Temporal</strong></td>
-<td>Lag-1/2 autocorrelation, Hurst exponent, ACF RMSE</td>
-</tr>
-<tr>
-<td><strong>Spatial</strong></td>
-<td>Cross-site correlation RMSE and bias</td>
-</tr>
-<tr>
-<td><strong>Drought</strong></td>
-<td>Mean/max duration, mean/max severity, frequency</td>
-</tr>
-<tr>
-<td><strong>Spectral</strong></td>
-<td>Power spectrum RMSE, correlation, low-frequency ratio</td>
-</tr>
-<tr>
-<td><strong>Seasonal</strong></td>
-<td>Per-month mean/std/skewness bias, Wilcoxon p-values</td>
-</tr>
-<tr>
-<td><strong>Annual</strong></td>
-<td>Annual mean, variance, skewness, lag-1 ACF, variance ratio</td>
-</tr>
-<tr>
-<td><strong>FDC</strong></td>
-<td>Flow duration curve RMSE, bias at Q10/Q50/Q90, envelope coverage</td>
-</tr>
-</tbody>
-</table>
-<div class="highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">validate_ensemble</span><span class="p">(</span><span class="n">ensemble</span><span class="p">,</span> <span class="n">Q_monthly</span><span class="p">)</span>
+<h2 id="extract-drought-events">Extract drought events<a class="headerlink" href="#extract-drought-events" title="Permanent link">&para;</a></h2>
+<p><code>get_drought_metrics</code> identifies contiguous periods where SSI stays below -1:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">metrics</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">get_drought_metrics</span><span class="p">(</span><span class="n">ssi</span><span class="p">)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">metrics</span><span class="p">[[</span><span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">,</span> <span class="s2">&quot;duration&quot;</span><span class="p">,</span> <span class="s2">&quot;severity&quot;</span><span class="p">,</span> <span class="s2">&quot;avg_severity&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
 </span></code></pre></div>
-<p>You can also request a subset of categories:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">validate_ensemble</span><span class="p">(</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">ensemble</span><span class="p">,</span> <span class="n">Q_monthly</span><span class="p">,</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;marginal&quot;</span><span class="p">,</span> <span class="s2">&quot;seasonal&quot;</span><span class="p">,</span> <span class="s2">&quot;fdc&quot;</span><span class="p">],</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">)</span>
+<p>Each row is a drought event with its duration, severity (minimum SSI),
+and magnitude (cumulative deficit).</p>
+<h2 id="visualize-ensemble-ssi">Visualize ensemble SSI<a class="headerlink" href="#visualize-ensemble-ssi" title="Permanent link">&para;</a></h2>
+<p><code>plot_ssi_timeseries</code> computes SSI for each ensemble realization and overlays
+the observed SSI, making it easy to compare synthetic and historical drought
+behavior. Pass the ensemble (not a training SSI series) along with the
+observed flows.</p>
+<div class="highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synhydro.plotting</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_ssi_timeseries</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">gen</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">KirschGenerator</span><span class="p">()</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">gen</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Q_monthly</span><span class="p">)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">ensemble</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">n_years</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_ssi_timeseries</span><span class="p">(</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">ensemble</span><span class="p">,</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">observed</span><span class="o">=</span><span class="n">Q_monthly</span><span class="p">[</span><span class="n">site</span><span class="p">],</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">site</span><span class="o">=</span><span class="n">site</span><span class="p">,</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">window</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;SSI-12 -- </span><span class="si">{</span><span class="n">site</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="explore-results">Explore results<a class="headerlink" href="#explore-results" title="Permanent link">&para;</a></h2>
-<p>Each metric entry contains the observed value, synthetic median and spread,
-and relative error:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">site</span> <span class="o">=</span> <span class="n">Q_monthly</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">marginal</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="nb">print</span><span class="p">(</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">metric</span><span class="si">:</span><span class="s2">12s</span><span class="si">}</span><span class="s2">  obs=</span><span class="si">{</span><span class="n">values</span><span class="p">[</span><span class="s1">&#39;observed&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">  &quot;</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="sa">f</span><span class="s2">&quot;syn=</span><span class="si">{</span><span class="n">values</span><span class="p">[</span><span class="s1">&#39;synthetic_median&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">  &quot;</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="sa">f</span><span class="s2">&quot;rel_err=</span><span class="si">{</span><span class="n">values</span><span class="p">[</span><span class="s1">&#39;relative_error&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="p">)</span>
-</span></code></pre></div>
-<p>Summary scores give a single-number snapshot of generation quality:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">for</span> <span class="n">score</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">score</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<p>For further analysis, flatten results into a tidy DataFrame:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">df</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;relative_error&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">0.1</span><span class="p">]</span>   <span class="c1"># flag large errors</span>
-</span></code></pre></div>
-<h2 id="visual-validation">Visual validation<a class="headerlink" href="#visual-validation" title="Permanent link">&para;</a></h2>
-<p><code>plot_validation_panel</code> produces a 5-panel figure comparing observed and
-synthetic distributions by month, with Wilcoxon rank-sum and Levene test
-p-values. Values above the dashed line (p = 0.05) indicate the distributions
-are statistically indistinguishable.</p>
-<div class="highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synhydro.plotting</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_validation_panel</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plot_validation_panel</span><span class="p">(</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">ensemble</span><span class="p">,</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">observed</span><span class="o">=</span><span class="n">Q_monthly</span><span class="p">[</span><span class="n">site</span><span class="p">],</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">site</span><span class="o">=</span><span class="n">site</span><span class="p">,</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">)</span>
-</span></code></pre></div>
-<p><img alt="Five-panel validation: boxplots by month, monthly mean and std comparison, Wilcoxon and Levene p-values" src="../../assets/images/tutorials/05_validation_panel.png" width="700px" /></p>
+<p><img alt="SSI-12 timeseries with shaded drought-severity bands and ensemble percentile envelopes" src="../../assets/images/tutorials/05_ssi_with_droughts.png" width="700px" /></p>
+<p>Shaded zones mark moderate (-1 to -1.5), severe (-1.5 to -2), and
+extreme (&lt; -2) drought conditions.</p>
 <div class="admonition tip">
-<p class="admonition-title">Log-space validation</p>
-<p>Streamflow is often right-skewed. Validating in log space can reveal
-differences in the lower tail:
-<div class="highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plot_validation_panel</span><span class="p">(</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">ensemble</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">Q_monthly</span><span class="p">[</span><span class="n">site</span><span class="p">],</span> <span class="n">log_space</span><span class="o">=</span><span class="kc">True</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="p">)</span>
+<p class="admonition-title">Choosing a distribution</p>
+<p>Use <code>compare_distributions</code> to rank candidate distributions by AIC and
+Kolmogorov-Smirnov test:
+<div class="highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">synhydro</span><span class="o">.</span><span class="n">compare_distributions</span><span class="p">(</span><span class="n">Q_monthly</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
 </span></code></pre></div></p>
 </div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Diagnostic plots</strong> for specific properties (ACF, FDC, spatial correlation)
-  are available in <code>synhydro.plotting</code> -- see the <a href="../../api/generators/">API reference</a></li>
-<li><strong>Algorithm details</strong> can help diagnose which statistical properties a
-  generator is designed to preserve -- <a href="../../algorithms/">Algorithms</a></li>
+<li><strong>Ensemble validation</strong> - <a href="../06_validation/">Tutorial 06</a></li>
+<li><strong>Algorithm details</strong> - <a href="../../algorithms/kirsch/">Kirsch Bootstrap</a></li>
 </ul>
 <hr />
-<p><strong>Previous:</strong> <a href="../04_drought_analysis/">Drought Analysis (SSI)</a></p>
+<p><strong>Previous:</strong> <a href="../04_pipeline/">Monthly-to-Daily Pipeline</a> | <strong>Next:</strong> <a href="../06_validation/">Ensemble Validation</a></p>
 
 
 

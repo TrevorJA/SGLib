@@ -95,10 +95,11 @@ nav:
     - Overview: tutorials/index.md
     - "Quickstart (Thomas-Fiering)": tutorials/01_quickstart.md
     - "Multi-Site Monthly (Kirsch)": tutorials/02_multisite.md
-    - "Monthly→Daily Pipeline": tutorials/03_pipeline.md
-    - "Drought Analysis (SSI)": tutorials/04_drought_analysis.md
-    - "Ensemble Validation": tutorials/05_validation.md
-    - "Plotting Walkthrough": tutorials/06_plotting.md
+    - "Disaggregator (Nowak)": tutorials/03_disaggregator.md
+    - "Monthly→Daily Pipeline": tutorials/04_pipeline.md
+    - "Drought Analysis (SSI)": tutorials/05_drought_analysis.md
+    - "Ensemble Validation": tutorials/06_validation.md
+    - "Plotting Walkthrough": tutorials/07_plotting.md
   - Algorithms:
     - Overview: algorithms/index.md
     - Thomas-Fiering AR(1): algorithms/thomas_fiering.md

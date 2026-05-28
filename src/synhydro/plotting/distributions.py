@@ -157,6 +157,13 @@ def plot_flow_duration_curve(
     s_flat = site_data.values.flatten()
     s_pos, s_total_fdc = _empirical_fdc(s_flat)
 
+    # Common quantile grid for annual envelope bands (sub-annual case).
+    # Sampling per-year FDCs on a shared grid lets the ensemble and
+    # observed bands span the same x range and be directly comparable —
+    # otherwise their x ranges depend on how many periods are in each
+    # year (e.g. monthly: 12 -> Weibull positions only cover ~[0.04, 0.96]).
+    annual_grid = np.linspace(0.005, 0.995, 200)
+
     if show_annual_range:
         if is_annual:
             # Per-realization FDC, then envelope across realizations.
@@ -174,23 +181,26 @@ def plot_flow_duration_curve(
             s_fdc_max = np.nanmax(env_vals, axis=1)
             envelope_label = "Ensemble Realization FDC Range"
         else:
-            # Sub-annual data: per-year FDC at empirical within-year
-            # positions, then min/max envelope across years. Pool values
-            # across all realizations within each year.
-            years = sorted(set(int(y) for y in site_data.index.year.unique()))
-            per_year_vals = []
-            for y in years:
-                year_block = site_data.values[site_data.index.year == y]
-                vals = np.sort(year_block.flatten())
-                vals = vals[~np.isnan(vals)]
-                if vals.size:
-                    per_year_vals.append(vals)
-            if per_year_vals:
-                m = min(v.size for v in per_year_vals)
-                env_pos = (np.arange(1, m + 1) - 0.5) / m
-                env_arr = np.stack([v[:m] for v in per_year_vals], axis=1)
+            # Sub-annual: each (realization, calendar year) pair is one
+            # annual FDC. Evaluate on the shared quantile grid, then take
+            # min/max across all pairs. The observed band below uses the
+            # same per-year-FDC definition (one year = one unit), so the
+            # two bands are apples-to-apples.
+            years = site_data.index.year.unique()
+            per_year_fdcs = []
+            for col in site_data.columns:
+                series_vals = site_data[col].values
+                series_years = site_data.index.year
+                for y in years:
+                    vals = series_vals[series_years == y]
+                    vals = vals[~np.isnan(vals)]
+                    if vals.size >= 2:
+                        per_year_fdcs.append(np.quantile(vals, annual_grid))
+            if per_year_fdcs:
+                env_arr = np.stack(per_year_fdcs, axis=1)
                 s_fdc_min = np.nanmin(env_arr, axis=1)
                 s_fdc_max = np.nanmax(env_arr, axis=1)
+                env_pos = annual_grid
                 envelope_label = "Ensemble Annual FDC Range"
             else:
                 env_pos = None
@@ -221,22 +231,23 @@ def plot_flow_duration_curve(
         # An observed series is one realization, so the inter-year
         # envelope is only meaningful for sub-annual data; for annual
         # observed data it would collapse to a horizontal rectangle.
+        # Same per-year-FDC-on-common-grid definition as the ensemble
+        # band above so the two are directly comparable.
         if show_annual_range and not _is_annual_index(observed.index):
-            years = sorted(set(int(y) for y in observed.index.year.unique()))
+            obs_vals = observed.values
+            obs_years = observed.index.year
             per_year_obs = []
-            for y in years:
-                vals = np.sort(observed.values[observed.index.year == y])
+            for y in obs_years.unique():
+                vals = obs_vals[obs_years == y]
                 vals = vals[~np.isnan(vals)]
-                if vals.size:
-                    per_year_obs.append(vals)
+                if vals.size >= 2:
+                    per_year_obs.append(np.quantile(vals, annual_grid))
             if per_year_obs:
-                m = min(v.size for v in per_year_obs)
-                obs_env_pos = (np.arange(1, m + 1) - 0.5) / m
-                obs_env_arr = np.stack([v[:m] for v in per_year_obs], axis=1)
+                obs_env_arr = np.stack(per_year_obs, axis=1)
                 h_fdc_min = np.nanmin(obs_env_arr, axis=1)
                 h_fdc_max = np.nanmax(obs_env_arr, axis=1)
                 ax.fill_between(
-                    obs_env_pos,
+                    annual_grid,
                     h_fdc_min,
                     h_fdc_max,
                     color=COLORS["observed"],

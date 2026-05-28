@@ -36,10 +36,11 @@ fig, axes = plot_spatial_correlation(
 
 ## Next steps
 
-- **Monthly-to-daily pipeline** - [Tutorial 03](03_pipeline.md)
-- **Quantitative validation** - [Tutorial 05](05_validation.md)
+- **Monthly-to-daily disaggregation** - [Tutorial 03](03_disaggregator.md)
+- **Monthly-to-daily pipeline** - [Tutorial 04](04_pipeline.md)
+- **Quantitative validation** - [Tutorial 06](06_validation.md)
 - **Algorithm details** - [Kirsch Bootstrap](../algorithms/kirsch.md)
 
 ---
 
-**Previous:** [Quickstart (Thomas-Fiering)](01_quickstart.md) | **Next:** [Monthly-to-Daily Pipeline](03_pipeline.md)
+**Previous:** [Quickstart (Thomas-Fiering)](01_quickstart.md) | **Next:** [Disaggregator (Nowak)](03_disaggregator.md)

@@ -92,7 +92,7 @@ fig, axes = plot_validation_panel(
 )
 ```
 
-![Five-panel validation: boxplots by month, monthly mean and std comparison, Wilcoxon and Levene p-values](../assets/images/tutorials/05_validation_panel.png){: width="700px" }
+![Five-panel validation: boxplots by month, monthly mean and std comparison, Wilcoxon and Levene p-values](../assets/images/tutorials/06_validation_panel.png){: width="700px" }
 
 !!! tip "Log-space validation"
     Streamflow is often right-skewed. Validating in log space can reveal
@@ -112,4 +112,4 @@ fig, axes = plot_validation_panel(
 
 ---
 
-**Previous:** [Drought Analysis (SSI)](04_drought_analysis.md)
+**Previous:** [Drought Analysis (SSI)](05_drought_analysis.md)

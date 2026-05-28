@@ -87,16 +87,17 @@ def aggregate_obs(Q_daily: pd.DataFrame, target: str) -> pd.DataFrame:
     raise ValueError(f"unknown target freq {target}")
 
 
-def load_pooled_synthetic(method: Method, site: str) -> Optional[np.ndarray]:
+def load_pooled_synthetic(method: Method, site: str):
+    """Return (pooled_values, n_realizations, n_years_per_realization)."""
     h5_path = OUTPUTS_DIR / method.folder / "ensemble.h5"
     if not h5_path.exists():
         logger.warning("%s: missing %s", method.folder, h5_path)
-        return None
+        return None, None, None
     try:
         ens = Ensemble.from_hdf5(str(h5_path))
     except Exception as exc:
         logger.warning("%s: failed to load: %s", method.folder, exc)
-        return None
+        return None, None, None
 
     syn_df = ens.data_by_site.get(site)
     if syn_df is None:
@@ -104,9 +105,15 @@ def load_pooled_synthetic(method: Method, site: str) -> Optional[np.ndarray]:
         logger.info("%s: site %s missing, using %s", method.folder, site, first)
         syn_df = ens.data_by_site[first]
 
+    n_realizations = syn_df.shape[1]
+    if len(syn_df.index) > 0:
+        n_years = syn_df.index[-1].year - syn_df.index[0].year + 1
+    else:
+        n_years = 0
+
     # Pool all realizations into one flat sample
     values = syn_df.values.flatten()
-    return values
+    return values, n_realizations, n_years
 
 
 def kde_log_flow(values: np.ndarray, x_grid: np.ndarray) -> Optional[np.ndarray]:
@@ -188,7 +195,15 @@ def main():
     Q_monthly = aggregate_obs(Q_daily, "MS")[PLOT_SITE].values
     Q_daily_arr = Q_daily[PLOT_SITE].values
 
-    syn_by_method = {m.folder: load_pooled_synthetic(m, PLOT_SITE) for m in METHODS}
+    loaded = {m.folder: load_pooled_synthetic(m, PLOT_SITE) for m in METHODS}
+    syn_by_method = {k: v[0] for k, v in loaded.items()}
+
+    # Representative ensemble size (assume consistent across generators)
+    n_real, n_syn_years = next(
+        ((v[1], v[2]) for v in loaded.values() if v[1] is not None),
+        (None, None),
+    )
+    n_hist_years = Q_daily.index[-1].year - Q_daily.index[0].year + 1
 
     fig, axes = plt.subplots(3, 1, figsize=(9.5, 11.0))
     plt.subplots_adjust(left=0.10, right=0.97, top=0.93, bottom=0.06, hspace=0.30)
@@ -217,23 +232,18 @@ def main():
 
     axes[2].set_xlabel("log10(flow) [cms]", fontsize=10)
 
+    title_main = f"SynHydro generators: log-flow KDE at {PLOT_SITE}"
+    title_sub = (
+        f"Historical years={n_hist_years}; "
+        f"Synthetic {n_real} realizations x {n_syn_years} years"
+    )
     fig.suptitle(
-        f"SynHydro generators: log-flow KDE at {PLOT_SITE}",
+        f"{title_main}\n{title_sub}",
         fontsize=14,
         y=0.975,
     )
-    fig.text(
-        0.5,
-        0.952,
-        "Pooled-realization density at each generator's native timescale; "
-        "historical record shown as the bold dark curve.",
-        ha="center",
-        va="center",
-        fontsize=9.5,
-        color="0.3",
-    )
 
-    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    fig.savefig(out_path, dpi=400, bbox_inches="tight")
     plt.close(fig)
     logger.info("Saved figure to %s", out_path)
 

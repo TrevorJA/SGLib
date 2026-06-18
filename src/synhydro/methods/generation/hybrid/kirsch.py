@@ -49,6 +49,7 @@ from scipy.stats import norm
 
 from synhydro.core.base import Generator, FittedParams
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata
+from synhydro.core.seeding import as_seed_sequence, realization_rng
 from synhydro.core.statistics import repair_correlation_matrix
 
 
@@ -1028,50 +1029,95 @@ class KirschGenerator(Generator):
         )
 
     def generate(
-        self, n_realizations=1, n_years=None, n_timesteps=None, seed=None, **kwargs
+        self,
+        n_realizations=1,
+        n_years=None,
+        n_timesteps=None,
+        seed=None,
+        *,
+        realization_indices=None,
+        **kwargs,
     ):
         """
         Generate an ensemble of synthetic monthly or weekly flows.
 
+        Each realization is driven by its own independent RNG stream selected by
+        GLOBAL realization index, so a given realization is bit-for-bit
+        regenerable from ``seed`` alone, independent of ``n_realizations`` or how
+        the index range is partitioned across calls/loops/MPI ranks. Realization
+        ``k`` uses the ``'generation'`` sub-stream of the child seed for index
+        ``k`` (see ``synhydro.core.seeding``); the matching ``'disaggregation'``
+        sub-stream is consumed by ``NowakDisaggregator`` so the
+        generate-then-disaggregate handoff stays reproducible end to end.
+
         Parameters
         ----------
         n_realizations : int, default=1
-            Number of synthetic time series to generate.
+            Number of synthetic time series to generate, producing global
+            indices ``0..n_realizations-1``. Ignored (with a warning) when
+            ``realization_indices`` is provided.
         n_years : int, optional
             Number of years for each synthetic time series. If None, uses the
             number of historic years.
         n_timesteps : int, optional
             Not used (Kirsch generates whole years).
-        seed : int, optional
-            Random seed for reproducibility.
+        seed : int or numpy.random.SeedSequence, optional
+            Master seed. The child stream for global index ``k`` is
+            ``SeedSequence(seed).spawn(N)[k]``, keyed to the global index. A
+            scalar seed is deterministic; None draws fresh OS entropy and is
+            non-reproducible. The legacy global ``numpy.random`` state is never
+            used.
+        realization_indices : sequence of int, optional
+            Explicit GLOBAL realization indices to generate. If None, uses
+            ``range(n_realizations)``. Output realizations are keyed by these
+            global indices. Pass a single index (e.g. ``[7]``) to regenerate one
+            realization on demand, or disjoint subsets to partition generation
+            across workers, while keeping each realization identical to a full
+            run.
         **kwargs
             Additional generation parameters.
 
         Returns
         -------
         Ensemble
-            Ensemble object containing all generated realizations.
+            Ensemble object containing all generated realizations, keyed by
+            global realization index.
         """
         self.validate_fit()
-
-        rng = np.random.default_rng(seed)
 
         if n_years is None:
             n_years = self.n_historic_years
 
-        realization_dict = {}
-        for i in range(n_realizations):
-            df = self.generate_single_series(n_years, as_array=False, rng=rng)
-            realization_dict[i] = df
+        if realization_indices is not None:
+            if n_realizations != 1:
+                self.logger.warning(
+                    "Both n_realizations=%d and realization_indices were given; "
+                    "n_realizations is ignored and the %d explicit indices are "
+                    "used.",
+                    n_realizations,
+                    len(realization_indices),
+                )
+            indices = [int(k) for k in realization_indices]
+        else:
+            indices = list(range(n_realizations))
 
+        master = as_seed_sequence(seed)
+
+        realization_dict = {}
+        for k in indices:
+            rng = realization_rng(master, k, "generation")
+            df = self.generate_single_series(n_years, as_array=False, rng=rng)
+            realization_dict[k] = df
+
+        first_df = next(iter(realization_dict.values()))
         metadata = EnsembleMetadata(
             generator_class=self.__class__.__name__,
-            n_realizations=n_realizations,
+            n_realizations=len(realization_dict),
             n_sites=self.n_sites,
             time_resolution=self.output_frequency,
             time_period=(
-                str(realization_dict[0].index[0].date()),
-                str(realization_dict[0].index[-1].date()),
+                str(first_df.index[0].date()),
+                str(first_df.index[-1].date()),
             ),
         )
 
@@ -1079,7 +1125,7 @@ class KirschGenerator(Generator):
 
         self.logger.info(
             "Generated %d realizations of %d years each",
-            n_realizations,
+            len(realization_dict),
             n_years,
         )
 

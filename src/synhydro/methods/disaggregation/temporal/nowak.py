@@ -4,6 +4,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from synhydro.core.base import Disaggregator, DisaggregatorParams, FittedParams
 from synhydro.core.ensemble import Ensemble
+from synhydro.core.seeding import as_seed_sequence, realization_rng
 
 
 class NowakDisaggregator(Disaggregator):
@@ -280,18 +281,43 @@ class NowakDisaggregator(Disaggregator):
         """
         Disaggregate monthly ensemble to daily flows using the Nowak method.
 
+        Each realization is driven by its own independent RNG stream keyed to its
+        GLOBAL realization index. The global index of a realization is taken to
+        be its integer key in ``ensemble.data_by_realization`` (the convention
+        used throughout SynHydro: ``KirschGenerator.generate`` keys its output by
+        global index). Realization ``k`` uses the ``'disaggregation'`` sub-stream
+        of the child seed for index ``k`` (see ``synhydro.core.seeding``); this
+        is the counterpart of the ``'generation'`` sub-stream consumed by
+        ``KirschGenerator.generate``, so when both stages receive the same master
+        ``seed`` the generate-then-disaggregate handoff for realization ``k`` is
+        reproducible end to end and independent of how the realization range is
+        partitioned across calls or MPI ranks.
+
+        Note
+        ----
+        Reproducibility is keyed to the ensemble's realization keys. If an
+        ensemble is re-keyed or renumbered before disaggregation (e.g. by
+        filtering and reindexing realizations), the daily output for a given
+        physical trace changes accordingly. Preserve the original global indices
+        as the realization keys to regenerate identical daily traces.
+
         Parameters
         ----------
         ensemble : Ensemble
             Monthly streamflow ensemble to disaggregate.
-            Must have frequency 'MS' (monthly start).
+            Must have frequency 'MS' (monthly start). Integer realization keys
+            are interpreted as global realization indices.
         n_neighbors : int, optional
             Number of neighbors to use for disaggregation.
             If None, uses the value from initialization.
         sample_method : str, default='distance_weighted'
             Method to use for sampling the K nearest neighbors.
-        seed : int, optional
-            Random seed for reproducibility.
+        seed : int or numpy.random.SeedSequence, optional
+            Master seed. For realization with global index ``k``, the daily
+            sampling stream is the ``'disaggregation'`` sub-stream of
+            ``SeedSequence(seed).spawn(N)[k]``. A scalar seed is deterministic;
+            None draws fresh OS entropy and is non-reproducible. The legacy
+            global ``numpy.random`` state is never used.
         **kwargs
             Additional disaggregation parameters.
 
@@ -309,13 +335,14 @@ class NowakDisaggregator(Disaggregator):
         if n_neighbors is None:
             n_neighbors = self.n_neighbors
 
-        # Create random number generator
-        rng = np.random.default_rng(seed)
+        master = as_seed_sequence(seed)
 
-        # Disaggregate each realization
+        # Disaggregate each realization with its own global-index-keyed stream
         daily_realization_dict = {}
 
         for realization_id, monthly_df in ensemble.data_by_realization.items():
+            rng = realization_rng(master, realization_id, "disaggregation")
+
             # Disaggregate this realization
             daily_df = self._disaggregate_single_realization(
                 monthly_df,
@@ -328,6 +355,7 @@ class NowakDisaggregator(Disaggregator):
         # Create metadata for daily ensemble
         from synhydro.core.ensemble import EnsembleMetadata
 
+        first_daily = next(iter(daily_realization_dict.values()))
         metadata = EnsembleMetadata(
             generator_class=ensemble.metadata.generator_class,
             generator_params=ensemble.metadata.generator_params,
@@ -335,8 +363,8 @@ class NowakDisaggregator(Disaggregator):
             n_sites=len(self._sites),
             time_resolution=self.output_frequency,
             time_period=(
-                str(daily_realization_dict[0].index[0].date()),
-                str(daily_realization_dict[0].index[-1].date()),
+                str(first_daily.index[0].date()),
+                str(first_daily.index[-1].date()),
             ),
         )
 

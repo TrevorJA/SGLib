@@ -271,6 +271,8 @@ class GeneratorDisaggregatorPipeline:
         n_years: Optional[int] = None,
         n_timesteps: Optional[int] = None,
         seed: Optional[int] = None,
+        *,
+        realization_indices: Optional[List[int]] = None,
         **kwargs,
     ) -> Ensemble:
         """
@@ -281,16 +283,29 @@ class GeneratorDisaggregatorPipeline:
         2. Disaggregate to finer temporal resolution using the disaggregator
         3. Return the final ensemble
 
+        The same ``seed`` is forwarded to both stages. Generators and
+        disaggregators that key their per-realization RNG streams to the global
+        realization index (e.g. ``KirschGenerator`` and ``NowakDisaggregator``)
+        therefore produce a given realization bit-for-bit identically regardless
+        of ``n_realizations`` or how ``realization_indices`` is partitioned
+        across calls or MPI ranks.
+
         Parameters
         ----------
         n_realizations : int, default=1
-            Number of synthetic realizations to generate.
+            Number of synthetic realizations to generate. Ignored when
+            ``realization_indices`` is provided.
         n_years : int, optional
             Number of years to generate.
         n_timesteps : int, optional
             Number of timesteps to generate explicitly.
-        seed : int, optional
-            Random seed for reproducibility.
+        seed : int or numpy.random.SeedSequence, optional
+            Master seed for reproducibility, forwarded to both the generator and
+            the disaggregator.
+        realization_indices : sequence of int, optional
+            Explicit GLOBAL realization indices to generate. If None, uses
+            ``range(n_realizations)``. Forwarded to the generator; the
+            disaggregator infers the same indices from the monthly ensemble keys.
         **kwargs
             Additional parameters passed to generator and disaggregator.
 
@@ -323,6 +338,7 @@ class GeneratorDisaggregatorPipeline:
             n_years=n_years,
             n_timesteps=n_timesteps,
             seed=seed,
+            realization_indices=realization_indices,
             **kwargs,
         )
         self.logger.info(
@@ -334,7 +350,9 @@ class GeneratorDisaggregatorPipeline:
         self.logger.info(
             f"Step 2: Disaggregating flows with {self.disaggregator.__class__.__name__}..."
         )
-        daily_ensemble = self.disaggregator.disaggregate(monthly_ensemble, **kwargs)
+        daily_ensemble = self.disaggregator.disaggregate(
+            monthly_ensemble, seed=seed, **kwargs
+        )
         self.logger.info(
             f"Disaggregated to {daily_ensemble.frequency} frequency, "
             f"{len(daily_ensemble.data_by_realization)} realizations"

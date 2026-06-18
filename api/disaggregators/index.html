@@ -3971,7 +3971,27 @@ If omitted, a prior call to <code>preprocessing()</code> is required.</p>
     <div class="doc doc-contents ">
 
         <p>Disaggregate monthly ensemble to daily flows using the Nowak method.</p>
+<p>Each realization is driven by its own independent RNG stream keyed to its
+GLOBAL realization index. The global index of a realization is taken to
+be its integer key in <code>ensemble.data_by_realization</code> (the convention
+used throughout SynHydro: <code>KirschGenerator.generate</code> keys its output by
+global index). Realization <code>k</code> uses the <code>'disaggregation'</code> sub-stream
+of the child seed for index <code>k</code> (see <code>synhydro.core.seeding</code>); this
+is the counterpart of the <code>'generation'</code> sub-stream consumed by
+<code>KirschGenerator.generate</code>, so when both stages receive the same master
+<code>seed</code> the generate-then-disaggregate handoff for realization <code>k</code> is
+reproducible end to end and independent of how the realization range is
+partitioned across calls or MPI ranks.</p>
 
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>Reproducibility is keyed to the ensemble's realization keys. If an
+ensemble is re-keyed or renumbered before disaggregation (e.g. by
+filtering and reindexing realizations), the daily output for a given
+physical trace changes accordingly. Preserve the original global indices
+as the realization keys to regenerate identical daily traces.</p>
+</details>
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <table>
@@ -3994,7 +4014,8 @@ If omitted, a prior call to <code>preprocessing()</code> is required.</p>
             <td>
               <div class="doc-md-description">
                 <p>Monthly streamflow ensemble to disaggregate.
-Must have frequency 'MS' (monthly start).</p>
+Must have frequency 'MS' (monthly start). Integer realization keys
+are interpreted as global realization indices.</p>
               </div>
             </td>
             <td>
@@ -4039,11 +4060,15 @@ If None, uses the value from initialization.</p>
                 <code>seed</code>
             </td>
             <td>
-                  <code><span title="int">int</span></code>
+                  <code><span title="int">int</span> or <span title="numpy.random.SeedSequence">SeedSequence</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Random seed for reproducibility.</p>
+                <p>Master seed. For realization with global index <code>k</code>, the daily
+sampling stream is the <code>'disaggregation'</code> sub-stream of
+<code>SeedSequence(seed).spawn(N)[k]</code>. A scalar seed is deterministic;
+None draws fresh OS entropy and is non-reproducible. The legacy
+global <code>numpy.random</code> state is never used.</p>
               </div>
             </td>
             <td>
@@ -5090,7 +5115,7 @@ generator and disaggregator before fitting.</p>
 
 
 <a href="#synhydro.core.pipeline.GeneratorDisaggregatorPipeline.generate" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_timesteps</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ensemble</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_timesteps</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">realization_indices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ensemble</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5100,6 +5125,12 @@ generator and disaggregator before fitting.</p>
 1. Generate monthly (or other coarse) synthetic flows using the generator
 2. Disaggregate to finer temporal resolution using the disaggregator
 3. Return the final ensemble</p>
+<p>The same <code>seed</code> is forwarded to both stages. Generators and
+disaggregators that key their per-realization RNG streams to the global
+realization index (e.g. <code>KirschGenerator</code> and <code>NowakDisaggregator</code>)
+therefore produce a given realization bit-for-bit identically regardless
+of <code>n_realizations</code> or how <code>realization_indices</code> is partitioned
+across calls or MPI ranks.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5122,7 +5153,8 @@ generator and disaggregator before fitting.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Number of synthetic realizations to generate.</p>
+                <p>Number of synthetic realizations to generate. Ignored when
+<code>realization_indices</code> is provided.</p>
               </div>
             </td>
             <td>
@@ -5166,11 +5198,30 @@ generator and disaggregator before fitting.</p>
                 <code>seed</code>
             </td>
             <td>
-                  <code><span title="int">int</span></code>
+                  <code><span title="int">int</span> or <span title="numpy.random.SeedSequence">SeedSequence</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Random seed for reproducibility.</p>
+                <p>Master seed for reproducibility, forwarded to both the generator and
+the disaggregator.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>realization_indices</code>
+            </td>
+            <td>
+                  <code>sequence of int</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit GLOBAL realization indices to generate. If None, uses
+<code>range(n_realizations)</code>. Forwarded to the generator; the
+disaggregator infers the same indices from the monthly ensemble keys.</p>
               </div>
             </td>
             <td>

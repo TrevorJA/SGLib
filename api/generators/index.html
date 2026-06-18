@@ -8587,12 +8587,20 @@ cross-year boundary.</p>
 
 
 <a href="#synhydro.methods.generation.hybrid.kirsch.KirschGenerator.generate" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_years</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_timesteps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_years</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_timesteps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">realization_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Generate an ensemble of synthetic monthly or weekly flows.</p>
+<p>Each realization is driven by its own independent RNG stream selected by
+GLOBAL realization index, so a given realization is bit-for-bit
+regenerable from <code>seed</code> alone, independent of <code>n_realizations</code> or how
+the index range is partitioned across calls/loops/MPI ranks. Realization
+<code>k</code> uses the <code>'generation'</code> sub-stream of the child seed for index
+<code>k</code> (see <code>synhydro.core.seeding</code>); the matching <code>'disaggregation'</code>
+sub-stream is consumed by <code>NowakDisaggregator</code> so the
+generate-then-disaggregate handoff stays reproducible end to end.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -8615,7 +8623,9 @@ cross-year boundary.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Number of synthetic time series to generate.</p>
+                <p>Number of synthetic time series to generate, producing global
+indices <code>0..n_realizations-1</code>. Ignored (with a warning) when
+<code>realization_indices</code> is provided.</p>
               </div>
             </td>
             <td>
@@ -8660,11 +8670,36 @@ number of historic years.</p>
                 <code>seed</code>
             </td>
             <td>
-                  <code><span title="int">int</span></code>
+                  <code><span title="int">int</span> or <span title="numpy.random.SeedSequence">SeedSequence</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Random seed for reproducibility.</p>
+                <p>Master seed. The child stream for global index <code>k</code> is
+<code>SeedSequence(seed).spawn(N)[k]</code>, keyed to the global index. A
+scalar seed is deterministic; None draws fresh OS entropy and is
+non-reproducible. The legacy global <code>numpy.random</code> state is never
+used.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>realization_indices</code>
+            </td>
+            <td>
+                  <code>sequence of int</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit GLOBAL realization indices to generate. If None, uses
+<code>range(n_realizations)</code>. Output realizations are keyed by these
+global indices. Pass a single index (e.g. <code>[7]</code>) to regenerate one
+realization on demand, or disjoint subsets to partition generation
+across workers, while keeping each realization identical to a full
+run.</p>
               </div>
             </td>
             <td>
@@ -8705,7 +8740,8 @@ number of historic years.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Ensemble object containing all generated realizations.</p>
+                <p>Ensemble object containing all generated realizations, keyed by
+global realization index.</p>
               </div>
             </td>
           </tr>

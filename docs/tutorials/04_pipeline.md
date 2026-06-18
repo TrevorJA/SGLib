@@ -49,15 +49,15 @@ fig, ax = plot_timeseries(
 )
 ```
 
-![Daily synthetic hydrograph for one year with ensemble uncertainty and observed flows](../assets/images/tutorials/03_daily_timeseries.png){: width="700px" }
+![Daily synthetic hydrograph for one year with ensemble uncertainty and observed flows](../assets/images/tutorials/04_daily_timeseries.png){: width="700px" }
 
 ## Next steps
 
-- **Drought analysis** on synthetic flows - [Tutorial 04](04_drought_analysis.md)
-- **Ensemble validation** - [Tutorial 05](05_validation.md)
+- **Drought analysis** on synthetic flows - [Tutorial 05](05_drought_analysis.md)
+- **Ensemble validation** - [Tutorial 06](06_validation.md)
 - **Algorithm details** - [Kirsch Bootstrap](../algorithms/kirsch.md),
   [Nowak Disaggregation](../algorithms/nowak_disaggregation.md)
 
 ---
 
-**Previous:** [Multi-Site Monthly (Kirsch)](02_multisite.md) | **Next:** [Drought Analysis (SSI)](04_drought_analysis.md)
+**Previous:** [Disaggregator (Nowak)](03_disaggregator.md) | **Next:** [Drought Analysis (SSI)](05_drought_analysis.md)

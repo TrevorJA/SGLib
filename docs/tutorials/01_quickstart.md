@@ -61,7 +61,7 @@ fig, ax = plot_flow_duration_curve(
 ## Next steps
 
 - **Multi-site generation** - [Tutorial 02](02_multisite.md)
-- **Monthly-to-daily pipeline** - [Tutorial 03](03_pipeline.md)
+- **Monthly-to-daily disaggregation** - [Tutorial 03](03_disaggregator.md)
 - **Algorithm details** - [Thomas-Fiering AR(1)](../algorithms/thomas_fiering.md)
 
 ---

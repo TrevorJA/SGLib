@@ -60,7 +60,7 @@ fig, ax = plot_ssi_timeseries(
 )
 ```
 
-![SSI-12 timeseries with shaded drought-severity bands and ensemble percentile envelopes](../assets/images/tutorials/04_ssi_with_droughts.png){: width="700px" }
+![SSI-12 timeseries with shaded drought-severity bands and ensemble percentile envelopes](../assets/images/tutorials/05_ssi_with_droughts.png){: width="700px" }
 
 Shaded zones mark moderate (-1 to -1.5), severe (-1.5 to -2), and
 extreme (< -2) drought conditions.
@@ -75,9 +75,9 @@ extreme (< -2) drought conditions.
 
 ## Next steps
 
-- **Ensemble validation** - [Tutorial 05](05_validation.md)
+- **Ensemble validation** - [Tutorial 06](06_validation.md)
 - **Algorithm details** - [Kirsch Bootstrap](../algorithms/kirsch.md)
 
 ---
 
-**Previous:** [Monthly-to-Daily Pipeline](03_pipeline.md) | **Next:** [Ensemble Validation](05_validation.md)
+**Previous:** [Monthly-to-Daily Pipeline](04_pipeline.md) | **Next:** [Ensemble Validation](06_validation.md)

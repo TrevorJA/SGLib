@@ -165,7 +165,7 @@ class NowakDisaggregator(Disaggregator):
         output_timestep: str = "daily",
         n_neighbors: int = 5,
         max_knn_pool_shift_timesteps: Optional[int] = None,
-        boundary_blend_timesteps: int = 2,
+        boundary_blend_timesteps: int = 0,
         name: str = None,
         debug: bool = False,
     ):

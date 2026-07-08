@@ -45,7 +45,7 @@ Generators are classified into three bins by the mathematical character of their
 
 | Disaggregator | Direction | Reference |
 |---|---|---|
-| `NowakDisaggregator` | Monthly to Daily | Nowak et al. (2010) |
+| `NowakDisaggregator` | {Annual, Monthly, Weekly} to {Monthly, Weekly, Daily} | Nowak et al. (2010) |
 | `ValenciaSchaakeDisaggregator` | Annual to Monthly | Valencia & Schaake (1973) |
 
 Pre-built pipelines (`KirschNowakPipeline`, `ThomasFieringNowakPipeline`) chain generation and disaggregation in a single interface.

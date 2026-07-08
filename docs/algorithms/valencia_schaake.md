@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Type** | Parametric |
-| **Resolution** | Annual to monthly, quarterly, or other equal-month-stride splits (`n_subperiods` in {2, 3, 4, 6, 12}) |
+| **Resolution** | Annual to any equal-month-stride split: 12 months, 6 two-month periods, 4 quarters, 3 four-month seasons, or 2 half-years (`n_subperiods` in {12, 6, 4, 3, 2}) |
 | **Sites** | Multisite (joint formulation per Valencia and Schaake, 1973) |
 
 ## Overview
@@ -22,9 +22,7 @@ methods are compared.
 ## Notation
 
 The symbols below match the manuscript convention (Valencia and Schaake,
-1973). An earlier internal draft of this document used the opposite
-convention; readers comparing to the paper should now find them
-consistent.
+1973).
 
 | Symbol | Description |
 |--------|-------------|
@@ -88,9 +86,14 @@ $1/(r-1)$ factor cancels in both
 $\mathbf{A} = \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1}$ and
 $\mathbf{B}\mathbf{B}^\top$, so the parameter estimates are identical.
 
-An optional transformation (log or Box-Cox) may be applied to sub-period
-flows before fitting. The paper does not prescribe a specific transformation
--- these are practical extensions for highly skewed hydrologic flows.
+An optional transformation may be applied to sub-period flows before
+fitting (`transform` in {'log', 'boxcox', 'none'}; the implementation
+default is 'log'). The paper does not prescribe a specific transformation
+-- these are practical extensions for highly skewed hydrologic flows. Note
+that with the default log transform, per-site additivity is maintained by
+the proportional rescale described below rather than by the exact linear
+identity; pass `transform='none'` to run the pure linear model of the
+paper.
 
 ### Exact additivity by construction
 
@@ -164,7 +167,7 @@ $\mathbf{X}_t$:
    values from inverse Box-Cox (out-of-domain draws) are mapped to zero
    before any further processing.
 
-4. If `conservation_method='proportional'`, clip any negative entries to
+4. If `conservation_method='proportional'` (the default), clip any negative entries to
    zero and rescale each site's sub-period block to its target annual sum
    $X_{t,s}$. When the post-clip sum is zero (rare, requires extreme
    clipping), the site's $X_{t,s}$ is split uniformly across its

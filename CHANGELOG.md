@@ -5,6 +5,16 @@ All notable changes to SynHydro are documented in this file.
 ## [Unreleased]
 
 ### Added
+- `NowakDisaggregator` generalized to arbitrary discrete timescale pairs via
+  `input_timestep` / `output_timestep` constructor arguments: any input in
+  {annual, monthly, weekly} disaggregates to any finer output in
+  {monthly, weekly, daily} (six pairs). Weekly timesteps follow the ISO
+  52-week convention (Sunday anchors, week 53 folded into week 52 pools),
+  consistent with `KirschGenerator`. For monthly-to-weekly, weeks are
+  assigned to the calendar month containing their Sunday anchor. Monthly to
+  daily remains the default and its output is bit-identical to the previous
+  implementation for a given seed (guarded by a golden-file regression test
+  in `tests/test_nowak_regression.py`).
 - `KirschGenerator` now supports weekly resolution in addition to monthly.
   `preprocessing(..., timestep="weekly")` aggregates daily input to ISO weekly
   (W-SUN) buckets, drops ISO week 53, and runs the Kirsch (2013) algorithm with
@@ -25,6 +35,15 @@ All notable changes to SynHydro are documented in this file.
 - MkDocs documentation site with algorithm reference pages
 
 ### Changed
+- Breaking: `NowakDisaggregator` constructor arguments renamed for
+  timescale-neutral clarity: `max_month_shift` is now
+  `max_knn_pool_shift_timesteps` and `blend_days` is now
+  `boundary_blend_timesteps`, both in units of output timesteps.
+  Per-pair defaults apply when `max_knn_pool_shift_timesteps` is omitted
+  (7 for monthly-to-daily, unchanged from before). The `KirschNowakPipeline`
+  and `ThomasFieringNowakPipeline` public `max_month_shift` argument is
+  unchanged. The legacy `disaggregate_monthly_flows()` method has been
+  removed; use `disaggregate(ensemble, seed=...)`.
 - `KNNBootstrapGenerator` no longer accepts sub-monthly input. Restricted to
   monthly (Lall & Sharma, 1996; Prairie et al., 2006) and annual (Prairie et
   al., 2008) per the primary streamflow literature. Sub-monthly input now

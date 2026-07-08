@@ -93,13 +93,19 @@ the observed daily distribution.
 
 ## Key parameters
 
+- `input_timestep` / `output_timestep` (defaults `"monthly"` / `"daily"`) -
+  the timescale pair. Any input in `{"annual", "monthly", "weekly"}` may be
+  disaggregated to any finer output in `{"monthly", "weekly", "daily"}`,
+  e.g. `NowakDisaggregator(input_timestep="annual", output_timestep="monthly")`.
+  Observed data passed to `fit` must be at the output timestep.
 - `n_neighbors` (default 5) - number of historical analogs considered per
-  synthetic month. Larger values give more diverse daily patterns at the
-  cost of weaker analog match.
-- `max_month_shift` (default 7) - the candidate window can slide up to this
-  many days around the calendar month center, enlarging the donor pool.
-- `blend_days` (default 2) - smooths month-boundary discontinuities while
-  preserving monthly totals. Set to `0` to disable.
+  synthetic period. Larger values give more diverse patterns at the cost of
+  weaker analog match.
+- `max_knn_pool_shift_timesteps` - the candidate window can slide up to this
+  many output timesteps around each calendar period, enlarging the donor
+  pool. Defaults depend on the timescale pair (7 days for monthly-to-daily).
+- `boundary_blend_timesteps` (default 2) - smooths period-boundary
+  discontinuities while preserving period totals. Set to `0` to disable.
 - `sample_method` on `.disaggregate(...)` - choose `"distance_weighted"`
   (default) or `"lall_and_sharma_1996"` for rank-based harmonic weighting.
 

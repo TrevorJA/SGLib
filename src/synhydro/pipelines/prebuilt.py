@@ -113,7 +113,7 @@ class KirschNowakPipeline(GeneratorDisaggregatorPipeline):
         # Create Nowak disaggregator
         disaggregator = NowakDisaggregator(
             n_neighbors=n_neighbors,
-            max_month_shift=max_month_shift,
+            max_knn_pool_shift_timesteps=max_month_shift,
             debug=debug,
         )
 
@@ -213,7 +213,7 @@ class ThomasFieringNowakPipeline(GeneratorDisaggregatorPipeline):
         # Create Nowak disaggregator
         disaggregator = NowakDisaggregator(
             n_neighbors=n_neighbors,
-            max_month_shift=max_month_shift,
+            max_knn_pool_shift_timesteps=max_month_shift,
             debug=debug,
         )
 

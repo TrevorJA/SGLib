@@ -64,18 +64,18 @@ class TestNowakDisaggregatorInitialization:
         assert disagg.output_frequency == "D"
         assert disagg.n_neighbors == 5
         assert disagg.max_knn_pool_shift_timesteps == 7
-        assert disagg.boundary_blend_timesteps == 2
+        assert disagg.boundary_blend_timesteps == 0
 
     def test_initialization_custom_params(self):
         """Custom parameters are stored."""
         disagg = NowakDisaggregator(
             n_neighbors=10,
             max_knn_pool_shift_timesteps=10,
-            boundary_blend_timesteps=0,
+            boundary_blend_timesteps=2,
         )
         assert disagg.n_neighbors == 10
         assert disagg.max_knn_pool_shift_timesteps == 10
-        assert disagg.boundary_blend_timesteps == 0
+        assert disagg.boundary_blend_timesteps == 2
 
     @pytest.mark.parametrize(
         "input_timestep,output_timestep", [(i, o) for i, o, _ in SCALE_CASES]

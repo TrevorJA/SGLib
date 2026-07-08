@@ -3744,12 +3744,16 @@ weekly, and 7 for annual to daily.</p>
                 <p>Number of output timesteps on each side of coarse-period
 boundaries to smooth with a centered rolling mean, reducing
 artificial discontinuities from independent per-period sampling.
-Coarse-period totals are preserved by rescaling. Set to 0 or
-None to disable.</p>
+Coarse-period totals are preserved by rescaling. The default of 0
+disables smoothing, matching the published Nowak et al. (2010)
+method, which applies no boundary correction. A small positive
+value (for example 2) can reduce visible discontinuities at
+sub-annual output timesteps but is a SynHydro extension beyond the
+published algorithm.</p>
               </div>
             </td>
             <td>
-                  <code>2</code>
+                  <code>0</code>
             </td>
           </tr>
           <tr class="doc-section-item">

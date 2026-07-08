@@ -1680,7 +1680,7 @@ q_t^{\text{syn}} = Q_p^{\text{syn}} \cdot \frac{q_t^*}{\displaystyle\sum_{t'=1}^
 <li>Weekly output indices are anchored per year via the ISO calendar (<code>Timestamp.fromisocalendar</code>), avoiding calendar drift across long simulations.</li>
 </ul>
 <h3 id="period-boundary-smoothing">Period Boundary Smoothing<a class="headerlink" href="#period-boundary-smoothing" title="Permanent link">&para;</a></h3>
-<p>To reduce discontinuities at coarse-period transitions, an optional blending step applies a centered rolling mean across <span class="arithmatex">\(b\)</span> output timesteps on each side of the boundary (<code>boundary_blend_timesteps</code>). After smoothing, each period is rescaled to restore the original period total:</p>
+<p>Boundary smoothing is a SynHydro extension beyond the published Nowak et al. (2010) method and is <strong>disabled by default</strong> (<code>boundary_blend_timesteps=0</code>), so the default behavior reproduces the published algorithm. When enabled with a positive value, a blending step applies a centered rolling mean across <span class="arithmatex">\(b\)</span> output timesteps on each side of each coarse-period boundary to reduce discontinuities from independent per-period sampling. After smoothing, each period is rescaled to restore the original period total:</p>
 <div class="arithmatex">\[
 q_t^{\text{smoothed}} \leftarrow q_t^{\text{smoothed}} \cdot \frac{Q_p^{\text{syn}}}{\displaystyle\sum_{t'} q_{t'}^{\text{smoothed}}}
 \]</div>

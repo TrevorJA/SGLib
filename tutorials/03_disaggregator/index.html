@@ -1509,8 +1509,10 @@ the observed daily distribution.</p>
 <li><code>max_knn_pool_shift_timesteps</code> - the candidate window can slide up to this
   many output timesteps around each calendar period, enlarging the donor
   pool. Defaults depend on the timescale pair (7 days for monthly-to-daily).</li>
-<li><code>boundary_blend_timesteps</code> (default 2) - smooths period-boundary
-  discontinuities while preserving period totals. Set to <code>0</code> to disable.</li>
+<li><code>boundary_blend_timesteps</code> (default 0) - smooths period-boundary
+  discontinuities while preserving period totals. The default of <code>0</code> matches
+  the published Nowak et al. (2010) method (no boundary correction); a small
+  positive value is an optional SynHydro extension.</li>
 <li><code>sample_method</code> on <code>.disaggregate(...)</code> - choose <code>"distance_weighted"</code>
   (default) or <code>"lall_and_sharma_1996"</code> for rank-based harmonic weighting.</li>
 </ul>

@@ -80,7 +80,7 @@ When the analog and target periods differ in length (leap-year February or leap 
 
 ### Period Boundary Smoothing
 
-To reduce discontinuities at coarse-period transitions, an optional blending step applies a centered rolling mean across $b$ output timesteps on each side of the boundary (`boundary_blend_timesteps`). After smoothing, each period is rescaled to restore the original period total:
+Boundary smoothing is a SynHydro extension beyond the published Nowak et al. (2010) method and is **disabled by default** (`boundary_blend_timesteps=0`), so the default behavior reproduces the published algorithm. When enabled with a positive value, a blending step applies a centered rolling mean across $b$ output timesteps on each side of each coarse-period boundary to reduce discontinuities from independent per-period sampling. After smoothing, each period is rescaled to restore the original period total:
 
 $$
 q_t^{\text{smoothed}} \leftarrow q_t^{\text{smoothed}} \cdot \frac{Q_p^{\text{syn}}}{\displaystyle\sum_{t'} q_{t'}^{\text{smoothed}}}

@@ -44,6 +44,10 @@ All notable changes to SynHydro are documented in this file.
   and `ThomasFieringNowakPipeline` public `max_month_shift` argument is
   unchanged. The legacy `disaggregate_monthly_flows()` method has been
   removed; use `disaggregate(ensemble, seed=...)`.
+- `NowakDisaggregator` boundary smoothing now defaults to off
+  (`boundary_blend_timesteps=0`, previously 2) so the default reproduces the
+  published Nowak et al. (2010) method, which applies no boundary correction.
+  Boundary smoothing remains available as an opt-in SynHydro extension.
 - `KNNBootstrapGenerator` no longer accepts sub-monthly input. Restricted to
   monthly (Lall & Sharma, 1996; Prairie et al., 2006) and annual (Prairie et
   al., 2008) per the primary streamflow literature. Sub-monthly input now

@@ -193,12 +193,16 @@ class NowakDisaggregator(Disaggregator):
             is used: 7 for monthly to daily, 2 for weekly to daily, 1 for
             monthly to weekly, 0 for annual to monthly, 2 for annual to
             weekly, and 7 for annual to daily.
-        boundary_blend_timesteps : int, default=2
+        boundary_blend_timesteps : int, default=0
             Number of output timesteps on each side of coarse-period
             boundaries to smooth with a centered rolling mean, reducing
             artificial discontinuities from independent per-period sampling.
-            Coarse-period totals are preserved by rescaling. Set to 0 or
-            None to disable.
+            Coarse-period totals are preserved by rescaling. The default of 0
+            disables smoothing, matching the published Nowak et al. (2010)
+            method, which applies no boundary correction. A small positive
+            value (for example 2) can reduce visible discontinuities at
+            sub-annual output timesteps but is a SynHydro extension beyond the
+            published algorithm.
         name : str, optional
             Name for this disaggregator instance.
         debug : bool, default=False

@@ -1498,13 +1498,19 @@ disaggregator adds realistic daily variability while the daily FDC tracks
 the observed daily distribution.</p>
 <h2 id="key-parameters">Key parameters<a class="headerlink" href="#key-parameters" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>input_timestep</code> / <code>output_timestep</code> (defaults <code>"monthly"</code> / <code>"daily"</code>) -
+  the timescale pair. Any input in <code>{"annual", "monthly", "weekly"}</code> may be
+  disaggregated to any finer output in <code>{"monthly", "weekly", "daily"}</code>,
+  e.g. <code>NowakDisaggregator(input_timestep="annual", output_timestep="monthly")</code>.
+  Observed data passed to <code>fit</code> must be at the output timestep.</li>
 <li><code>n_neighbors</code> (default 5) - number of historical analogs considered per
-  synthetic month. Larger values give more diverse daily patterns at the
-  cost of weaker analog match.</li>
-<li><code>max_month_shift</code> (default 7) - the candidate window can slide up to this
-  many days around the calendar month center, enlarging the donor pool.</li>
-<li><code>blend_days</code> (default 2) - smooths month-boundary discontinuities while
-  preserving monthly totals. Set to <code>0</code> to disable.</li>
+  synthetic period. Larger values give more diverse patterns at the cost of
+  weaker analog match.</li>
+<li><code>max_knn_pool_shift_timesteps</code> - the candidate window can slide up to this
+  many output timesteps around each calendar period, enlarging the donor
+  pool. Defaults depend on the timescale pair (7 days for monthly-to-daily).</li>
+<li><code>boundary_blend_timesteps</code> (default 2) - smooths period-boundary
+  discontinuities while preserving period totals. Set to <code>0</code> to disable.</li>
 <li><code>sample_method</code> on <code>.disaggregate(...)</code> - choose <code>"distance_weighted"</code>
   (default) or <code>"lall_and_sharma_1996"</code> for rank-based harmonic weighting.</li>
 </ul>

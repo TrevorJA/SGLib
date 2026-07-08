@@ -1415,15 +1415,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate" class="md-nav__link">
-    <span class="md-ellipsis">
-      disaggregate
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.find_knn_indices" class="md-nav__link">
     <span class="md-ellipsis">
       find_knn_indices
@@ -1433,18 +1424,27 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.sample_knn_monthly_flows" class="md-nav__link">
+  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.sample_knn_flows" class="md-nav__link">
     <span class="md-ellipsis">
-      sample_knn_monthly_flows
+      sample_knn_flows
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate_monthly_flows" class="md-nav__link">
+  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.validate_input_ensemble" class="md-nav__link">
     <span class="md-ellipsis">
-      disaggregate_monthly_flows
+      validate_input_ensemble
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate" class="md-nav__link">
+    <span class="md-ellipsis">
+      disaggregate
     </span>
   </a>
   
@@ -1995,15 +1995,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate" class="md-nav__link">
-    <span class="md-ellipsis">
-      disaggregate
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.find_knn_indices" class="md-nav__link">
     <span class="md-ellipsis">
       find_knn_indices
@@ -2013,18 +2004,27 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.sample_knn_monthly_flows" class="md-nav__link">
+  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.sample_knn_flows" class="md-nav__link">
     <span class="md-ellipsis">
-      sample_knn_monthly_flows
+      sample_knn_flows
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate_monthly_flows" class="md-nav__link">
+  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.validate_input_ensemble" class="md-nav__link">
     <span class="md-ellipsis">
-      disaggregate_monthly_flows
+      validate_input_ensemble
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate" class="md-nav__link">
+    <span class="md-ellipsis">
+      disaggregate
     </span>
   </a>
   
@@ -3591,7 +3591,7 @@ If omitted, a prior call to <code>preprocessing()</code> is required.</p>
 
 
 <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NowakDisaggregator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">max_month_shift</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">,</span> <span class="n">blend_days</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NowakDisaggregator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">input_timestep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;monthly&#39;</span><span class="p">,</span> <span class="n">output_timestep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;daily&#39;</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">max_knn_pool_shift_timesteps</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">boundary_blend_timesteps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3600,24 +3600,53 @@ If omitted, a prior call to <code>preprocessing()</code> is required.</p>
 
 
 
-        <p>Temporal disaggregation from monthly to daily as described in Nowak et al. (2010).</p>
-<p>Supports both single-site and multisite disaggregation from monthly to daily streamflows.</p>
-<p>For each month in synthetic data, finds the N historic monthly flow profiles
-which have similar total flow at the index gauge (sum of all sites).</p>
-<p>Then, randomly selects one of the N profiles and uses the daily flow proportions
-from that month to disaggregate the synthetic monthly flow at all sites.</p>
-<p>When disaggregating a month, only considers historic profiles from the same
-month of interest, with +/- max_month_shift days around each month.</p>
+        <p>Temporal disaggregation via KNN resampling of historic proportion vectors,
+as described in Nowak et al. (2010).</p>
+<p>Supports both single-site and multisite disaggregation between discrete
+timescale pairs: any input timestep in {annual, monthly, weekly} to any
+finer output timestep in {monthly, weekly, daily}.</p>
+<p>For each coarse period in the synthetic data, finds the N historic periods
+whose total flow at the index gauge (sum of all sites) is most similar.
+One of the N candidates is sampled and its fine-timestep flow proportions
+are used to disaggregate the synthetic coarse flow at all sites, which
+guarantees summability of the fine flows to the coarse total
+(Nowak et al. 2010, Section 2.1).</p>
+<p>When the input timestep is monthly or weekly, candidate profiles are
+conditioned on the calendar period (month of year, or ISO week of year)
+and the pool is enlarged by shifting each historic window by up to
+<code>max_knn_pool_shift_timesteps</code> output timesteps in each direction. When
+the input timestep is annual there is a single unconditioned pool, exactly
+as in the original paper.</p>
 
+
+<details class="timescale-conventions" open>
+  <summary>Timescale conventions</summary>
+  <ul>
+<li>Weekly timesteps use ISO weeks anchored on Sundays (<code>'W-SUN'</code>). Years
+  are treated as exactly 52 ISO weeks; ISO week 53 is folded into the
+  week 52 pool on input and never generated on output, consistent with
+  <code>KirschGenerator</code>.</li>
+<li>For monthly to weekly disaggregation, weeks do not nest inside months;
+  each week is assigned to the calendar month containing its Sunday
+  anchor. Disaggregated weekly flows sum to the synthetic monthly flow
+  over the weeks assigned to that month.</li>
+<li>Coarse periods with more fine steps than a sampled candidate profile
+  (leap-year day, fifth week of a month) redistribute the missing
+  proportion mass; the reverse case truncates the profile.</li>
+</ul>
+</details>
 
 <details class="references" open>
   <summary>References</summary>
   <p>Nowak, K., Prairie, J., Rajagopalan, B., &amp; Lall, U. (2010).
 A nonparametric stochastic approach for multisite disaggregation of
 annual to daily streamflow. Water Resources Research, 46(8).</p>
+<p>Lall, U., &amp; Sharma, A. (1996). A nearest neighbor bootstrap for
+resampling hydrologic time series. Water Resources Research, 32(3).</p>
 </details>
         <p>Initialize the Nowak Disaggregator.</p>
-<p>Supports both single site (Series) and multi-site (DataFrame) disaggregation.</p>
+<p>Supports both single site (Series) and multi-site (DataFrame)
+disaggregation between any supported timescale pair.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3631,6 +3660,40 @@ annual to daily streamflow. Water Resources Research, 46(8).</p>
         </tr>
       </thead>
       <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>input_timestep</code>
+            </td>
+            <td>
+                  <code>(<span title="annual">annual</span>, <span title="monthly">monthly</span>, <span title="weekly">weekly</span>)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Timestep of the synthetic coarse flows to disaggregate.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;annual&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>output_timestep</code>
+            </td>
+            <td>
+                  <code>(<span title="monthly">monthly</span>, <span title="weekly">weekly</span>, <span title="daily">daily</span>)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Timestep of the disaggregated output; must be finer than
+<code>input_timestep</code>. Observed data passed to <code>fit</code> or
+<code>preprocessing</code> must be at this timestep.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;monthly&#39;</code>
+            </td>
+          </tr>
           <tr class="doc-section-item">
             <td>
                 <code>n_neighbors</code>
@@ -3649,33 +3712,40 @@ annual to daily streamflow. Water Resources Research, 46(8).</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>max_month_shift</code>
+                <code>max_knn_pool_shift_timesteps</code>
             </td>
             <td>
                   <code><span title="int">int</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Maximum number of days to shift around each month center
-when creating historic monthly flow profiles.</p>
+                <p>Maximum number of output timesteps that historic period windows
+are shifted (plus and minus) when building the KNN candidate
+pools. Larger values enlarge the pools but rotate the sampled
+profiles relative to the calendar. If None, a per-pair default
+is used: 7 for monthly to daily, 2 for weekly to daily, 1 for
+monthly to weekly, 0 for annual to monthly, 2 for annual to
+weekly, and 7 for annual to daily.</p>
               </div>
             </td>
             <td>
-                  <code>7</code>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>blend_days</code>
+                <code>boundary_blend_timesteps</code>
             </td>
             <td>
-                  <code><span title="int">int</span> or None</code>
+                  <code><span title="int">int</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Number of days on each side of month boundaries to smooth.
-Reduces artificial discontinuities at month transitions.
-Set to None or 0 to disable boundary smoothing.</p>
+                <p>Number of output timesteps on each side of coarse-period
+boundaries to smooth with a centered rolling mean, reducing
+artificial discontinuities from independent per-period sampling.
+Coarse-period totals are preserved by rescaling. Set to 0 or
+None to disable.</p>
               </div>
             </td>
             <td>
@@ -3718,6 +3788,30 @@ Set to None or 0 to disable boundary smoothing.</p>
     </table>
 
 
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If either timestep is unrecognized or <code>output_timestep</code> is not
+finer than <code>input_timestep</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
 
 
 
@@ -3753,7 +3847,7 @@ Set to None or 0 to disable boundary smoothing.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Nowak disaggregator expects monthly input.</p>
+        <p>Pandas frequency string of the expected input ensemble.</p>
 
     </div>
 
@@ -3777,7 +3871,7 @@ Set to None or 0 to disable boundary smoothing.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Nowak disaggregator produces daily output.</p>
+        <p>Pandas frequency string of the disaggregated output.</p>
 
     </div>
 
@@ -3794,13 +3888,14 @@ Set to None or 0 to disable boundary smoothing.</p>
 
 
 <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.preprocessing" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">preprocessing</span><span class="p">(</span><span class="n">Q_obs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">preprocessing</span><span class="p">(</span><span class="n">Q_obs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Series</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">sites</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Preprocess observed daily flow data.</p>
-<p>Validates input data and detects single-site vs multisite configuration.</p>
+        <p>Preprocess observed flow data at the output timestep.</p>
+<p>Validates input data and detects single-site vs multisite
+configuration.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3823,9 +3918,9 @@ Set to None or 0 to disable boundary smoothing.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Daily streamflow data for the historic period.
-Must have DatetimeIndex with daily frequency.
-If DataFrame, columns represent different sites.</p>
+                <p>Observed streamflow at the output (fine) timestep for the
+historic period, with a DatetimeIndex. If DataFrame, columns
+represent different sites.</p>
               </div>
             </td>
             <td>
@@ -3867,6 +3962,30 @@ If DataFrame, columns represent different sites.</p>
     </table>
 
 
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the observed data frequency contradicts the configured
+output timestep, or no complete years are found.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
     </div>
 
 </div>
@@ -3879,14 +3998,14 @@ If DataFrame, columns represent different sites.</p>
 
 
 <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.fit" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">fit</span><span class="p">(</span><span class="n">Q_obs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">fit</span><span class="p">(</span><span class="n">Q_obs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Series</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">sites</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Fit the Nowak Disaggregator to the data.</p>
-<p>Creates a dataset of candidate monthly flow profiles for each month,
-and trains KNN models for each month.</p>
+<p>Creates a dataset of candidate flow profiles for each coarse-period
+label, and trains one KNN model per label.</p>
 <p>If <code>Q_obs</code> is provided, <code>preprocessing()</code> is called automatically.
 If omitted, a prior call to <code>preprocessing()</code> is required.</p>
 
@@ -3911,7 +4030,8 @@ If omitted, a prior call to <code>preprocessing()</code> is required.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Observed data. If provided, runs preprocessing automatically.</p>
+                <p>Observed data at the output timestep. If provided, runs
+preprocessing automatically.</p>
               </div>
             </td>
             <td>
@@ -3960,17 +4080,351 @@ If omitted, a prior call to <code>preprocessing()</code> is required.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.find_knn_indices" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">find_knn_indices</span>
+
+
+<a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.find_knn_indices" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">find_knn_indices</span><span class="p">(</span><span class="n">Qs_coarse_array</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Given coarse-period flow values, find the K nearest neighbors
+from the historic dataset.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>Qs_coarse_array</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The coarse-period flow values to disaggregate.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>label</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The period label which is being disaggregated.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_neighbors</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of neighbors to find.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>distances</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The distances to the K nearest neighbors.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td><code>indices</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The indices of the K nearest neighbors in the historic dataset.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.sample_knn_flows" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">sample_knn_flows</span>
+
+
+<a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.sample_knn_flows" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">sample_knn_flows</span><span class="p">(</span><span class="n">Qs_coarse_array</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">sample_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;distance_weighted&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">rng</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Generator</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Given coarse-period flow values, sample K nearest neighbors
+from the historic dataset.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>Qs_coarse_array</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The coarse-period flow values to disaggregate.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>label</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The period label which is being disaggregated.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_neighbors</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of neighbors to sample.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sample_method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The sampling method to use: 'distance_weighted' (inverse
+distance) or 'lall_and_sharma_1996' (rank-based kernel from
+Lall and Sharma, 1996).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;distance_weighted&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>rng</code>
+            </td>
+            <td>
+                  <code><span title="numpy.random.Generator">Generator</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Random generator used for neighbor sampling.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>sampled_indices</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The sampled indices from the historic dataset.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.validate_input_ensemble" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">validate_input_ensemble</span>
+
+
+<a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.validate_input_ensemble" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">validate_input_ensemble</span><span class="p">(</span><span class="n">ensemble</span><span class="p">:</span> <span class="n">Ensemble</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Validate that input ensemble is compatible with disaggregator.</p>
+<p>Checks temporal frequency (with alias normalization, e.g. any weekly
+anchor matches 'W-SUN') and site consistency.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>ensemble</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Ensemble (synhydro.core.ensemble.Ensemble)" href="../core/#synhydro.core.ensemble.Ensemble">Ensemble</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input ensemble to validate.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If ensemble is incompatible with disaggregator.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">disaggregate</span>
 
 
 <a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">disaggregate</span><span class="p">(</span><span class="n">ensemble</span><span class="p">:</span> <span class="n">Ensemble</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sample_method</span><span class="o">=</span><span class="s1">&#39;distance_weighted&#39;</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ensemble</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">disaggregate</span><span class="p">(</span><span class="n">ensemble</span><span class="p">:</span> <span class="n">Ensemble</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">sample_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;distance_weighted&#39;</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ensemble</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Disaggregate monthly ensemble to daily flows using the Nowak method.</p>
+        <p>Disaggregate a coarse-timestep ensemble to the output timestep.</p>
 <p>Each realization is driven by its own independent RNG stream keyed to its
 GLOBAL realization index. The global index of a realization is taken to
 be its integer key in <code>ensemble.data_by_realization</code> (the convention
@@ -3988,9 +4442,9 @@ partitioned across calls or MPI ranks.</p>
   <summary>Note</summary>
   <p>Reproducibility is keyed to the ensemble's realization keys. If an
 ensemble is re-keyed or renumbered before disaggregation (e.g. by
-filtering and reindexing realizations), the daily output for a given
+filtering and reindexing realizations), the output for a given
 physical trace changes accordingly. Preserve the original global indices
-as the realization keys to regenerate identical daily traces.</p>
+as the realization keys to regenerate identical traces.</p>
 </details>
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4013,9 +4467,8 @@ as the realization keys to regenerate identical daily traces.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Monthly streamflow ensemble to disaggregate.
-Must have frequency 'MS' (monthly start). Integer realization keys
-are interpreted as global realization indices.</p>
+                <p>Streamflow ensemble at the input (coarse) timestep. Integer
+realization keys are interpreted as global realization indices.</p>
               </div>
             </td>
             <td>
@@ -4064,7 +4517,7 @@ If None, uses the value from initialization.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Master seed. For realization with global index <code>k</code>, the daily
+                <p>Master seed. For realization with global index <code>k</code>, the
 sampling stream is the <code>'disaggregation'</code> sub-stream of
 <code>SeedSequence(seed).spawn(N)[k]</code>. A scalar seed is deterministic;
 None draws fresh OS entropy and is non-reproducible. The legacy
@@ -4109,357 +4562,7 @@ global <code>numpy.random</code> state is never used.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Disaggregated daily streamflow ensemble.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.find_knn_indices" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">find_knn_indices</span>
-
-
-<a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.find_knn_indices" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">find_knn_indices</span><span class="p">(</span><span class="n">Qs_monthly_array</span><span class="p">,</span> <span class="n">month</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Given cumulative monthly flow values, find the K nearest neighbors
-from the historic dataset.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>Qs_monthly_array</code>
-            </td>
-            <td>
-                  <code><span title="numpy.array">array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The cumulative monthly flow values for the month to disaggregate.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>month</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The calendar month which is being disaggregated (1-12).</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>n_neighbors</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The number of neighbors to find.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>distances</code></td>            <td>
-                  <code><span title="numpy.array">array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The distances to the K nearest neighbors.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td><code>indices</code></td>            <td>
-                  <code><span title="numpy.array">array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The indices of the K nearest neighbors in the historic dataset.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.sample_knn_monthly_flows" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">sample_knn_monthly_flows</span>
-
-
-<a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.sample_knn_monthly_flows" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">sample_knn_monthly_flows</span><span class="p">(</span><span class="n">Qs_monthly_array</span><span class="p">,</span> <span class="n">month</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sample_method</span><span class="o">=</span><span class="s1">&#39;distance_weighted&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Given cumulative monthly flow values, sample K nearest neighbors
-from the historic dataset.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>Qs_monthly_array</code>
-            </td>
-            <td>
-                  <code><span title="numpy.array">array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The cumulative monthly flow values for the month to disaggregate.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>month</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The calendar month which is being disaggregated (1-12).</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>n_neighbors</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The number of neighbors to sample.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>sample_method</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The sampling method to use.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;distance_weighted&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>sampled_indices</code></td>            <td>
-                  <code><span title="numpy.array">array</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The sampled indices from the historic dataset.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate_monthly_flows" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">disaggregate_monthly_flows</span>
-
-
-<a href="#synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator.disaggregate_monthly_flows" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">disaggregate_monthly_flows</span><span class="p">(</span><span class="n">Qs_monthly</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sample_method</span><span class="o">=</span><span class="s1">&#39;distance_weighted&#39;</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Disaggregate monthly to daily flows using the Nowak method.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>Qs_monthly</code>
-            </td>
-            <td>
-                  <code><span title="pandas.Series">Series</span> or <span title="pandas.DataFrame">DataFrame</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Monthly streamflow data for the synthetic period.
-The index should be a datetime index.
-For multisite, should be DataFrame with same columns as historic data.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>n_neighbors</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The number of neighbors to use for disaggregation.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>sample_method</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The method to use for sampling the K nearest neighbors.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;distance_weighted&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>Qs_daily</code></td>            <td>
-                  <code><span title="pandas.Series">Series</span> or <span title="pandas.DataFrame">DataFrame</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Daily streamflow data for the synthetic period.
-The index will be a datetime index.
-For multisite, returns DataFrame with same columns as input.</p>
+                <p>Disaggregated streamflow ensemble at the output timestep.</p>
               </div>
             </td>
           </tr>

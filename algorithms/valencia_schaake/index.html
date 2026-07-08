@@ -1541,7 +1541,7 @@
 </tr>
 <tr>
 <td><strong>Resolution</strong></td>
-<td>Annual to monthly, quarterly, or other equal-month-stride splits (<code>n_subperiods</code> in {2, 3, 4, 6, 12})</td>
+<td>Annual to any equal-month-stride split: 12 months, 6 two-month periods, 4 quarters, 3 four-month seasons, or 2 half-years (<code>n_subperiods</code> in {12, 6, 4, 3, 2})</td>
 </tr>
 <tr>
 <td><strong>Sites</strong></td>
@@ -1561,9 +1561,7 @@ exactly by construction in the untransformed model.</p>
 methods are compared.</p>
 <h2 id="notation">Notation<a class="headerlink" href="#notation" title="Permanent link">&para;</a></h2>
 <p>The symbols below match the manuscript convention (Valencia and Schaake,
-1973). An earlier internal draft of this document used the opposite
-convention; readers comparing to the paper should now find them
-consistent.</p>
+1973).</p>
 <table>
 <thead>
 <tr>
@@ -1655,9 +1653,14 @@ the biased estimator <span class="arithmatex">\(\hat{\mathbf{S}} = (1/r)\,\mathb
 <span class="arithmatex">\(1/(r-1)\)</span> factor cancels in both
 <span class="arithmatex">\(\mathbf{A} = \mathbf{S}_{yx}\mathbf{S}_{xx}^{-1}\)</span> and
 <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span>, so the parameter estimates are identical.</p>
-<p>An optional transformation (log or Box-Cox) may be applied to sub-period
-flows before fitting. The paper does not prescribe a specific transformation
--- these are practical extensions for highly skewed hydrologic flows.</p>
+<p>An optional transformation may be applied to sub-period flows before
+fitting (<code>transform</code> in {'log', 'boxcox', 'none'}; the implementation
+default is 'log'). The paper does not prescribe a specific transformation
+-- these are practical extensions for highly skewed hydrologic flows. Note
+that with the default log transform, per-site additivity is maintained by
+the proportional rescale described below rather than by the exact linear
+identity; pass <code>transform='none'</code> to run the pure linear model of the
+paper.</p>
 <h3 id="exact-additivity-by-construction">Exact additivity by construction<a class="headerlink" href="#exact-additivity-by-construction" title="Permanent link">&para;</a></h3>
 <p>A key result of Valencia and Schaake (1973) is that the linear model
 preserves the per-site aggregate identity <span class="arithmatex">\(\mathbf{X} = \mathbf{C}\mathbf{Y}\)</span>
@@ -1727,7 +1730,7 @@ rescale in step 4 of the synthesis procedure.</p>
    before any further processing.</p>
 </li>
 <li>
-<p>If <code>conservation_method='proportional'</code>, clip any negative entries to
+<p>If <code>conservation_method='proportional'</code> (the default), clip any negative entries to
    zero and rescale each site's sub-period block to its target annual sum
    <span class="arithmatex">\(X_{t,s}\)</span>. When the post-clip sum is zero (rare, requires extreme
    clipping), the site's <span class="arithmatex">\(X_{t,s}\)</span> is split uniformly across its

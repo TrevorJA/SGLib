@@ -1116,9 +1116,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#month-boundary-smoothing" class="md-nav__link">
+  <a href="#timescale-conventions" class="md-nav__link">
     <span class="md-ellipsis">
-      Month Boundary Smoothing
+      Timescale Conventions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#period-boundary-smoothing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Period Boundary Smoothing
     </span>
   </a>
   
@@ -1488,9 +1497,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#month-boundary-smoothing" class="md-nav__link">
+  <a href="#timescale-conventions" class="md-nav__link">
     <span class="md-ellipsis">
-      Month Boundary Smoothing
+      Timescale Conventions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#period-boundary-smoothing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Period Boundary Smoothing
     </span>
   </a>
   
@@ -1571,7 +1589,7 @@
 </tr>
 <tr>
 <td><strong>Resolution</strong></td>
-<td>Monthly to Daily</td>
+<td Daily="Daily" Monthly_="Monthly," Weekly_="Weekly,">{Annual, Monthly, Weekly} to</td>
 </tr>
 <tr>
 <td><strong>Sites</strong></td>
@@ -1580,9 +1598,10 @@
 </tbody>
 </table>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The Nowak disaggregator converts synthetic monthly flows to daily flows by borrowing within-month daily patterns from the closest historical analogs. For each synthetic month, the <span class="arithmatex">\(K\)</span> nearest historical months (by total flow magnitude) are identified, one is selected stochastically using either inverse-distance weighting (default) or Lall-Sharma kernel weights, and its daily flow proportions are applied to the synthetic monthly total. The method preserves monthly totals exactly by construction and maintains realistic daily flow dynamics drawn directly from the observed record.</p>
+<p>The Nowak disaggregator converts synthetic coarse-timestep flows (annual, monthly, or weekly) to a finer timestep (monthly, weekly, or daily) by borrowing within-period flow patterns from the closest historical analogs. For each synthetic coarse period, the <span class="arithmatex">\(K\)</span> nearest historical periods (by total flow magnitude at an index gauge) are identified, one is selected stochastically using either inverse-distance weighting (default) or Lall-Sharma kernel weights, and its fine-timestep flow proportions are applied to the synthetic coarse total. The method preserves coarse-period totals by construction and maintains realistic fine-timestep flow dynamics drawn directly from the observed record.</p>
+<p>Any pairing of input timestep in {annual, monthly, weekly} with a finer output timestep in {monthly, weekly, daily} is supported: annual-to-monthly, annual-to-weekly, annual-to-daily, monthly-to-weekly, monthly-to-daily (the default), and weekly-to-daily.</p>
 <h3 id="relation-to-nowak-et-al-2010">Relation to Nowak et al. (2010)<a class="headerlink" href="#relation-to-nowak-et-al-2010" title="Permanent link">&para;</a></h3>
-<p>The original Nowak et al. (2010) paper presents the method at annual-to-daily resolution: KNN selects one donor year, and its 365-day proportions are applied to the synthetic annual total at every site. The algorithm is <strong>timestep-agnostic</strong>: the same logic applies to annual-to-monthly, monthly-to-daily, monthly-to-weekly, and other aggregate-to-sub-period pairings. This implementation operates at monthly-to-daily resolution by default. Operating at the monthly level yields a substantially larger pool of historical analogs (12 x N months vs. N years) and therefore better representation of within-pool sampling uncertainty. Annual-to-daily disaggregation can be approximated by chaining a monthly generator (e.g., <code>KirschGenerator</code>, <code>ThomasFieringGenerator</code>) with this disaggregator (see <code>KirschNowakPipeline</code>).</p>
+<p>The original Nowak et al. (2010) paper presents the method at annual-to-daily resolution: KNN selects one donor year, and its 365-day proportions are applied to the synthetic annual total at every site. The paper notes the algorithm "can be readily applied to any space and time scales" and demonstrates annual-to-monthly disaggregation as well. This implementation adds one extension for sub-annual input timesteps: candidate pools are conditioned on the calendar period (month of year, or ISO week of year), and each pool is enlarged by including time-shifted copies of the historical windows (see Analog Pool Construction). Operating at the monthly level yields a substantially larger pool of historical analogs (12 x N months vs. N years) and therefore better representation of within-pool sampling uncertainty. For annual input the pool is unconditioned, exactly as in the original paper.</p>
 <h2 id="notation">Notation<a class="headerlink" href="#notation" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1593,16 +1612,16 @@
 </thead>
 <tbody>
 <tr>
-<td><span class="arithmatex">\(Q_m^{\text{syn}}\)</span></td>
-<td>Synthetic total flow for month <span class="arithmatex">\(m\)</span></td>
+<td><span class="arithmatex">\(Q_p^{\text{syn}}\)</span></td>
+<td>Synthetic total flow for coarse period <span class="arithmatex">\(p\)</span></td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(q_d^{\text{syn}}\)</span></td>
-<td>Synthetic daily flow on day <span class="arithmatex">\(d\)</span></td>
+<td><span class="arithmatex">\(q_t^{\text{syn}}\)</span></td>
+<td>Synthetic fine-timestep flow at step <span class="arithmatex">\(t\)</span></td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(q_d^*\)</span></td>
-<td>Observed daily flow on day <span class="arithmatex">\(d\)</span> of the selected analog month</td>
+<td><span class="arithmatex">\(q_t^*\)</span></td>
+<td>Observed fine-timestep flow at step <span class="arithmatex">\(t\)</span> of the selected analog period</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(K\)</span></td>
@@ -1614,63 +1633,77 @@
 </tr>
 <tr>
 <td><span class="arithmatex">\(d_i\)</span></td>
-<td>Euclidean distance from the synthetic monthly flow to the <span class="arithmatex">\(i\)</span>-th neighbor</td>
+<td>Euclidean distance from the synthetic coarse flow to the <span class="arithmatex">\(i\)</span>-th neighbor</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(b\)</span></td>
-<td>Number of blending days at month boundaries</td>
+<td>Number of blending timesteps at period boundaries</td>
 </tr>
 <tr>
-<td><span class="arithmatex">\(N_m\)</span></td>
-<td>Number of historical months in the candidate pool for month <span class="arithmatex">\(m\)</span></td>
+<td><span class="arithmatex">\(s\)</span></td>
+<td>Maximum pool window shift, in output timesteps</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(N_p\)</span></td>
+<td>Number of historical candidates in the pool for period label <span class="arithmatex">\(p\)</span></td>
 </tr>
 </tbody>
 </table>
 <h2 id="formulation">Formulation<a class="headerlink" href="#formulation" title="Permanent link">&para;</a></h2>
 <h3 id="analog-pool-construction">Analog Pool Construction<a class="headerlink" href="#analog-pool-construction" title="Permanent link">&para;</a></h3>
-<p>For each calendar month <span class="arithmatex">\(m\)</span>, a pool of candidate historical months is assembled. A tolerance of <span class="arithmatex">\(\pm b_{\text{shift}}\)</span> calendar days around the center of month <span class="arithmatex">\(m\)</span> is allowed, which provides flexibility in matching months near the calendar boundary. The candidate pool stores the total monthly flow and the corresponding daily flow time series for each historical month.</p>
+<p>For monthly or weekly input, a pool of candidate historical periods is assembled for each calendar period label (month of year 1-12, or ISO week of year 1-52). The pool is enlarged by shifting each historical window by up to <span class="arithmatex">\(\pm s\)</span> output timesteps (<code>max_knn_pool_shift_timesteps</code>), giving <span class="arithmatex">\(N_p = N_{\text{years}} \cdot (2s + 1)\)</span> candidates per label. Larger shifts enlarge the pool but rotate the sampled profiles relative to the calendar, so the default shift scales with the timescale pair (7 days for monthly-to-daily, 2 days for weekly-to-daily, 1 week for monthly-to-weekly, 0 for annual-to-monthly, 2 weeks for annual-to-weekly, 7 days for annual-to-daily).</p>
+<p>For annual input there is a single pool containing every historical year (plus shifted copies when <span class="arithmatex">\(s &gt; 0\)</span>), matching the original paper.</p>
+<p>Each pool entry stores the total coarse flow at the index gauge (the sum across sites for multisite data) and the corresponding fine-timestep flow proportion vector for each site.</p>
 <h3 id="neighbor-selection">Neighbor Selection<a class="headerlink" href="#neighbor-selection" title="Permanent link">&para;</a></h3>
-<p>For each synthetic monthly flow <span class="arithmatex">\(Q_m^{\text{syn}}\)</span>, the <span class="arithmatex">\(K\)</span> nearest historical months are found by Euclidean distance on total monthly flow. One neighbor is then drawn stochastically from the <span class="arithmatex">\(K\)</span> candidates using one of two weighting schemes.</p>
+<p>For each synthetic coarse flow <span class="arithmatex">\(Q_p^{\text{syn}}\)</span>, the <span class="arithmatex">\(K\)</span> nearest historical candidates are found by Euclidean distance on total coarse flow at the index gauge. One neighbor is then drawn stochastically from the <span class="arithmatex">\(K\)</span> candidates using one of two weighting schemes.</p>
 <p><strong>Inverse-distance weighting</strong> (default). The selection probability for the <span class="arithmatex">\(i\)</span>-th neighbor is proportional to the inverse of its distance:</p>
 <div class="arithmatex">\[
 w_i = \frac{1/d_i}{\displaystyle\sum_{j=1}^{K} 1/d_j}
 \]</div>
-<p>where <span class="arithmatex">\(d_i\)</span> is the Euclidean distance between <span class="arithmatex">\(Q_m^{\text{syn}}\)</span> and the <span class="arithmatex">\(i\)</span>-th neighbor's monthly total. This gives stronger preference to closer analogs when the distance differences are large, but approaches uniform selection when all neighbors are similarly distant.</p>
+<p>where <span class="arithmatex">\(d_i\)</span> is the Euclidean distance between <span class="arithmatex">\(Q_p^{\text{syn}}\)</span> and the <span class="arithmatex">\(i\)</span>-th neighbor's coarse total. This gives stronger preference to closer analogs when the distance differences are large, but approaches uniform selection when all neighbors are similarly distant.</p>
 <p><strong>Lall-Sharma kernel</strong> (Lall and Sharma, 1996). The selection probability depends only on rank, not distance:</p>
 <div class="arithmatex">\[
 w_i = \frac{1/i}{\displaystyle\sum_{j=1}^{K} 1/j}, \qquad i = 1, \ldots, K
 \]</div>
 <p>This harmonic weighting gives the closest neighbor approximately twice the probability of the second-closest, regardless of the actual distance magnitudes.</p>
 <h3 id="proportional-disaggregation">Proportional Disaggregation<a class="headerlink" href="#proportional-disaggregation" title="Permanent link">&para;</a></h3>
-<p>The daily flows of the selected analog month are used as a template. Let <span class="arithmatex">\(\{q_d^*\}_{d=1}^{D}\)</span> denote the observed daily flows in the selected analog month (with <span class="arithmatex">\(D\)</span> days). The synthetic daily flows are computed by proportional scaling:</p>
+<p>The fine-timestep flows of the selected analog period are used as a template. Let <span class="arithmatex">\(\{q_t^*\}_{t=1}^{T}\)</span> denote the observed fine flows in the selected analog period (with <span class="arithmatex">\(T\)</span> steps). The synthetic fine flows are computed by proportional scaling:</p>
 <div class="arithmatex">\[
-q_d^{\text{syn}} = Q_m^{\text{syn}} \cdot \frac{q_d^*}{\displaystyle\sum_{d'=1}^{D} q_{d'}^*}
+q_t^{\text{syn}} = Q_p^{\text{syn}} \cdot \frac{q_t^*}{\displaystyle\sum_{t'=1}^{T} q_{t'}^*}
 \]</div>
-<p>This ensures that the synthetic daily flows sum exactly to the synthetic monthly total. For multisite data, each site is disaggregated independently using the same selected analog month, preserving inter-site consistency within each month.</p>
-<h3 id="month-boundary-smoothing">Month Boundary Smoothing<a class="headerlink" href="#month-boundary-smoothing" title="Permanent link">&para;</a></h3>
-<p>To reduce discontinuities at month transitions, an optional blending step applies a weighted average across <span class="arithmatex">\(b\)</span> days on each side of the boundary. After smoothing, each month is rescaled to restore the original monthly total:</p>
+<p>This ensures that the synthetic fine flows sum to the synthetic coarse total. For multisite data, each site is disaggregated independently using the same selected analog period, preserving inter-site consistency within each period.</p>
+<p>When the analog and target periods differ in length (leap-year February or leap years at daily output, four- versus five-week months at weekly output), a shorter analog is extended by redistributing the missing proportion mass, and a longer analog is truncated and renormalized. The one exception is the monthly-to-daily pair, where truncated 29-day February profiles are applied without renormalization to preserve the established production behavior of this implementation.</p>
+<h3 id="timescale-conventions">Timescale Conventions<a class="headerlink" href="#timescale-conventions" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Weekly timesteps use ISO weeks anchored on Sundays (<code>W-SUN</code>). Years are treated as exactly 52 ISO weeks: ISO week 53 is folded into the week 52 pool on input and never generated on output, consistent with <code>KirschGenerator</code>.</li>
+<li>Weeks do not nest inside calendar months. For monthly-to-weekly disaggregation, each week is assigned to the calendar month containing its Sunday anchor; disaggregated weekly flows sum to the synthetic monthly flow over the weeks assigned to that month.</li>
+<li>Weekly output indices are anchored per year via the ISO calendar (<code>Timestamp.fromisocalendar</code>), avoiding calendar drift across long simulations.</li>
+</ul>
+<h3 id="period-boundary-smoothing">Period Boundary Smoothing<a class="headerlink" href="#period-boundary-smoothing" title="Permanent link">&para;</a></h3>
+<p>To reduce discontinuities at coarse-period transitions, an optional blending step applies a centered rolling mean across <span class="arithmatex">\(b\)</span> output timesteps on each side of the boundary (<code>boundary_blend_timesteps</code>). After smoothing, each period is rescaled to restore the original period total:</p>
 <div class="arithmatex">\[
-q_d^{\text{smoothed}} \leftarrow q_d^{\text{smoothed}} \cdot \frac{Q_m^{\text{syn}}}{\displaystyle\sum_{d'} q_{d'}^{\text{smoothed}}}
+q_t^{\text{smoothed}} \leftarrow q_t^{\text{smoothed}} \cdot \frac{Q_p^{\text{syn}}}{\displaystyle\sum_{t'} q_{t'}^{\text{smoothed}}}
 \]</div>
 <h3 id="synthesis-procedure">Synthesis Procedure<a class="headerlink" href="#synthesis-procedure" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Fit a KNN model on the historical monthly flow totals for each calendar month.</li>
-<li>For each synthetic monthly flow <span class="arithmatex">\(Q_m^{\text{syn}}\)</span>:</li>
-<li>Query the <span class="arithmatex">\(K\)</span> nearest neighbors by total flow.</li>
-<li>Select one analog month using inverse-distance or Lall-Sharma kernel weights.</li>
-<li>Disaggregate by applying the analog's daily proportions to <span class="arithmatex">\(Q_m^{\text{syn}}\)</span>.</li>
-<li>Optionally smooth month boundaries and rescale to preserve monthly totals.</li>
+<li>Fit a KNN model on the historical coarse-flow totals for each period label.</li>
+<li>For each synthetic coarse flow <span class="arithmatex">\(Q_p^{\text{syn}}\)</span>:</li>
+<li>Query the <span class="arithmatex">\(K\)</span> nearest neighbors by total flow at the index gauge.</li>
+<li>Select one analog period using inverse-distance or Lall-Sharma kernel weights.</li>
+<li>Disaggregate by applying the analog's fine-timestep proportions to <span class="arithmatex">\(Q_p^{\text{syn}}\)</span>.</li>
+<li>Optionally smooth period boundaries and rescale to preserve period totals.</li>
 <li>Enforce non-negativity.</li>
 </ol>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
-<p>Monthly totals are preserved exactly by construction. Daily flow patterns within each month are drawn from the historical record, maintaining realistic intra-monthly dynamics including storm hydrographs and recession curves. Multisite consistency within each month is preserved through joint analog selection.</p>
-<p>Month-to-month daily transitions are not explicitly modeled, though the optional boundary blending partially addresses this. The method cannot produce daily patterns not observed in the historical record, limiting its ability to represent unprecedented extremes. Daily autocorrelation across month boundaries depends on the quality of analog matching.</p>
+<p>Coarse-period totals are preserved by construction (see the monthly-to-daily leap-February exception above). Fine-timestep flow patterns within each period are drawn from the historical record, maintaining realistic intra-period dynamics including storm hydrographs and recession curves. Multisite consistency within each period is preserved through joint analog selection.</p>
+<p>Period-to-period fine-timestep transitions are not explicitly modeled, though the optional boundary blending partially addresses this. The method cannot produce fine-timestep patterns not observed in the historical record, limiting its ability to represent unprecedented extremes. Fine-timestep autocorrelation across period boundaries depends on the quality of analog matching.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Cannot produce daily flow patterns outside the historical range.</li>
-<li>Leap year handling requires proportional adjustment when the analog and target months differ in length.</li>
-<li>Quality depends on having a sufficiently long historical record to find good analogs across the range of synthetic monthly totals.</li>
-<li>Month-to-month daily transitions may exhibit discontinuities despite blending.</li>
+<li>Cannot produce fine-timestep flow patterns outside the historical range.</li>
+<li>Period-length mismatches (leap years, four- versus five-week months) require proportional adjustment when the analog and target periods differ in length; on the monthly-to-daily pair, truncated leap-February analogs are applied without renormalization (small mass loss possible in 28-day Februaries).</li>
+<li>Quality depends on having a sufficiently long historical record to find good analogs across the range of synthetic coarse totals. This is most acute for annual input, where the pool contains one candidate per historical year.</li>
+<li>Nonzero pool window shifts rotate sampled profiles relative to the calendar; large shifts trade seasonal fidelity for pool size.</li>
+<li>Period-to-period transitions may exhibit discontinuities despite blending.</li>
 </ul>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <p><strong>Primary:</strong>

@@ -579,6 +579,9 @@ class NowakDisaggregator(Disaggregator):
         calendar months are present in the observed index. For ISO-week
         pairs (weekly input, or annual to weekly) an ISO year is complete
         when its ISO weeks 1 through 52 lie inside the observed record.
+        For monthly to weekly a year is complete when its first and last
+        Sunday anchors lie inside the observed record, so every monthly
+        pool window has all of its weeks.
 
         Returns
         -------
@@ -586,6 +589,21 @@ class NowakDisaggregator(Disaggregator):
             Years usable for candidate pool construction.
         """
         index = self.Qh_index.index
+
+        if self._scale == ("monthly", "weekly"):
+            complete_years = []
+            for year in index.year.unique():
+                first_anchor = self._first_sunday(year, 1)
+                dec_end = pd.Timestamp(year=year, month=12, day=31)
+                last_anchor = dec_end - pd.Timedelta(days=(dec_end.dayofweek - 6) % 7)
+                if first_anchor >= index[0] and last_anchor <= index[-1]:
+                    complete_years.append(year)
+                else:
+                    self.logger.info(
+                        f"Excluding year {year}: weekly anchors do not cover "
+                        f"all months of the year"
+                    )
+            return np.array(complete_years)
 
         if self._scale in (("weekly", "daily"), ("annual", "weekly")):
             if self._scale == ("weekly", "daily"):

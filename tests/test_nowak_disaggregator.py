@@ -479,6 +479,25 @@ class TestNowakDisaggregatorScalePairs:
         )
         assert any_diff
 
+    def test_monthly_to_weekly_excludes_partial_first_year(self):
+        """A weekly record missing a year's first Sunday excludes that year.
+
+        Regression test: the monthly-to-weekly complete-year rule must
+        require the year's first and last Sunday anchors, not merely one
+        anchor in each month, or shifted pool windows poke past the wrap
+        padding and fit raises.
+        """
+        # Sundays of 2015-2017, minus the first two anchors of 2015
+        dates = pd.date_range("2015-01-04", "2017-12-31", freq="W-SUN")[2:]
+        rng = np.random.default_rng(5)
+        obs = pd.DataFrame({"site_1": rng.gamma(2.0, 25.0, len(dates))}, index=dates)
+
+        disagg = NowakDisaggregator(input_timestep="monthly", output_timestep="weekly")
+        disagg.fit(obs)
+
+        assert 2015 not in disagg.historic_years
+        assert set(disagg.historic_years) == {2016, 2017}
+
     def test_weekly_output_is_sunday_anchored(self, sample_weekly_dataframe):
         """Annual-to-weekly output has 52 Sunday anchors per year."""
         disagg = NowakDisaggregator(input_timestep="annual", output_timestep="weekly")

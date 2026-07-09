@@ -11,6 +11,7 @@ Step-by-step guides, each focused on a single SynHydro workflow.
 | [05 - Drought Analysis](05_drought_analysis.md) | SSI calculation and drought event extraction |
 | [06 - Ensemble Validation](06_validation.md) | `validate_ensemble` metrics and `plot_validation_panel` |
 | [07 - Plotting Walkthrough](07_plotting.md) | Default plots for ensemble visualization and validation |
+| [08 - Working with Ensembles](08_ensembles.md) | The `Ensemble` data model: dual views, construction, statistics, HDF5 I/O |
 
 All examples use `synhydro.load_example_data()`, which returns a multi-site
 daily streamflow `DataFrame`.

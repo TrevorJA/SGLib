@@ -415,17 +415,29 @@ class NowakDisaggregator(Disaggregator):
         Returns
         -------
         pd.DatetimeIndex
-            Output timestamps at the output frequency.
+            Output timestamps at the output frequency. The output inherits the
+            time unit of the input index, so coarse data stored at a coarser
+            resolution than nanoseconds (e.g. 's' for paleo reconstructions
+            with years outside the datetime64[ns] bounds) disaggregates
+            without overflow.
         """
+        # Preserve the input index's time unit; pd.date_range defaults to
+        # 'ns', which overflows for years outside roughly 1678-2262
+        unit = getattr(coarse_index, "unit", None)
+        range_kwargs = {} if unit is None else {"unit": unit}
+
         if self._scale == ("monthly", "daily"):
             return pd.date_range(
                 start=coarse_index[0],
                 end=coarse_index[-1] + pd.offsets.MonthEnd(0),
                 freq="D",
+                **range_kwargs,
             )
         if self._scale == ("weekly", "daily"):
             windows = [
-                pd.date_range(ts - pd.Timedelta(days=6), ts, freq="D").values
+                pd.date_range(
+                    ts - pd.Timedelta(days=6), ts, freq="D", **range_kwargs
+                ).values
                 for ts in coarse_index
             ]
             return pd.DatetimeIndex(np.concatenate(windows))
@@ -434,12 +446,14 @@ class NowakDisaggregator(Disaggregator):
                 start=coarse_index[0],
                 end=coarse_index[-1] + pd.offsets.MonthEnd(0),
                 freq=_WEEKLY_FREQ,
+                **range_kwargs,
             )
         if self._scale == ("annual", "monthly"):
             return pd.date_range(
                 start=coarse_index[0],
                 end=coarse_index[-1] + pd.DateOffset(months=11),
                 freq="MS",
+                **range_kwargs,
             )
         if self._scale == ("annual", "weekly"):
             dates = [
@@ -453,6 +467,7 @@ class NowakDisaggregator(Disaggregator):
             start=coarse_index[0],
             end=pd.Timestamp(year=coarse_index[-1].year, month=12, day=31),
             freq="D",
+            **range_kwargs,
         )
 
     def _needs_length_fix(self, label: int, expected_steps: int) -> bool:

@@ -343,7 +343,15 @@ class Ensemble:
         -------
         Dict[int, pd.DataFrame]
             Dictionary keyed by realization numbers with DataFrames containing
-            timeseries for multiple sites.
+            timeseries for multiple sites. Integer-like column labels (e.g.
+            the string "3") are coerced to int so that realization keys always
+            satisfy the class contract; `_infer_data_structure` relies on int
+            keys to recognize realization-keyed dictionaries.
+
+        Raises
+        ------
+        ValueError
+            If two realization labels coerce to the same key (e.g. 3 and "3").
         """
         if not site_dict:
             return {}
@@ -355,7 +363,7 @@ class Ensemble:
 
         result = {}
 
-        for realization in all_realizations:
+        for realization in sorted(all_realizations, key=str):
             # Collect all series for this realization across sites
             realization_series = []
             for site, df in site_dict.items():
@@ -366,7 +374,22 @@ class Ensemble:
             # Concatenate all series for this realization
             if realization_series:
                 realization_df = pd.concat(realization_series, axis=1, sort=True)
-                result[realization] = realization_df
+                try:
+                    key = int(realization)
+                except (TypeError, ValueError):
+                    key = realization
+                    logger.warning(
+                        f"Realization label {realization!r} is not integer-like "
+                        "and is kept as-is. String realization keys are "
+                        "indistinguishable from site names, so Ensembles built "
+                        "from this data may misinterpret the structure."
+                    )
+                if key in result:
+                    raise ValueError(
+                        f"Duplicate realization key {key!r} after coercing "
+                        "column labels to int"
+                    )
+                result[key] = realization_df
 
         return result
 

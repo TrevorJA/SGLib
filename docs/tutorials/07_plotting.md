@@ -144,4 +144,4 @@ threading explicit color arguments through each function call.
 
 ---
 
-**Previous:** [Ensemble Validation](06_validation.md)
+**Previous:** [Ensemble Validation](06_validation.md) | **Next:** [Working with Ensembles](08_ensembles.md)

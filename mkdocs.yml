@@ -100,6 +100,7 @@ nav:
     - "Drought Analysis (SSI)": tutorials/05_drought_analysis.md
     - "Ensemble Validation": tutorials/06_validation.md
     - "Plotting Walkthrough": tutorials/07_plotting.md
+    - "Working with Ensembles": tutorials/08_ensembles.md
   - Algorithms:
     - Overview: algorithms/index.md
     - Thomas-Fiering AR(1): algorithms/thomas_fiering.md

@@ -2,122 +2,126 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://trevorja.github.io/SynHydro/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/getting-started/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/arfima/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/kirsch/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/knn_bootstrap/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/matalas/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/multisite_hmm/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/multisite_phase_randomization/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/nowak_disaggregation/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/phase_randomization/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/smarta/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/sparta/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/thomas_fiering/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/valencia_schaake/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/algorithms/warm/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/api/core/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/api/disaggregators/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/api/drought/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/api/generators/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/api/plotting/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/references/references/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/tutorials/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/tutorials/01_quickstart/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/tutorials/02_multisite/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/tutorials/03_disaggregator/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/tutorials/04_pipeline/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/tutorials/05_drought_analysis/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/tutorials/06_validation/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
     </url>
     <url>
          <loc>https://trevorja.github.io/SynHydro/tutorials/07_plotting/</loc>
-         <lastmod>2026-07-08</lastmod>
+         <lastmod>2026-07-09</lastmod>
+    </url>
+    <url>
+         <loc>https://trevorja.github.io/SynHydro/tutorials/08_ensembles/</loc>
+         <lastmod>2026-07-09</lastmod>
     </url>
 </urlset>

@@ -20,7 +20,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from synhydro.utils.data import load_example_data
 from synhydro.core.ensemble import Ensemble
-from synhydro.core.validation import validate_ensemble
+from synhydro.verification import verify
 
 from config import GENERATORS, N_REALIZATIONS, N_YEARS, SEED, SITE_INDEX, ACF_MAX_LAG
 from plotting import (
@@ -91,26 +91,22 @@ def _prepare_data(frequency: str, multisite: bool, site_idx: int):
 
 
 def _compute_validation_summary(ensemble, Q_obs_at_freq):
-    """Run validate_ensemble and extract per-category MARE.
+    """Run verify() and extract per-category median absolute relative diff.
 
     Returns a pd.Series indexed by category name, or None on failure.
     """
     try:
-        result = validate_ensemble(
+        result = verify(
             ensemble,
             Q_obs_at_freq,
             metrics=["marginal", "temporal", "seasonal", "fdc"],
         )
-        summary = result.summary
-        if hasattr(summary, "category_scores"):
-            scores = summary.category_scores
-            return pd.Series(scores, name="MARE")
-        elif isinstance(summary, dict):
-            return pd.Series(summary, name="MARE")
-        else:
-            return None
+        rollup = result.category_summary()
+        series = rollup.groupby("category")["median_abs_relative_diff"].mean()
+        series.name = "median_abs_relative_diff"
+        return series
     except Exception as e:
-        logger.warning("Validation failed: %s", e)
+        logger.warning("Verification failed: %s", e)
         return None
 
 

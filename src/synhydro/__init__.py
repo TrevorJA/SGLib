@@ -29,14 +29,15 @@ from synhydro.droughts.diagnostics import (
     distribution_summary,
 )
 
-# Validation
-from synhydro.core.validation import (
-    validate_ensemble,
-    ValidationResult,
-    compute_realization_metrics,
+# Verification (statistical property preservation) and validation
+# (fit-for-purpose evaluation), per Stedinger and Taylor (1982)
+from synhydro.verification import (
+    verify,
+    VerificationResult,
     bootstrap_metric_ci,
     compare_methods,
 )
+from synhydro.validation import validate, ValidationResult
 
 # Generators
 from synhydro.methods.generation.hybrid.kirsch import KirschGenerator
@@ -99,12 +100,14 @@ __all__ = [
     "EnsembleMetadata",
     # Data utilities
     "load_example_data",
-    # Validation
-    "validate_ensemble",
-    "ValidationResult",
-    "compute_realization_metrics",
+    # Verification (statistical property preservation)
+    "verify",
+    "VerificationResult",
     "bootstrap_metric_ci",
     "compare_methods",
+    # Validation (fit-for-purpose evaluation)
+    "validate",
+    "ValidationResult",
     # Drought analysis - SSI calculation
     "SSI",
     "get_drought_metrics",

@@ -5,6 +5,32 @@ All notable changes to SynHydro are documented in this file.
 ## [Unreleased]
 
 ### Added
+- Verification suite (`synhydro.verification`) for statistical property
+  preservation, following the Stedinger and Taylor (1982) terminology:
+  registered per-metric functions across nine categories (marginal,
+  temporal, seasonal, annual, spatial, fdc, lmoments, extremes,
+  spectral), a `verify()` orchestrator, and a `VerificationResult` with
+  tidy `to_dataframe()`, `summary()` (including the observed value's
+  rank position within the ensemble), and `category_summary()`.
+  Metric selection is explicit (`metrics="all"`, names, categories, or
+  callables); custom metrics register via `register_metric()`.
+- Validation suite (`synhydro.validation`) for fit-for-purpose drought
+  evaluation: `validate()` runs the threshold-drought and SSI-drought
+  categories, relocated from the old validation framework with
+  computations unchanged (verified bit-identical on a fixed-seed
+  ensemble).
+- Frequency-aware evaluation: ensemble frequency is normalized from
+  metadata (including plain-word values), checked against the index,
+  and used to gate metrics (7-day low flows daily-only, Hurst on
+  annual aggregation with a 20-year minimum) and to report events per
+  year.
+- Rewritten `bootstrap_metric_ci` (vectorized) and `compare_methods`
+  (true paired bootstrap when realization counts match) operating on
+  the tidy result frame.
+- Plotting: `plot_metric_distributions` (per-metric boxplots with
+  observed overlay and rank annotation) and `plot_metric_curve`
+  (ensemble band for FDC, ACF, monthly statistics, spectra).
+
 - `NowakDisaggregator` generalized to arbitrary discrete timescale pairs via
   `input_timestep` / `output_timestep` constructor arguments: any input in
   {annual, monthly, weekly} disaggregates to any finer output in
@@ -35,6 +61,23 @@ All notable changes to SynHydro are documented in this file.
 - MkDocs documentation site with algorithm reference pages
 
 ### Changed
+- Breaking: `validate_ensemble` and `compute_realization_metrics` are
+  removed. Use `synhydro.verify()` for statistical verification and
+  `synhydro.validate()` for drought validation. `ValidationResult` now
+  refers to the fit-for-purpose result object.
+- Breaking: `plot_validation_panel` is now `plot_verification_panel`.
+  Rank-sum and Levene panels test each realization separately instead
+  of pooling realizations (pooled p-values shrank with ensemble size),
+  and the observed-year resampling accepts a `seed`.
+- `fit_gev` returns the shape parameter in a single convention for
+  both fitting methods (Hosking kappa, equal to the scipy `genextreme`
+  c parameter). The L-moment fit previously had a sign error in the
+  location parameter and the MLE fit negated the shape; GEV
+  return-level callers no longer negate the shape.
+- `compute_lmoments` (public) returns the first two L-moments and the
+  L-skewness and L-kurtosis ratios.
+- GEV metrics are named by return period (`gev_rp10`, `gev_rp50`,
+  `gev_rp100`), replacing the mislabeled `gev_q10`/`gev_q50`/`gev_q100`.
 - Breaking: `NowakDisaggregator` constructor arguments renamed for
   timescale-neutral clarity: `max_month_shift` is now
   `max_knn_pool_shift_timesteps` and `blend_days` is now
@@ -119,6 +162,18 @@ All notable changes to SynHydro are documented in this file.
   and HMM preprocessing
 
 ### Removed
+- CRPS metrics (`crps_mean`, `crpss`): probabilistic-forecast scores do
+  not apply to stochastic generation, where realizations are
+  independent draws rather than date-aligned forecasts.
+- Ideal-value and ensemble-size-dependent metrics: `ks_pvalue`, pooled
+  `monthly_wilcoxon_pvalue`, `fdc_envelope_coverage`,
+  `spectral_correlation`, `low_freq_ratio`, `variance_ratio`,
+  `acf_rmse`, `monthly_*_bias` aggregates, and the cross-category
+  `mean_absolute_relative_error` summary score, which averaged
+  incommensurable quantities.
+- The `core/validation/` package, replaced by `synhydro.verification`
+  and `synhydro.validation`.
+- Dead legacy `synhydro.verification` package (pre-refactor SSI code).
 - Deprecated Kirsch-Nowak combined generator
 - Outdated `core/validation.py` monolith (replaced by `core/validation/` package)
 

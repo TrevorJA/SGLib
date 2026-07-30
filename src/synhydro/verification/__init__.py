@@ -31,6 +31,7 @@ import pandas as pd
 from synhydro.verification._registry import VERIFICATION_METRICS
 from synhydro.verification._result import VerificationResult
 from synhydro.verification._verify import verify
+from synhydro.verification._testing import bootstrap_metric_ci, compare_methods
 from synhydro.verification.metrics import (
     mean,
     std,
@@ -87,6 +88,8 @@ __all__ = [
     "VerificationResult",
     "register_metric",
     "list_metrics",
+    "bootstrap_metric_ci",
+    "compare_methods",
     # Marginal
     "mean",
     "std",

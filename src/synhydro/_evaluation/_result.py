@@ -175,8 +175,11 @@ class EvaluationResult:
         -------
         pd.DataFrame
             One row per (category, site) with columns ``n_metrics,
-            n_in_90_band, median_abs_relative_diff,
-            median_obs_percentile_distance``.
+            n_compared, n_in_90_band, median_abs_relative_diff,
+            median_obs_percentile_distance``. ``n_compared`` counts
+            summary rows (metric-component combinations) with a rank
+            comparison; ``n_in_90_band`` counts how many of those fall
+            inside the ensemble's 5th to 95th percentile band.
         """
         summary = self.summary()
         if summary.empty:
@@ -185,6 +188,7 @@ class EvaluationResult:
                     "category",
                     "site",
                     "n_metrics",
+                    "n_compared",
                     "n_in_90_band",
                     "median_abs_relative_diff",
                     "median_obs_percentile_distance",
@@ -205,6 +209,7 @@ class EvaluationResult:
                     "category": category,
                     "site": site,
                     "n_metrics": int(group["metric"].nunique()),
+                    "n_compared": int(len(in_band)),
                     "n_in_90_band": int(in_band.sum()),
                     "median_abs_relative_diff": (
                         float(np.median(np.abs(rel))) if len(rel) else np.nan

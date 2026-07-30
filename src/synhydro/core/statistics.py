@@ -608,10 +608,19 @@ def fit_gev(
     -------
     Dict[str, float]
         Dictionary with keys:
-        'shape' (xi): shape parameter (xi < 0 = bounded upper tail).
-        'loc' (mu): location parameter.
-        'scale' (sigma): scale parameter.
+        'shape' (kappa): shape parameter in the Hosking convention,
+        identical to the scipy ``genextreme`` c parameter. Negative
+        values give a heavy (unbounded) upper tail, positive values a
+        bounded upper tail.
+        'loc' (xi): location parameter.
+        'scale' (alpha): scale parameter.
         'aic': Akaike Information Criterion (MLE only).
+
+    References
+    ----------
+    Hosking, J.R.M. and Wallis, J.R. (1997). Regional Frequency
+    Analysis: An Approach Based on L-Moments. Cambridge University
+    Press.
     """
     from scipy.stats import genextreme
 
@@ -630,21 +639,21 @@ def fit_gev(
         log_lik = np.sum(genextreme.logpdf(x, shape, loc=loc, scale=scale))
         aic = 2 * 3 - 2 * log_lik
         return {
-            "shape": float(-shape),  # scipy uses negated shape convention
+            "shape": float(shape),
             "loc": float(loc),
             "scale": float(scale),
             "aic": float(aic),
         }
     elif method == "lmom":
         l1, l2, t3 = _compute_lmoments(x)
-        # Hosking (1997) rational approximation for GEV shape from L-skewness
-        # k is the GEV shape parameter (xi in some notations)
+        # Hosking and Wallis (1997) rational approximation for the GEV
+        # shape parameter k from the sample L-skewness t3
         c = 2.0 / (3.0 + t3) - np.log(2) / np.log(3)
         k = 7.8590 * c + 2.9554 * c**2
         if abs(k) > 1e-6:
             gamma_val = _gamma_func(1 + k)
             scale = float(l2 * k / (gamma_val * (1 - 2 ** (-k))))
-            loc = float(l1 - scale * (gamma_val - 1) / k)
+            loc = float(l1 - scale * (1 - gamma_val) / k)
         else:
             # Gumbel limit (k -> 0)
             scale = float(l2 / np.log(2))
@@ -769,11 +778,10 @@ def flood_frequency_quantiles(
 
     if distribution == "gev":
         params = fit_gev(x, **fit_kwargs)
-        # scipy uses negated shape
         quantiles = [
             float(
                 genextreme.isf(
-                    p, -params["shape"], loc=params["loc"], scale=params["scale"]
+                    p, params["shape"], loc=params["loc"], scale=params["scale"]
                 )
             )
             for p in exceedance_probs
@@ -817,20 +825,30 @@ def flood_frequency_quantiles(
     )
 
 
-def _compute_lmoments(x: np.ndarray) -> Tuple[float, float, float]:
+def compute_lmoments(x: np.ndarray) -> Tuple[float, float, float, float]:
     """
-    Compute first three L-moments of a sample.
+    Compute sample L-moments and L-moment ratios.
+
+    L-moments are linear combinations of order statistics that are more
+    robust than product moments for skewed hydrologic data and small
+    samples.
 
     Parameters
     ----------
     x : np.ndarray
-        Sample values.
+        Sample values. Needs n >= 4; L-kurtosis is nan for n < 5.
 
     Returns
     -------
-    l1, l2, t3 : float
+    l1, l2, t3, t4 : float
         First L-moment (mean), second L-moment (L-scale),
-        L-skewness ratio.
+        L-skewness ratio (tau-3), and L-kurtosis ratio (tau-4).
+
+    References
+    ----------
+    Hosking, J.R.M. (1990). L-moments: Analysis and estimation of
+    distributions using linear combinations of order statistics.
+    Journal of the Royal Statistical Society, Series B, 52(1), 105-124.
     """
     n = len(x)
     xs = np.sort(x)
@@ -848,7 +866,35 @@ def _compute_lmoments(x: np.ndarray) -> Tuple[float, float, float]:
 
     t3 = l3 / l2 if abs(l2) > 1e-10 else 0.0
 
-    return float(l1), float(l2), float(t3)
+    if n >= 5:
+        b3 = np.sum(
+            np.arange(1, n - 2) * np.arange(2, n - 1) * np.arange(3, n) * xs[3:]
+        ) / (n * (n - 1) * (n - 2) * (n - 3))
+        l4 = 20 * b3 - 30 * b2 + 12 * b1 - b0
+        t4 = l4 / l2 if abs(l2) > 1e-10 else 0.0
+    else:
+        t4 = np.nan
+
+    return float(l1), float(l2), float(t3), float(t4)
+
+
+def _compute_lmoments(x: np.ndarray) -> Tuple[float, float, float]:
+    """
+    Compute first three L-moments of a sample.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Sample values.
+
+    Returns
+    -------
+    l1, l2, t3 : float
+        First L-moment (mean), second L-moment (L-scale),
+        L-skewness ratio.
+    """
+    l1, l2, t3, _ = compute_lmoments(x)
+    return l1, l2, t3
 
 
 def _gamma_func(x: float) -> float:

@@ -3,6 +3,7 @@ Small statistical estimators shared by the evaluation suites.
 """
 
 import numpy as np
+import pandas as pd
 from scipy import stats as sp_stats
 
 
@@ -85,3 +86,37 @@ def extract_runs(values: np.ndarray, threshold: float) -> tuple[list[int], list[
     durations = (ends - starts).tolist()
     severities = [float(np.sum(threshold - values[s:e])) for s, e in zip(starts, ends)]
     return durations, severities
+
+
+def annual_aggregate(
+    x: pd.Series,
+    steps_per_year: float,
+    how: str = "sum",
+    min_fraction: float = 0.9,
+) -> pd.Series:
+    """
+    Aggregate a series to calendar years, dropping incomplete years.
+
+    Parameters
+    ----------
+    x : pd.Series
+        Series with a DatetimeIndex.
+    steps_per_year : float
+        Expected number of timesteps per year at the series frequency.
+    how : str, default 'sum'
+        Aggregation: 'sum', 'mean', 'max', or 'min'.
+    min_fraction : float, default 0.9
+        Minimum fraction of expected timesteps a year must contain to
+        be kept. Ignored for annual-frequency input.
+
+    Returns
+    -------
+    pd.Series
+        Annual aggregate indexed by year start, incomplete years removed.
+    """
+    grouped = x.resample("YS")
+    aggregated = getattr(grouped, how)()
+    if steps_per_year > 1:
+        counts = grouped.count()
+        aggregated = aggregated[counts >= min_fraction * steps_per_year]
+    return aggregated.dropna()

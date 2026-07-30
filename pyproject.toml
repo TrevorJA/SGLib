@@ -36,6 +36,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ipython",
+    "ipykernel",
+    "nbclient",
+    "nbformat",
     "pygeohydro",
     "pytest",
     "pytest-cov",
@@ -50,6 +53,7 @@ lint = [
 docs = [
     "mkdocs-material>=9.5,<9.7",
     "mkdocstrings[python]>=0.24",
+    "mkdocs-jupyter>=0.24",
 ]
 
 [project.urls]

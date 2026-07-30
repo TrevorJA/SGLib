@@ -1,7 +1,7 @@
 # Core Data Structures
 
 For a guided introduction to the `Ensemble` data model, see
-[Tutorial 08 - Working with Ensembles](../tutorials/08_ensembles.md).
+[Tutorial 04 - Working with Ensembles](../tutorials/04_ensembles.ipynb).
 
 ## Ensemble
 

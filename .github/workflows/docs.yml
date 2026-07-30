@@ -30,34 +30,6 @@ jobs:
       - name: Show installed versions
         run: pip list | grep -E "mkdocs|griffe|mkdocstrings"
 
-      - name: Check for [runfigs] flag
-        id: runfigs
-        run: |
-          if echo "${{ github.event.head_commit.message }}" | grep -q '\[runfigs\]'; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Regenerate tutorial figures
-        if: steps.runfigs.outputs.enabled == 'true'
-        env:
-          PYTHONIOENCODING: utf-8
-        run: python scripts/build_tutorial_figures.py
-
-      - name: Commit regenerated figures
-        if: steps.runfigs.outputs.enabled == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet docs/assets/images/tutorials/; then
-            echo "No figure changes to commit."
-          else
-            git add docs/assets/images/tutorials/
-            git commit -m "chore: regen tutorial figures [skip ci]"
-            git push
-          fi
-
       - name: Build docs
         env:
           PYTHONIOENCODING: utf-8

@@ -41,8 +41,14 @@ theme:
     logo: material/water-circle
     repo: fontawesome/brands/github
 
+hooks:
+  - docs/hooks/copy_tutorials.py
+
 plugins:
   - search
+  - mkdocs-jupyter:
+      execute: false
+      include_source: true
   - mkdocstrings:
       handlers:
         python:
@@ -93,14 +99,14 @@ nav:
   - Getting Started: getting-started.md
   - Tutorials:
     - Overview: tutorials/index.md
-    - "Quickstart (Thomas-Fiering)": tutorials/01_quickstart.md
-    - "Multi-Site Monthly (Kirsch)": tutorials/02_multisite.md
-    - "Disaggregator (Nowak)": tutorials/03_disaggregator.md
-    - "Monthly→Daily Pipeline": tutorials/04_pipeline.md
-    - "Drought Analysis (SSI)": tutorials/05_drought_analysis.md
-    - "Verification & Validation": tutorials/06_verification.md
-    - "Plotting Walkthrough": tutorials/07_plotting.md
-    - "Working with Ensembles": tutorials/08_ensembles.md
+    - "Quickstart (Thomas-Fiering)": tutorials/01_quickstart.ipynb
+    - "Multi-Site Monthly (Kirsch)": tutorials/02_multisite.ipynb
+    - "Disaggregator (Nowak)": tutorials/03_disaggregator.ipynb
+    - "Working with Ensembles": tutorials/04_ensembles.ipynb
+    - "Verification & Validation": tutorials/05_verification.ipynb
+    - "Plotting Walkthrough": tutorials/06_plotting.ipynb
+    - "Drought Analysis (SSI)": tutorials/07_drought_analysis.ipynb
+    - "Monthly→Daily Pipeline": tutorials/08_pipeline.ipynb
   - Algorithms:
     - Overview: algorithms/index.md
     - Thomas-Fiering AR(1): algorithms/thomas_fiering.md

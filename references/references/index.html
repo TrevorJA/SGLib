@@ -507,7 +507,7 @@
   
   
   <span class="md-ellipsis">
-    Quickstart (Thomas-Fiering)
+    Quickstart: Single-Site Monthly Generation
     
   </span>
   
@@ -530,7 +530,7 @@
   
   
   <span class="md-ellipsis">
-    Multi-Site Monthly (Kirsch)
+    Multi-Site Monthly Generation
     
   </span>
   
@@ -553,7 +553,7 @@
   
   
   <span class="md-ellipsis">
-    Disaggregator (Nowak)
+    Monthly-to-Daily Disaggregation with NowakDisaggregator
     
   </span>
   
@@ -571,12 +571,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/04_pipeline/" class="md-nav__link">
+      <a href="../../tutorials/04_ensembles/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Monthly→Daily Pipeline
+    Working with Ensembles
     
   </span>
   
@@ -594,12 +594,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/05_drought_analysis/" class="md-nav__link">
+      <a href="../../tutorials/05_verification/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Drought Analysis (SSI)
+    Verification and Validation
     
   </span>
   
@@ -617,30 +617,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/06_validation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Ensemble Validation
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../tutorials/07_plotting/" class="md-nav__link">
+      <a href="../../tutorials/06_plotting/" class="md-nav__link">
         
   
   
@@ -663,12 +640,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/08_ensembles/" class="md-nav__link">
+      <a href="../../tutorials/07_drought_analysis/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Working with Ensembles
+    Drought Analysis with SSI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/08_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Monthly-to-Daily Pipeline
     
   </span>
   
@@ -1154,6 +1154,52 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api/verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Verification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Validation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/drought/" class="md-nav__link">
         
   
@@ -1312,6 +1358,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#verification-and-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verification and Validation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#methodological-foundations" class="md-nav__link">
     <span class="md-ellipsis">
       Methodological Foundations
@@ -1383,6 +1438,15 @@
   <a href="#wavelet-based-methods" class="md-nav__link">
     <span class="md-ellipsis">
       Wavelet-Based Methods
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-and-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verification and Validation
     </span>
   </a>
   
@@ -1464,6 +1528,36 @@ Grygier, J.C., and Stedinger, J.R. (1988). Condensed disaggregation procedures a
 Erkyihun, S.T., Rajagopalan, B., Zagona, E., Lall, U., and Nowak, K. (2016). Wavelet-based time series bootstrap model for multidecadal streamflow simulation using climate indicators. <em>Water Resources Research</em>, 52(5), 4061-4077. https://doi.org/10.1002/2016WR018696</p>
 <p>Nowak, K., Rajagopalan, B., and Zagona, E. (2011). A Wavelet Auto-Regressive Method (WARM) for multi-site streamflow simulation of data with non-stationary trends. <em>Journal of Hydrology</em>, 410(1-2), 1-12. https://doi.org/10.1016/j.jhydrol.2011.08.049</p>
 <hr />
+<h2 id="verification-and-validation">Verification and Validation<a class="headerlink" href="#verification-and-validation" title="Permanent link">&para;</a></h2>
+<p><strong>Verification and validation framework</strong>
+Stedinger, J.R., and Taylor, M.R. (1982). Synthetic streamflow generation: 1. Model verification and validation. <em>Water Resources Research</em>, 18(4), 909-918. https://doi.org/10.1029/WR018i004p00909</p>
+<p><strong>Moments preservation theory</strong>
+Matalas, N.C. (1967). Mathematical assessment of synthetic hydrology. <em>Water Resources Research</em>, 3(4), 937-945. https://doi.org/10.1029/WR003i004p00937</p>
+<p><strong>Caution on moments-only evaluation</strong>
+Hirsch, R.M. (1979). Synthetic hydrology and water supply reliability. <em>Water Resources Research</em>, 15(6), 1603-1615. https://doi.org/10.1029/WR015i006p01603</p>
+<p><strong>Flow duration curves</strong>
+Vogel, R.M., and Fennessey, N.M. (1995). Flow duration curves II: A review of applications in water resources planning. <em>Water Resources Bulletin</em>, 31(6), 1029-1039. https://doi.org/10.1111/j.1752-1688.1995.tb03419.x</p>
+<p><strong>Generator comparison via Monte Carlo</strong>
+Vogel, R.M., and Shallcross, A.L. (1996). The moving blocks bootstrap versus parametric time series models. <em>Water Resources Research</em>, 32(6), 1875-1882. https://doi.org/10.1029/96WR00928</p>
+<p><strong>Per-realization distributional tests</strong>
+Herman, J.D., Zeff, H.B., Lamontagne, J.R., Reed, P.M., and Characklis, G.W. (2016). Synthetic drought scenario generation to support bottom-up water supply vulnerability assessments. <em>Journal of Water Resources Planning and Management</em>, 142(11), 04016050. https://doi.org/10.1061/(ASCE)WR.1943-5452.0000701</p>
+<p><strong>Regional frequency analysis and GEV L-moment fitting</strong>
+Hosking, J.R.M., and Wallis, J.R. (1997). <em>Regional Frequency Analysis: An Approach Based on L-Moments</em>. Cambridge University Press. https://doi.org/10.1017/CBO9780511529443</p>
+<p><strong>Extreme event frequency analysis</strong>
+Stedinger, J.R., Vogel, R.M., and Foufoula-Georgiou, E. (1993). Frequency analysis of extreme events. In <em>Handbook of Hydrology</em> (ed. D.R. Maidment), Chapter 18. McGraw-Hill.</p>
+<p><strong>Extreme quantile evaluation of generators</strong>
+Zaerpour, M., Papalexiou, S.M., and Nazemi, A. (2021). Informing stochastic streamflow generation by large-scale climate indices at single and multiple sites. <em>Advances in Water Resources</em>, 156, 104037. https://doi.org/10.1016/j.advwatres.2021.104037</p>
+<p><strong>Standardized index drought definition</strong>
+McKee, T.B., Doesken, N.J., and Kleist, J. (1993). The relationship of drought frequency and duration to time scales. In <em>Proceedings of the 8th Conference on Applied Climatology</em>, Anaheim, CA, 179-184.</p>
+<p><strong>Theory of runs for drought events</strong>
+Yevjevich, V. (1967). An objective approach to definitions and investigations of continental hydrologic droughts. Hydrology Paper 23, Colorado State University. https://hdl.handle.net/10217/61303</p>
+<p><strong>Long-term storage and the Hurst coefficient</strong>
+Hurst, H.E. (1951). Long-term storage capacity of reservoirs. <em>Transactions of the American Society of Civil Engineers</em>, 116(1), 770-799. https://doi.org/10.1061/TACEAT.0006518</p>
+<p><strong>Bootstrap methods</strong>
+Efron, B., and Tibshirani, R.J. (1993). <em>An Introduction to the Bootstrap</em>. Chapman and Hall. https://doi.org/10.1007/978-1-4899-4541-9</p>
+<p><strong>Multi-season bootstrap evaluation statistics</strong>
+Srinivas, V.V., and Srinivasan, K. (2005). Hybrid moving block bootstrap for stochastic simulation of multi-site multi-season streamflows. <em>Journal of Hydrology</em>, 302(1-4), 307-330. https://doi.org/10.1016/j.jhydrol.2004.07.011</p>
+<hr />
 <h2 id="methodological-foundations">Methodological Foundations<a class="headerlink" href="#methodological-foundations" title="Permanent link">&para;</a></h2>
 <p><strong>Applied stochastic hydrology</strong>
 Salas, J.D., Delleur, J.W., Yevjevich, V., and Lane, W.L. (1980). <em>Applied Modeling of Hydrologic Time Series</em>. Water Resources Publications.</p>
@@ -1494,7 +1588,7 @@ Nataf, A. (1962). Determination des distributions de probabilites dont les marge
 <p><strong>NORTA (Normal To Anything)</strong>
 Cario, M.C., and Nelson, B.L. (1996). Autoregressive to anything: Time-series input processes for simulation. <em>Operations Research Letters</em>, 19(2), 51-58. https://doi.org/10.1016/0167-6377(96)00017-X</p>
 <p><strong>Hurst phenomenon</strong>
-Koutsoyiannis, D. (2002). The Hurst phenomenon and fractional Gaussian noise made easy. <em>Hydrological Sciences Journal</em>, 47(4), 573-595.</p>
+Koutsoyiannis, D. (2002). The Hurst phenomenon and fractional Gaussian noise made easy. <em>Hydrological Sciences Journal</em>, 47(4), 573-595. https://doi.org/10.1080/02626660208492961</p>
 <p><strong>KNN for weather variables</strong>
 Rajagopalan, B., and Lall, U. (1999). A k-nearest-neighbor simulator for daily precipitation and other weather variables. <em>Water Resources Research</em>, 35(10), 3089-3101. https://doi.org/10.1029/1999WR900028</p>
 <p><strong>Spatial-temporal KNN disaggregation</strong>

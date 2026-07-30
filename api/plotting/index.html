@@ -509,7 +509,7 @@
   
   
   <span class="md-ellipsis">
-    Quickstart (Thomas-Fiering)
+    Quickstart: Single-Site Monthly Generation
     
   </span>
   
@@ -532,7 +532,7 @@
   
   
   <span class="md-ellipsis">
-    Multi-Site Monthly (Kirsch)
+    Multi-Site Monthly Generation
     
   </span>
   
@@ -555,7 +555,7 @@
   
   
   <span class="md-ellipsis">
-    Disaggregator (Nowak)
+    Monthly-to-Daily Disaggregation with NowakDisaggregator
     
   </span>
   
@@ -573,12 +573,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/04_pipeline/" class="md-nav__link">
+      <a href="../../tutorials/04_ensembles/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Monthly→Daily Pipeline
+    Working with Ensembles
     
   </span>
   
@@ -596,12 +596,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/05_drought_analysis/" class="md-nav__link">
+      <a href="../../tutorials/05_verification/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Drought Analysis (SSI)
+    Verification and Validation
     
   </span>
   
@@ -619,30 +619,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/06_validation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Ensemble Validation
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../tutorials/07_plotting/" class="md-nav__link">
+      <a href="../../tutorials/06_plotting/" class="md-nav__link">
         
   
   
@@ -665,12 +642,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/08_ensembles/" class="md-nav__link">
+      <a href="../../tutorials/07_drought_analysis/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Working with Ensembles
+    Drought Analysis with SSI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/08_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Monthly-to-Daily Pipeline
     
   </span>
   
@@ -1161,6 +1161,52 @@
   
   
     <li class="md-nav__item">
+      <a href="../verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Verification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Validation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../drought/" class="md-nav__link">
         
   
@@ -1378,18 +1424,36 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#validation" class="md-nav__link">
+  <a href="#verification-and-validation" class="md-nav__link">
     <span class="md-ellipsis">
-      Validation
+      Verification and Validation
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#synhydro.plotting.plot_validation_panel" class="md-nav__link">
+  <a href="#synhydro.plotting.plot_verification_panel" class="md-nav__link">
     <span class="md-ellipsis">
-      plot_validation_panel
+      plot_verification_panel
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#synhydro.plotting.plot_metric_distributions" class="md-nav__link">
+    <span class="md-ellipsis">
+      plot_metric_distributions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#synhydro.plotting.plot_metric_curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      plot_metric_curve
     </span>
   </a>
   
@@ -1672,18 +1736,36 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#validation" class="md-nav__link">
+  <a href="#verification-and-validation" class="md-nav__link">
     <span class="md-ellipsis">
-      Validation
+      Verification and Validation
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#synhydro.plotting.plot_validation_panel" class="md-nav__link">
+  <a href="#synhydro.plotting.plot_verification_panel" class="md-nav__link">
     <span class="md-ellipsis">
-      plot_validation_panel
+      plot_verification_panel
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#synhydro.plotting.plot_metric_distributions" class="md-nav__link">
+    <span class="md-ellipsis">
+      plot_metric_distributions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#synhydro.plotting.plot_metric_curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      plot_metric_curve
     </span>
   </a>
   
@@ -1824,8 +1906,16 @@ compose easily inside larger figures.</p>
 <td>SSI timeseries with drought-severity shading</td>
 </tr>
 <tr>
-<td><code>plot_validation_panel</code></td>
-<td>5-panel marginal and seasonal validation figure</td>
+<td><code>plot_verification_panel</code></td>
+<td>5-panel marginal and seasonal verification figure</td>
+</tr>
+<tr>
+<td><code>plot_metric_distributions</code></td>
+<td>Metric boxplots across realizations with observed overlay</td>
+</tr>
+<tr>
+<td><code>plot_metric_curve</code></td>
+<td>Ensemble band for curve metrics (FDC, ACF, monthly statistics)</td>
 </tr>
 <tr>
 <td><code>apply_plotting_style</code></td>
@@ -5653,29 +5743,29 @@ indicating drought severity levels.</p>
     </div>
 
 </div><hr />
-<h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
+<h2 id="verification-and-validation">Verification and Validation<a class="headerlink" href="#verification-and-validation" title="Permanent link">&para;</a></h2>
 
 
 <div class="doc doc-object doc-function">
 
 
-<h2 id="synhydro.plotting.plot_validation_panel" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">plot_validation_panel</span>
+<h2 id="synhydro.plotting.plot_verification_panel" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">plot_verification_panel</span>
 
 
-<a href="#synhydro.plotting.plot_validation_panel" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_validation_panel</span><span class="p">(</span><span class="n">ensemble</span><span class="p">:</span> <span class="n">Ensemble</span><span class="p">,</span> <span class="n">observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Series</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">site</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timestep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;monthly&#39;</span><span class="p">,</span> <span class="n">log_space</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">figsize</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">LAYOUT</span><span class="p">[</span><span class="s1">&#39;validation_figsize&#39;</span><span class="p">],</span> <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">LAYOUT</span><span class="p">[</span><span class="s1">&#39;save_dpi&#39;</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">Axes</span><span class="p">]]</span>
+<a href="#synhydro.plotting.plot_verification_panel" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_verification_panel</span><span class="p">(</span><span class="n">ensemble</span><span class="p">:</span> <span class="n">Ensemble</span><span class="p">,</span> <span class="n">observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Series</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">site</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timestep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;monthly&#39;</span><span class="p">,</span> <span class="n">log_space</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">figsize</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">LAYOUT</span><span class="p">[</span><span class="s1">&#39;validation_figsize&#39;</span><span class="p">],</span> <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">LAYOUT</span><span class="p">[</span><span class="s1">&#39;save_dpi&#39;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">Axes</span><span class="p">]]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Multi-panel validation plot (EXCEPTION to single-panel rule).</p>
-<p>Creates 5-panel figure with comprehensive statistical validation:
-1. Overall distributions (boxplots by month)
-2. Monthly mean comparison
-3. Monthly std comparison
-4. Wilcoxon test p-values
-5. Levene test p-values</p>
+        <p>Multi-panel statistical verification plot.</p>
+<p>Five panels compare the ensemble against observed data per calendar
+period: (1) flow distributions, (2) period means, (3) period
+standard deviations, (4) Wilcoxon rank-sum p-values, and (5) Levene
+p-values. Statistics and tests are computed per realization; the
+observed statistic panels use a seeded bootstrap over observed
+years to show sampling uncertainty.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5698,7 +5788,7 @@ indicating drought severity levels.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Ensemble object containing synthetic data</p>
+                <p>Ensemble object containing synthetic data.</p>
               </div>
             </td>
             <td>
@@ -5714,9 +5804,8 @@ indicating drought severity levels.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Observed timeseries for validation. Panels 4 and 5 (Wilcoxon and
-Levene tests) require observed data and will display a placeholder
-message when it is not provided.</p>
+                <p>Observed timeseries. Panels 4 and 5 require observed data and
+display a placeholder message when it is not provided.</p>
               </div>
             </td>
             <td>
@@ -5732,7 +5821,7 @@ message when it is not provided.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Site name to analyze. If None, uses first site in ensemble</p>
+                <p>Site name to analyze. If None, uses the first site.</p>
               </div>
             </td>
             <td>
@@ -5748,7 +5837,7 @@ message when it is not provided.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Temporal aggregation for validation: 'monthly' or 'weekly'</p>
+                <p>Temporal aggregation: 'monthly' or 'weekly'.</p>
               </div>
             </td>
             <td>
@@ -5764,11 +5853,28 @@ message when it is not provided.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Perform validation in log space</p>
+                <p>Compare statistics of log-transformed flows.</p>
               </div>
             </td>
             <td>
                   <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed for the bootstrap resampling of observed years in panels
+2 and 3.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -5780,7 +5886,7 @@ message when it is not provided.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Figure size (width, height) in inches</p>
+                <p>Figure size (width, height) in inches.</p>
               </div>
             </td>
             <td>
@@ -5796,7 +5902,7 @@ message when it is not provided.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Path to save figure</p>
+                <p>Path to save the figure.</p>
               </div>
             </td>
             <td>
@@ -5812,26 +5918,11 @@ message when it is not provided.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Resolution for saved figure</p>
+                <p>Resolution for the saved figure.</p>
               </div>
             </td>
             <td>
                   <code>from config</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>**kwargs</code>
-            </td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Reserved for future expansion; currently unused.</p>
-              </div>
-            </td>
-            <td>
-                  <code>{}</code>
             </td>
           </tr>
       </tbody>
@@ -5871,17 +5962,441 @@ message when it is not provided.</p>
     </table>
 
 
+<details class="references" open>
+  <summary>References</summary>
+  <p>Herman, J.D., Zeff, H.B., Lamontagne, J.R., Reed, P.M., and
+Characklis, G.W. (2016). Synthetic drought scenario generation to
+support bottom-up water supply vulnerability assessments. Journal
+of Water Resources Planning and Management, 142(11), 04016050.</p>
+</details>
+
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plot_validation_panel</span><span class="p">(</span><span class="n">ensemble</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">Q_obs</span><span class="p">)</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plot_validation_panel</span><span class="p">(</span><span class="n">ensemble</span><span class="p">,</span> <span class="n">Q_obs</span><span class="p">,</span> <span class="n">log_space</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <div class="highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plot_verification_panel</span><span class="p">(</span><span class="n">ensemble</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">Q_obs</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plot_verification_panel</span><span class="p">(</span><span class="n">ensemble</span><span class="p">,</span> <span class="n">Q_obs</span><span class="p">,</span> <span class="n">log_space</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 
 
-<details class="note" open>
-  <summary>Notes</summary>
-  <p>This is the only multi-panel function in the plotting module, preserved
-from the original codebase due to its comprehensive validation capabilities.</p>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="synhydro.plotting.plot_metric_distributions" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">plot_metric_distributions</span>
+
+
+<a href="#synhydro.plotting.plot_metric_distributions" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_metric_distributions</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">FrameOrResult</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">sites</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ncols</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">annotate_rank</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">figsize</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">LAYOUT</span><span class="p">[</span><span class="s1">&#39;save_dpi&#39;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Boxplots of scalar metrics across realizations with observed overlay.</p>
+<p>One panel per (metric, site): the distribution of the statistic
+across realizations as a boxplot, the observed value as a dashed
+line, and the observed value's percentile position within the
+ensemble as an annotation. Only scalar and matrix (site-pair)
+metrics are shown; curve metrics use :func:<code>plot_metric_curve</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>result</code>
+            </td>
+            <td>
+                  <code>VerificationResult, ValidationResult, or pd.DataFrame</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Result object or tidy frame from <code>verify()</code> or <code>validate()</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>metrics</code>
+            </td>
+            <td>
+                  <code>list of str</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Metric names to plot. Defaults to all scalar metrics present.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sites</code>
+            </td>
+            <td>
+                  <code>list of str</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Sites (or site-pair labels) to plot. Defaults to all present.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ncols</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of panel columns.</p>
+              </div>
+            </td>
+            <td>
+                  <code>3</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>annotate_rank</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Annotate each panel with the observed value's percentile
+position within the synthetic distribution.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>figsize</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Figure size; defaults to a size scaled to the panel grid.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>filename</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Path to save the figure.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dpi</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Resolution for the saved figure.</p>
+              </div>
+            </td>
+            <td>
+                  <code>from config</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>fig</code></td>            <td>
+                  <code><span title="matplotlib.figure.Figure">Figure</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td><code>axes</code></td>            <td>
+                  <code>np.ndarray of matplotlib.axes.Axes</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="references" open>
+  <summary>References</summary>
+  <p>Stedinger, J.R. and Taylor, M.R. (1982). Synthetic streamflow
+generation: 1. Model verification and validation. Water Resources
+Research, 18(4), 909-918.</p>
 </details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">verify</span><span class="p">(</span><span class="n">ensemble</span><span class="p">,</span> <span class="n">Q_obs</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;marginal&quot;</span><span class="p">])</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plot_metric_distributions</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="synhydro.plotting.plot_metric_curve" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">plot_metric_curve</span>
+
+
+<a href="#synhydro.plotting.plot_metric_curve" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_metric_curve</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">FrameOrResult</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">site</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ax</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Axes</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">log_y</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">figsize</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">LAYOUT</span><span class="p">[</span><span class="s1">&#39;default_figsize&#39;</span><span class="p">],</span> <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">LAYOUT</span><span class="p">[</span><span class="s1">&#39;save_dpi&#39;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">,</span> <span class="n">plt</span><span class="o">.</span><span class="n">Axes</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Ensemble band and observed overlay for a curve metric.</p>
+<p>Shows the 5th to 95th percentile band and median of the metric
+across realizations at each component (calendar month, lag,
+exceedance probability, or period band), with the observed curve
+overlaid.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>result</code>
+            </td>
+            <td>
+                  <code>VerificationResult, ValidationResult, or pd.DataFrame</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Result object or tidy frame from <code>verify()</code> or <code>validate()</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>metric</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Curve metric name (e.g. <code>'monthly_mean'</code>, <code>'acf'</code>,
+<code>'fdc'</code>, <code>'spectral_density'</code>).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>site</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Site to plot.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ax</code>
+            </td>
+            <td>
+                  <code><span title="matplotlib.pyplot.Axes">Axes</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Existing axes to draw on.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_y</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Log-scale the y axis. Defaults to True for <code>'fdc'</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>figsize</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Figure size when creating a new figure.</p>
+              </div>
+            </td>
+            <td>
+                  <code>from config</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>filename</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Path to save the figure.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dpi</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Resolution for the saved figure.</p>
+              </div>
+            </td>
+            <td>
+                  <code>from config</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>fig</code></td>            <td>
+                  <code><span title="matplotlib.figure.Figure">Figure</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td><code>ax</code></td>            <td>
+                  <code><span title="matplotlib.axes.Axes">Axes</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">verify</span><span class="p">(</span><span class="n">ensemble</span><span class="p">,</span> <span class="n">Q_obs</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;fdc&quot;</span><span class="p">,</span> <span class="s2">&quot;acf&quot;</span><span class="p">])</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_metric_curve</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">&quot;fdc&quot;</span><span class="p">,</span> <span class="s2">&quot;site_A&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+
 
     </div>
 

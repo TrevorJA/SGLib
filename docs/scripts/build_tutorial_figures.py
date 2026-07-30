@@ -22,11 +22,13 @@ import pandas as pd
 import synhydro
 from synhydro.plotting import (
     plot_flow_duration_curve,
+    plot_metric_curve,
+    plot_metric_distributions,
     plot_monthly_distributions,
     plot_spatial_correlation,
     plot_ssi_timeseries,
     plot_timeseries,
-    plot_validation_panel,
+    plot_verification_panel,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -90,31 +92,47 @@ def build_disaggregator_figure(Q_daily, Q_monthly) -> None:
 
     syn_start = monthly_ensemble.data_by_realization[0].index[0]
     start = syn_start.strftime("%Y-%m-%d")
-    monthly_end = (
-        syn_start + pd.DateOffset(years=5) - pd.Timedelta(days=1)
-    ).strftime("%Y-%m-%d")
-    daily_end = (
-        syn_start + pd.DateOffset(years=1) - pd.Timedelta(days=1)
-    ).strftime("%Y-%m-%d")
+    monthly_end = (syn_start + pd.DateOffset(years=5) - pd.Timedelta(days=1)).strftime(
+        "%Y-%m-%d"
+    )
+    daily_end = (syn_start + pd.DateOffset(years=1) - pd.Timedelta(days=1)).strftime(
+        "%Y-%m-%d"
+    )
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
     plot_timeseries(
-        monthly_ensemble, observed=Q_monthly[site], site=site,
-        ax=axes[0, 0], start_date=start, end_date=monthly_end,
-        show_members=3, title="Monthly ensemble",
+        monthly_ensemble,
+        observed=Q_monthly[site],
+        site=site,
+        ax=axes[0, 0],
+        start_date=start,
+        end_date=monthly_end,
+        show_members=3,
+        title="Monthly ensemble",
     )
     plot_timeseries(
-        daily_ensemble, observed=Q_daily[site], site=site,
-        ax=axes[0, 1], start_date=start, end_date=daily_end,
-        show_members=3, title="Disaggregated daily ensemble",
+        daily_ensemble,
+        observed=Q_daily[site],
+        site=site,
+        ax=axes[0, 1],
+        start_date=start,
+        end_date=daily_end,
+        show_members=3,
+        title="Disaggregated daily ensemble",
     )
     plot_flow_duration_curve(
-        monthly_ensemble, observed=Q_monthly[site], site=site,
-        ax=axes[1, 0], title="Monthly FDC",
+        monthly_ensemble,
+        observed=Q_monthly[site],
+        site=site,
+        ax=axes[1, 0],
+        title="Monthly FDC",
     )
     plot_flow_duration_curve(
-        daily_ensemble, observed=Q_daily[site], site=site,
-        ax=axes[1, 1], title="Daily FDC",
+        daily_ensemble,
+        observed=Q_daily[site],
+        site=site,
+        ax=axes[1, 1],
+        title="Daily FDC",
     )
     fig.tight_layout()
     _save(fig, "03_disaggregator_panels.png")
@@ -158,8 +176,8 @@ def build_ssi_figure(Q_monthly) -> None:
     _save(fig, "05_ssi_with_droughts.png")
 
 
-def build_validation_figure(Q_monthly) -> None:
-    logger.info("Tutorial 06: Validation panel")
+def build_verification_figures(Q_monthly) -> None:
+    logger.info("Tutorial 06: Verification and validation")
     site = Q_monthly.columns[0]
 
     gen = synhydro.KirschGenerator()
@@ -168,8 +186,21 @@ def build_validation_figure(Q_monthly) -> None:
         n_realizations=N_REALIZATIONS * 2, n_years=N_YEARS, seed=SEED
     )
 
-    fig, _ = plot_validation_panel(ensemble, observed=Q_monthly[site], site=site)
-    _save(fig, "06_validation_panel.png")
+    fig, _ = plot_verification_panel(
+        ensemble, observed=Q_monthly[site], site=site, seed=SEED
+    )
+    _save(fig, "06_verification_panel.png")
+
+    result = synhydro.verify(
+        ensemble, Q_monthly, metrics=["marginal", "fdc"], sites=[site]
+    )
+    fig, _ = plot_metric_distributions(
+        result, metrics=["mean", "std", "skewness"], ncols=3
+    )
+    _save(fig, "06_metric_distributions.png")
+
+    fig, _ = plot_metric_curve(result, "fdc", site=site)
+    _save(fig, "06_fdc_curve.png")
 
 
 def build_plotting_walkthrough_figures(Q_monthly) -> None:
@@ -193,8 +224,10 @@ def build_plotting_walkthrough_figures(Q_monthly) -> None:
     )
     _save(fig, "07_monthly_dist.png")
 
-    fig, _ = plot_validation_panel(ensemble, observed=Q_monthly[site], site=site)
-    _save(fig, "07_validation_panel.png")
+    fig, _ = plot_verification_panel(
+        ensemble, observed=Q_monthly[site], site=site, seed=SEED
+    )
+    _save(fig, "07_verification_panel.png")
 
 
 def main() -> None:
@@ -209,7 +242,7 @@ def main() -> None:
     build_disaggregator_figure(Q_daily, Q_monthly)
     build_pipeline_figure(Q_daily)
     build_ssi_figure(Q_monthly)
-    build_validation_figure(Q_monthly)
+    build_verification_figures(Q_monthly)
     build_plotting_walkthrough_figures(Q_monthly)
 
     logger.info("All tutorial figures built.")

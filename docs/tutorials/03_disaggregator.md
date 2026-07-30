@@ -119,7 +119,7 @@ the observed daily distribution.
 ## Next steps
 
 - **End-to-end pipeline** - [Tutorial 04](04_pipeline.md)
-- **Validation of daily ensembles** - [Tutorial 06](06_validation.md)
+- **Validation of daily ensembles** - [Tutorial 06](06_verification.md)
 - **Algorithm details** - [Nowak Disaggregation](../algorithms/nowak_disaggregation.md)
 
 ---

@@ -127,7 +127,7 @@ first_three = Ensemble.from_hdf5(
 
 ## Next steps
 
-- **Quantitative validation of an ensemble** - [Tutorial 06](06_validation.md)
+- **Quantitative validation of an ensemble** - [Tutorial 06](06_verification.md)
 - **Plotting ensembles** - [Tutorial 07](07_plotting.md)
 - **Full API reference** - [Core Data Structures](../api/core.md)
 

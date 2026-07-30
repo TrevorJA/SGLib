@@ -94,22 +94,23 @@ fig, ax = plot_monthly_distributions(
 
 Pass `plot_type="violin"` for kernel-density violins instead of boxplots.
 
-## Validation panel
+## Verification panel
 
-`plot_validation_panel` produces a 5-panel summary covering monthly
-boxplots, mean and standard-deviation bias, and Wilcoxon and Levene
-p-values per month. The `observed` argument is optional. If you omit it,
-the panel falls back to ensemble-only diagnostics.
+`plot_verification_panel` produces a 5-panel summary covering monthly
+boxplots, mean and standard-deviation comparison, and per-realization
+rank-sum and Levene p-values per month. The `observed` argument is
+optional. If you omit it, the panel falls back to ensemble-only
+diagnostics.
 
 ```python
-fig, axes = plot_validation_panel(
+fig, axes = plot_verification_panel(
     ensemble,
     observed=Q_monthly[site],
     site=site,
 )
 ```
 
-![Five-panel validation figure: monthly boxplots, mean and std-dev comparison, Wilcoxon and Levene p-values](../assets/images/tutorials/07_validation_panel.png){: width="700px" }
+![Five-panel verification figure: monthly boxplots, mean and std-dev comparison, rank-sum and Levene p-values](../assets/images/tutorials/07_verification_panel.png){: width="700px" }
 
 Set `log_space=True` to run the comparison on log-flows, which can reveal
 low-tail differences that the linear-space view hides.
@@ -139,9 +140,9 @@ threading explicit color arguments through each function call.
 - [Plotting API reference](../api/plotting.md) lists every public function
   with full argument tables.
 - For drought-specific plots, see [Tutorial 05](05_drought_analysis.md).
-- For the validation metrics that pair with `plot_validation_panel`, see
-  [Tutorial 06](06_validation.md).
+- For the verification metrics that pair with `plot_verification_panel`, see
+  [Tutorial 06](06_verification.md).
 
 ---
 
-**Previous:** [Ensemble Validation](06_validation.md) | **Next:** [Working with Ensembles](08_ensembles.md)
+**Previous:** [Verification & Validation](06_verification.md) | **Next:** [Working with Ensembles](08_ensembles.md)

@@ -73,6 +73,52 @@ Nowak, K., Rajagopalan, B., and Zagona, E. (2011). A Wavelet Auto-Regressive Met
 
 ---
 
+## Verification and Validation
+
+**Verification and validation framework**
+Stedinger, J.R., and Taylor, M.R. (1982). Synthetic streamflow generation: 1. Model verification and validation. *Water Resources Research*, 18(4), 909-918. https://doi.org/10.1029/WR018i004p00909
+
+**Moments preservation theory**
+Matalas, N.C. (1967). Mathematical assessment of synthetic hydrology. *Water Resources Research*, 3(4), 937-945. https://doi.org/10.1029/WR003i004p00937
+
+**Caution on moments-only evaluation**
+Hirsch, R.M. (1979). Synthetic hydrology and water supply reliability. *Water Resources Research*, 15(6), 1603-1615. https://doi.org/10.1029/WR015i006p01603
+
+**Flow duration curves**
+Vogel, R.M., and Fennessey, N.M. (1995). Flow duration curves II: A review of applications in water resources planning. *Water Resources Bulletin*, 31(6), 1029-1039. https://doi.org/10.1111/j.1752-1688.1995.tb03419.x
+
+**Generator comparison via Monte Carlo**
+Vogel, R.M., and Shallcross, A.L. (1996). The moving blocks bootstrap versus parametric time series models. *Water Resources Research*, 32(6), 1875-1882. https://doi.org/10.1029/96WR00928
+
+**Per-realization distributional tests**
+Herman, J.D., Zeff, H.B., Lamontagne, J.R., Reed, P.M., and Characklis, G.W. (2016). Synthetic drought scenario generation to support bottom-up water supply vulnerability assessments. *Journal of Water Resources Planning and Management*, 142(11), 04016050. https://doi.org/10.1061/(ASCE)WR.1943-5452.0000701
+
+**Regional frequency analysis and GEV L-moment fitting**
+Hosking, J.R.M., and Wallis, J.R. (1997). *Regional Frequency Analysis: An Approach Based on L-Moments*. Cambridge University Press. https://doi.org/10.1017/CBO9780511529443
+
+**Extreme event frequency analysis**
+Stedinger, J.R., Vogel, R.M., and Foufoula-Georgiou, E. (1993). Frequency analysis of extreme events. In *Handbook of Hydrology* (ed. D.R. Maidment), Chapter 18. McGraw-Hill.
+
+**Extreme quantile evaluation of generators**
+Zaerpour, M., Papalexiou, S.M., and Nazemi, A. (2021). Informing stochastic streamflow generation by large-scale climate indices at single and multiple sites. *Advances in Water Resources*, 156, 104037. https://doi.org/10.1016/j.advwatres.2021.104037
+
+**Standardized index drought definition**
+McKee, T.B., Doesken, N.J., and Kleist, J. (1993). The relationship of drought frequency and duration to time scales. In *Proceedings of the 8th Conference on Applied Climatology*, Anaheim, CA, 179-184.
+
+**Theory of runs for drought events**
+Yevjevich, V. (1967). An objective approach to definitions and investigations of continental hydrologic droughts. Hydrology Paper 23, Colorado State University. https://hdl.handle.net/10217/61303
+
+**Long-term storage and the Hurst coefficient**
+Hurst, H.E. (1951). Long-term storage capacity of reservoirs. *Transactions of the American Society of Civil Engineers*, 116(1), 770-799. https://doi.org/10.1061/TACEAT.0006518
+
+**Bootstrap methods**
+Efron, B., and Tibshirani, R.J. (1993). *An Introduction to the Bootstrap*. Chapman and Hall. https://doi.org/10.1007/978-1-4899-4541-9
+
+**Multi-season bootstrap evaluation statistics**
+Srinivas, V.V., and Srinivasan, K. (2005). Hybrid moving block bootstrap for stochastic simulation of multi-site multi-season streamflows. *Journal of Hydrology*, 302(1-4), 307-330. https://doi.org/10.1016/j.jhydrol.2004.07.011
+
+---
+
 ## Methodological Foundations
 
 **Applied stochastic hydrology**
@@ -118,7 +164,7 @@ Nataf, A. (1962). Determination des distributions de probabilites dont les marge
 Cario, M.C., and Nelson, B.L. (1996). Autoregressive to anything: Time-series input processes for simulation. *Operations Research Letters*, 19(2), 51-58. https://doi.org/10.1016/0167-6377(96)00017-X
 
 **Hurst phenomenon**
-Koutsoyiannis, D. (2002). The Hurst phenomenon and fractional Gaussian noise made easy. *Hydrological Sciences Journal*, 47(4), 573-595.
+Koutsoyiannis, D. (2002). The Hurst phenomenon and fractional Gaussian noise made easy. *Hydrological Sciences Journal*, 47(4), 573-595. https://doi.org/10.1080/02626660208492961
 
 **KNN for weather variables**
 Rajagopalan, B., and Lall, U. (1999). A k-nearest-neighbor simulator for daily precipitation and other weather variables. *Water Resources Research*, 35(10), 3089-3101. https://doi.org/10.1029/1999WR900028

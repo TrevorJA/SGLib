@@ -54,7 +54,7 @@ fig, ax = plot_timeseries(
 ## Next steps
 
 - **Drought analysis** on synthetic flows - [Tutorial 05](05_drought_analysis.md)
-- **Ensemble validation** - [Tutorial 06](06_validation.md)
+- **Ensemble validation** - [Tutorial 06](06_verification.md)
 - **Algorithm details** - [Kirsch Bootstrap](../algorithms/kirsch.md),
   [Nowak Disaggregation](../algorithms/nowak_disaggregation.md)
 

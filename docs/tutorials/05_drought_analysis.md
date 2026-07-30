@@ -75,9 +75,9 @@ extreme (< -2) drought conditions.
 
 ## Next steps
 
-- **Ensemble validation** - [Tutorial 06](06_validation.md)
+- **Ensemble validation** - [Tutorial 06](06_verification.md)
 - **Algorithm details** - [Kirsch Bootstrap](../algorithms/kirsch.md)
 
 ---
 
-**Previous:** [Monthly-to-Daily Pipeline](04_pipeline.md) | **Next:** [Ensemble Validation](06_validation.md)
+**Previous:** [Monthly-to-Daily Pipeline](04_pipeline.md) | **Next:** [Verification & Validation](06_verification.md)

@@ -38,7 +38,7 @@ fig, axes = plot_spatial_correlation(
 
 - **Monthly-to-daily disaggregation** - [Tutorial 03](03_disaggregator.md)
 - **Monthly-to-daily pipeline** - [Tutorial 04](04_pipeline.md)
-- **Quantitative validation** - [Tutorial 06](06_validation.md)
+- **Quantitative validation** - [Tutorial 06](06_verification.md)
 - **Algorithm details** - [Kirsch Bootstrap](../algorithms/kirsch.md)
 
 ---

@@ -32,7 +32,9 @@ The module follows a few consistent conventions:
 | `plot_spatial_correlation` | Multi-site correlation heatmap (ensemble, observed, or difference) |
 | `plot_drought_characteristics` | Scatter of drought duration, magnitude, and severity |
 | `plot_ssi_timeseries` | SSI timeseries with drought-severity shading |
-| `plot_validation_panel` | 5-panel marginal and seasonal validation figure |
+| `plot_verification_panel` | 5-panel marginal and seasonal verification figure |
+| `plot_metric_distributions` | Metric boxplots across realizations with observed overlay |
+| `plot_metric_curve` | Ensemble band for curve metrics (FDC, ACF, monthly statistics) |
 | `apply_plotting_style` | Apply current `COLORS`/`STYLE` to matplotlib rcParams |
 | `warn_if_many_realizations` | Emit a warning if an ensemble is too large for a given plot |
 | `warn_if_few_realizations` | Emit a warning if an ensemble is too small for stable percentiles |
@@ -77,9 +79,13 @@ The module follows a few consistent conventions:
 
 ---
 
-## Validation
+## Verification and Validation
 
-::: synhydro.plotting.plot_validation_panel
+::: synhydro.plotting.plot_verification_panel
+
+::: synhydro.plotting.plot_metric_distributions
+
+::: synhydro.plotting.plot_metric_curve
 
 ---
 

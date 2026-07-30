@@ -98,7 +98,7 @@ nav:
     - "Disaggregator (Nowak)": tutorials/03_disaggregator.md
     - "Monthly→Daily Pipeline": tutorials/04_pipeline.md
     - "Drought Analysis (SSI)": tutorials/05_drought_analysis.md
-    - "Ensemble Validation": tutorials/06_validation.md
+    - "Verification & Validation": tutorials/06_verification.md
     - "Plotting Walkthrough": tutorials/07_plotting.md
     - "Working with Ensembles": tutorials/08_ensembles.md
   - Algorithms:
@@ -119,6 +119,8 @@ nav:
   - API Reference:
     - Generators: api/generators.md
     - Disaggregators & Pipelines: api/disaggregators.md
+    - Verification: api/verification.md
+    - Validation: api/validation.md
     - Drought Metrics: api/drought.md
     - Plotting: api/plotting.md
     - Core: api/core.md

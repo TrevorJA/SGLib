@@ -70,6 +70,6 @@ ensemble = gen.generate(n_realizations=10,           # synthetic flows
 ```
 
 !!! tip "Next: Tutorials"
-    Work through five hands-on tutorials covering single-site generation, multi-site
+    Work through the hands-on tutorials covering single-site generation, multi-site
     correlation, monthly-to-daily disaggregation, drought analysis, and ensemble
-    validation: [Tutorials](tutorials/index.md).
+    verification and validation: [Tutorials](tutorials/index.md).

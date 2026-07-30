@@ -60,8 +60,9 @@ def annual_mean(x: pd.Series, steps_per_year: float = 12.0) -> float:
 def annual_sd(x: pd.Series, steps_per_year: float = 12.0) -> float:
     """Standard deviation of calendar-year total flows.
 
-    The key cross-scale persistence check: generators that ignore
-    month-to-month correlation understate annual variability.
+    Generators that do not carry sub-annual persistence up to the
+    annual scale understate this statistic (Srinivas and Srinivasan,
+    2005).
     """
     totals = _annual_totals(x, steps_per_year)
     if len(totals) < 3:

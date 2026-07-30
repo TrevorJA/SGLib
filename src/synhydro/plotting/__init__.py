@@ -28,7 +28,8 @@ Module Organization
 - **distributions**: Histograms, FDCs, and monthly distributions
 - **correlation**: Autocorrelation and spatial correlation
 - **drought**: SSI timeseries and drought characteristics
-- **validation**: Multi-panel statistical validation
+- **verification**: Multi-panel statistical verification
+- **metrics**: Plots for verification and validation results
 - **config**: Centralized plotting configuration
 
 Design Principles
@@ -65,9 +66,11 @@ Drought Plots
 - plot_drought_characteristics: Scatter plot of drought metrics
 - plot_ssi_timeseries: SSI over time with drought period shading
 
-Validation Plots
-~~~~~~~~~~~~~~~~
-- plot_validation_panel: Multi-panel statistical validation (5 panels)
+Verification and Validation Plots
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- plot_verification_panel: Multi-panel statistical verification (5 panels)
+- plot_metric_distributions: Metric boxplots with observed overlay
+- plot_metric_curve: Ensemble band for curve metrics (FDC, ACF, ...)
 """
 
 # Import configuration first
@@ -97,8 +100,13 @@ from .drought import (
     plot_ssi_timeseries,
 )
 
-from .validation import (
-    plot_validation_panel,
+from .verification import (
+    plot_verification_panel,
+)
+
+from .metrics import (
+    plot_metric_distributions,
+    plot_metric_curve,
 )
 
 from ._utils import (
@@ -129,8 +137,10 @@ __all__ = [
     # Drought plots
     "plot_drought_characteristics",
     "plot_ssi_timeseries",
-    # Validation plots
-    "plot_validation_panel",
+    # Verification and validation plots
+    "plot_verification_panel",
+    "plot_metric_distributions",
+    "plot_metric_curve",
     # Diagnostics helpers
     "warn_if_many_realizations",
     "warn_if_few_realizations",

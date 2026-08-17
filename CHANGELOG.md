@@ -61,6 +61,21 @@ All notable changes to SynHydro are documented in this file.
 - MkDocs documentation site with algorithm reference pages
 
 ### Changed
+- `Ensemble.to_hdf5` writes substantially smaller files (about 35 percent
+  smaller on a 10-realization, 5-site, 30-year daily benchmark; 5.9 MB to
+  3.8 MB) with faster writes. Dates are now stored once as a fixed-length
+  byte-string dataset and hard-linked into every group (variable-length
+  strings bypassed HDF5 compression and were duplicated per site), and
+  numeric datasets use the shuffle filter when compression is enabled.
+  The on-disk layout (group per site with `date`, per-realization
+  datasets, and a `column_labels` attribute) is unchanged and remains
+  readable by pywrdrb; files written by older versions still load with
+  `Ensemble.from_hdf5`.
+- `Ensemble.to_hdf5` gained a `dtype` argument, defaulting to
+  `"float32"`, which roughly halves file size again (about 68 percent
+  total reduction on the benchmark) while keeping about 7 significant
+  digits. Pass `dtype="float64"` (or None for the data's native dtype)
+  to restore full-precision storage.
 - Breaking: `validate_ensemble` and `compute_realization_metrics` are
   removed. Use `synhydro.verify()` for statistical verification and
   `synhydro.validate()` for drought validation. `ValidationResult` now

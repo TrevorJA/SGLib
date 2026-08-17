@@ -147,13 +147,14 @@ class TestEnsembleHDF5IO:
             original_ensemble.realization_ids
         )
 
-        # Check data for all realizations
+        # Check data for all realizations (default dtype is float32, so
+        # values match to ~7 significant digits)
         for r_id in original_ensemble.realization_ids:
             original_df = original_ensemble.data_by_realization[r_id]
             loaded_df = loaded_ensemble.data_by_realization[r_id]
 
             assert original_df.shape == loaded_df.shape
-            assert np.allclose(original_df.values, loaded_df.values, rtol=1e-10)
+            assert np.allclose(original_df.values, loaded_df.values, rtol=1e-6)
 
     def test_save_with_compression(self, sample_ensemble_data, temp_hdf5_file):
         """Test saving with different compression options."""
@@ -218,6 +219,159 @@ class TestEnsembleHDF5IO:
 
         assert len(loaded.realization_ids) == 1
         assert 0 in loaded.realization_ids
+
+    def test_roundtrip_preserves_index_and_columns(
+        self, sample_ensemble_data, temp_hdf5_file
+    ):
+        """Roundtrip preserves the DatetimeIndex and site column names."""
+        original = Ensemble(sample_ensemble_data)
+        original.to_hdf5(str(temp_hdf5_file))
+        loaded = Ensemble.from_hdf5(str(temp_hdf5_file))
+
+        for r_id in original.realization_ids:
+            original_df = original.data_by_realization[r_id]
+            loaded_df = loaded.data_by_realization[r_id]
+            assert (loaded_df.index == original_df.index).all()
+            assert sorted(loaded_df.columns) == sorted(original_df.columns)
+
+    def test_hdf5_layout_contract(self, sample_ensemble_data, temp_hdf5_file):
+        """The on-disk layout consumed by pywrdrb is preserved.
+
+        Every site group must contain a 'date' dataset plus one dataset per
+        realization, with a column_labels attr of str realization IDs. The
+        'date' dataset is hard-linked so it is stored only once.
+        """
+        ensemble = Ensemble(sample_ensemble_data)
+        ensemble.to_hdf5(str(temp_hdf5_file))
+
+        with h5py.File(temp_hdf5_file, "r") as f:
+            assert sorted(f.keys()) == ["site_1", "site_2"]
+            for site in f.keys():
+                grp = f[site]
+                labels = list(grp.attrs["column_labels"])
+                assert labels == ["0", "1", "2"]
+                assert "date" in grp
+                for label in labels:
+                    assert label in grp
+                    assert len(grp[label]) == len(grp["date"])
+
+            # 'date' datasets are hard links to one physical dataset
+            addrs = {h5py.h5o.get_info(f[site]["date"].id).addr for site in f.keys()}
+            assert len(addrs) == 1
+
+    def test_pywrdrb_date_read_path(self, sample_ensemble_data, temp_hdf5_file):
+        """Dates survive pywrdrb's extract_realization_from_hdf5 code path."""
+        ensemble = Ensemble(sample_ensemble_data)
+        ensemble.to_hdf5(str(temp_hdf5_file))
+
+        with h5py.File(temp_hdf5_file, "r") as f:
+            node = list(f.keys())[0]
+            node_data = f[node]
+            data = {"flow": node_data["0"][:]}
+            dates = node_data["date"][:].tolist()
+
+        # Mirrors pywrdrb.utils.hdf5.extract_realization_from_hdf5
+        df = pd.DataFrame(data, index=dates)
+        df.index = pd.to_datetime(df.index.astype(str))
+
+        expected = ensemble.data_by_realization[0].index
+        assert (df.index == expected).all()
+
+    def test_save_without_compression(self, sample_ensemble_data, temp_hdf5_file):
+        """compression=None writes and reads back correctly."""
+        ensemble = Ensemble(sample_ensemble_data)
+        ensemble.to_hdf5(str(temp_hdf5_file), compression=None)
+
+        loaded = Ensemble.from_hdf5(str(temp_hdf5_file))
+        assert len(loaded.realization_ids) == 3
+        for r_id in ensemble.realization_ids:
+            assert np.allclose(
+                ensemble.data_by_realization[r_id].values,
+                loaded.data_by_realization[r_id].values,
+                rtol=1e-6,
+            )
+
+    def test_save_with_lzf_compression(self, sample_ensemble_data, temp_hdf5_file):
+        """compression='lzf' writes and reads back correctly."""
+        ensemble = Ensemble(sample_ensemble_data)
+        ensemble.to_hdf5(str(temp_hdf5_file), compression="lzf")
+
+        loaded = Ensemble.from_hdf5(str(temp_hdf5_file))
+        assert len(loaded.realization_ids) == 3
+        for r_id in ensemble.realization_ids:
+            assert np.allclose(
+                ensemble.data_by_realization[r_id].values,
+                loaded.data_by_realization[r_id].values,
+                rtol=1e-6,
+            )
+
+    def test_save_with_float64_dtype(
+        self, sample_ensemble_data, temp_hdf5_file, tmp_path
+    ):
+        """dtype='float64' roundtrips exactly; the float32 default is smaller."""
+        ensemble = Ensemble(sample_ensemble_data)
+
+        f64_path = tmp_path / "f64.h5"
+        ensemble.to_hdf5(str(f64_path), dtype="float64")
+        ensemble.to_hdf5(str(temp_hdf5_file))  # default float32
+
+        assert temp_hdf5_file.stat().st_size < f64_path.stat().st_size
+
+        loaded = Ensemble.from_hdf5(str(f64_path))
+        for r_id in ensemble.realization_ids:
+            assert np.array_equal(
+                ensemble.data_by_realization[r_id].values,
+                loaded.data_by_realization[r_id].values,
+            )
+
+    def test_new_format_smaller_than_old(self, sample_ensemble_data, tmp_path):
+        """The new writer produces smaller files than the pre-optimization format."""
+        ensemble = Ensemble(sample_ensemble_data)
+
+        new_path = tmp_path / "new.h5"
+        ensemble.to_hdf5(str(new_path))
+
+        # Reproduce the old format: variable-length string dates duplicated
+        # in every site group, no shuffle filter
+        old_path = tmp_path / "old.h5"
+        with h5py.File(old_path, "w", libver="latest") as f:
+            for site, site_df in ensemble.data_by_site.items():
+                grp = f.create_group(str(site))
+                grp.attrs["column_labels"] = [str(c) for c in site_df.columns]
+                dates_list = site_df.index.strftime("%Y-%m-%d").tolist()
+                grp.create_dataset("date", data=dates_list, compression="gzip")
+                for col in site_df.columns:
+                    grp.create_dataset(
+                        str(col), data=site_df[col].values, compression="gzip"
+                    )
+
+        assert new_path.stat().st_size < old_path.stat().st_size
+
+        # Files written by the old format must still load correctly
+        loaded_old = Ensemble.from_hdf5(str(old_path))
+        for r_id in ensemble.realization_ids:
+            original_df = ensemble.data_by_realization[r_id]
+            loaded_df = loaded_old.data_by_realization[r_id]
+            assert (loaded_df.index == original_df.index).all()
+            assert np.allclose(original_df.values, loaded_df.values, rtol=1e-10)
+
+    def test_stored_by_realization_roundtrip(
+        self, sample_ensemble_data, temp_hdf5_file
+    ):
+        """stored_by_node=False roundtrip preserves data."""
+        ensemble = Ensemble(sample_ensemble_data)
+        ensemble.to_hdf5(str(temp_hdf5_file), stored_by_node=False)
+
+        with h5py.File(temp_hdf5_file, "r") as f:
+            assert sorted(f.keys()) == ["0", "1", "2"]
+
+        loaded = Ensemble.from_hdf5(str(temp_hdf5_file), stored_by_node=False)
+        assert len(loaded.realization_ids) == 3
+        for r_id in ensemble.realization_ids:
+            original_df = ensemble.data_by_realization[r_id]
+            loaded_df = loaded.data_by_realization[r_id]
+            assert (loaded_df.index == original_df.index).all()
+            assert np.allclose(original_df.values, loaded_df.values, rtol=1e-6)
 
 
 class TestEnsembleStatistics:

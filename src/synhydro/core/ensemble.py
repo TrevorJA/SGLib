@@ -545,6 +545,7 @@ class Ensemble:
         filename: str,
         compression: Optional[str] = "gzip",
         stored_by_node: bool = True,
+        dtype: Optional[str] = "float32",
     ):
         """
         Save ensemble to HDF5 file.
@@ -557,58 +558,70 @@ class Ensemble:
             Compression algorithm ('gzip', 'lzf', None). Default is 'gzip'.
         stored_by_node : bool, default=True
             If True, store data with sites as top-level groups.
+        dtype : str, optional
+            Numpy dtype for stored values. Default 'float32' keeps about
+            7 significant digits and roughly halves the file size compared
+            to float64. Pass 'float64' for full precision, or None to keep
+            the data's native dtype.
 
         Examples
         --------
         >>> ensemble.to_hdf5('synthetic_flows.h5')
         >>> ensemble.to_hdf5('flows.h5', compression='lzf')
+        >>> ensemble.to_hdf5('flows.h5', dtype='float64')
         """
         logger.info(f"Saving ensemble to {filename}")
+
+        # Shuffle filter improves compression of float data; h5py rejects it
+        # without a compression filter.
+        shuffle = compression is not None
+
+        def _values(df, col):
+            vals = df[col].values
+            return vals if dtype is None else vals.astype(dtype)
 
         with h5py.File(filename, "w", libver="latest") as f:
             # Save metadata as attributes
             f.attrs["metadata"] = json.dumps(self.metadata.to_dict())
 
             if stored_by_node:
-                # Store by site (nodes as top-level groups)
-                for site, site_df in self.data_by_site.items():
-                    grp = f.create_group(str(site))
-
-                    # Store column_labels as strings so downstream readers
-                    # (e.g. pywrdrb) can compare with str realization IDs
-                    grp.attrs["column_labels"] = [str(c) for c in site_df.columns]
-
-                    # Store dates as ISO-format strings so pd.to_datetime(str) works.
-                    # Pass a Python list so h5py stores as variable-length UTF-8 (not bytes).
-                    dates_list = site_df.index.strftime("%Y-%m-%d").tolist()
-                    grp.create_dataset("date", data=dates_list, compression=compression)
-
-                    # Store each realization's data for this site
-                    for col in site_df.columns:
-                        grp.create_dataset(
-                            str(col), data=site_df[col].values, compression=compression
-                        )
+                data_by_group = self.data_by_site
             else:
-                # Store by realization
-                for real_id, real_df in self.data_by_realization.items():
-                    grp = f.create_group(str(real_id))
+                data_by_group = self.data_by_realization
 
-                    # Store column_labels as strings
-                    grp.attrs["column_labels"] = [str(c) for c in real_df.columns]
+            # All groups share one time index. Store the dates once as a
+            # fixed-length byte-string dataset (variable-length strings bypass
+            # HDF5 compression filters) and hard-link it into every group, so
+            # each group still exposes a 'date' dataset for downstream readers
+            # (e.g. pywrdrb) at no extra storage cost.
+            shared_dates = None
 
-                    # Store dates as ISO-format strings
-                    dates_str = real_df.index.strftime("%Y-%m-%d").values
-                    grp.create_dataset(
-                        "date",
-                        data=dates_str.astype(h5py.string_dtype()),
-                        compression=compression,
+            for group_name, group_df in data_by_group.items():
+                grp = f.create_group(str(group_name))
+
+                # Store column_labels as strings so downstream readers
+                # (e.g. pywrdrb) can compare with str realization IDs
+                grp.attrs["column_labels"] = [str(c) for c in group_df.columns]
+
+                if shared_dates is None:
+                    dates_fixed = np.array(
+                        group_df.index.strftime("%Y-%m-%d").tolist(), dtype="S"
                     )
+                    shared_dates = grp.create_dataset(
+                        "date", data=dates_fixed, compression=compression
+                    )
+                else:
+                    grp["date"] = shared_dates
 
-                    # Store each site's data for this realization
-                    for col in real_df.columns:
-                        grp.create_dataset(
-                            str(col), data=real_df[col].values, compression=compression
-                        )
+                # Store one dataset per column (realizations if stored_by_node,
+                # sites otherwise)
+                for col in group_df.columns:
+                    grp.create_dataset(
+                        str(col),
+                        data=_values(group_df, col),
+                        compression=compression,
+                        shuffle=shuffle,
+                    )
 
         logger.info(f"Ensemble saved successfully to {filename}")
 

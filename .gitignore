@@ -199,3 +199,4 @@ examples/example_data/cache/
 
 # Notebook copies created by the docs build (source of truth: examples/)
 docs/tutorials/*.ipynb
+examples/blog_post/figures/*

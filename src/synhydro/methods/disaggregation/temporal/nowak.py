@@ -59,10 +59,10 @@ class _ScaleConfig:
         pool windows stay small relative to the coarse period length.
     renormalize_truncated : bool
         Whether sampled proportion vectors truncated to a shorter target
-        period are renormalized to sum to one. False only for the
-        monthly-to-daily pair, whose established production behavior uses
-        truncated proportions as-is (a small mass loss possible only when a
-        29-day February profile is applied to a 28-day February).
+        period are renormalized to sum to one. True for every pair: without
+        it a 29-day February profile applied to a 28-day February loses the
+        truncated day's mass (~3.4% of the month) instead of conserving the
+        coarse volume.
     """
 
     input_freq: str
@@ -74,7 +74,7 @@ class _ScaleConfig:
 
 
 _SCALE_CONFIGS = {
-    ("monthly", "daily"): _ScaleConfig("MS", "D", tuple(range(1, 13)), 31, 7, False),
+    ("monthly", "daily"): _ScaleConfig("MS", "D", tuple(range(1, 13)), 31, 7, True),
     ("weekly", "daily"): _ScaleConfig("W-SUN", "D", tuple(range(1, 53)), 7, 2, True),
     ("monthly", "weekly"): _ScaleConfig("MS", "W-SUN", tuple(range(1, 13)), 5, 1, True),
     ("annual", "monthly"): _ScaleConfig("YS", "MS", (1,), 12, 0, True),
@@ -1560,19 +1560,25 @@ class NowakDisaggregator(Disaggregator):
                 # the valid steps for this specific period
                 sampled_idx = sampled_indices[y]
 
+                # Copy: scalar-plus-slice indexing yields a VIEW into the fitted
+                # pool, and the truncation/length fixes below write in place. A
+                # view would persist those writes into self.flow_profiles,
+                # coupling realizations and making output depend on the
+                # batch/partition order.
                 if self.is_multisite:
                     proportions_for_period = self.flow_profiles[label][
                         sampled_idx, :expected_steps, :
-                    ]
+                    ].copy()
                 else:
                     proportions_for_period = self.flow_profiles[label][
                         sampled_idx, :expected_steps
-                    ]
+                    ].copy()
 
                 # Renormalize proportions truncated to a shorter target period
-                # (e.g. a five-Sunday profile applied to a four-Sunday month).
-                # Disabled for monthly-to-daily to preserve established
-                # production behavior; see _ScaleConfig.renormalize_truncated.
+                # (e.g. a 29-day February profile applied to a 28-day target,
+                # or a five-Sunday profile applied to a four-Sunday month), so
+                # the coarse volume is conserved. Enabled for every timescale
+                # pair; see _ScaleConfig.renormalize_truncated.
                 if self._config.renormalize_truncated:
                     if self.is_multisite:
                         col_sums = proportions_for_period.sum(axis=0)

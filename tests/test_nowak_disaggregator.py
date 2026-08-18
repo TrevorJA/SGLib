@@ -332,11 +332,10 @@ class TestNowakDisaggregatorMonthlyToDaily:
         assert np.abs(daily.iloc[:, 0].sum() - 3000.0) < 1e-6
 
     def test_disaggregate_non_leap_february(self, sample_daily_series):
-        """February in a non-leap year gets 28 days.
+        """February in a non-leap year gets 28 days with an exact total.
 
-        The total is preserved approximately: a 29-day candidate profile
-        truncated to 28 days is used without renormalization on the
-        monthly-to-daily path (established production behavior).
+        A 29-day candidate profile truncated to 28 days is renormalized so
+        the monthly volume is conserved (renormalize_truncated).
         """
         disagg = NowakDisaggregator()
         disagg.fit(sample_daily_series)
@@ -347,7 +346,7 @@ class TestNowakDisaggregatorMonthlyToDaily:
         daily = self._disaggregate(disagg, synthetic_monthly)
 
         assert len(daily) == 28
-        assert np.abs(daily.iloc[:, 0].sum() - 2800.0) / 2800.0 < 0.15
+        assert np.abs(daily.iloc[:, 0].sum() - 2800.0) < 1e-6
 
     def test_disaggregate_different_sample_methods(self, sample_daily_series):
         """Both neighbor sampling methods produce valid output."""
@@ -427,11 +426,7 @@ class TestNowakDisaggregatorScalePairs:
                 for site in coarse_df.columns:
                     target = coarse_df.loc[ts, site]
                     rel_err = abs(window[site].sum() - target) / max(target, 1e-12)
-                    if (input_timestep, output_timestep) == ("monthly", "daily"):
-                        # truncated leap-February profiles are not renormalized
-                        assert rel_err < 0.15
-                    else:
-                        assert rel_err < 1e-8
+                    assert rel_err < 1e-8
 
     @pytest.mark.parametrize("input_timestep,output_timestep,fixture", SCALE_CASES)
     def test_same_seed_reproducible(
@@ -578,3 +573,79 @@ class TestAnchoredDailyIndex:
         assert idx[-1] == pd.Timestamp("1948-12-31")
         assert len(idx) == 365 + 366  # 1948 is a leap year
         assert int(((idx.month == 2) & (idx.year == 1948)).sum()) == 29
+
+
+class TestFittedPoolImmutability:
+    """Disaggregation must never mutate the fitted proportion pools.
+
+    Regression tests for a view-aliasing bug: the sampled profile slice was a
+    view into ``flow_profiles``, and the leap-February length fix wrote through
+    it, persisting the fix into the fitted pool. That coupled realizations
+    (output depended on the batch/partition order, breaking the global-index
+    determinism contract) and progressively violated February mass balance.
+    """
+
+    @staticmethod
+    def _monthly_ensemble(columns, start, n_years, n_realizations=3):
+        """Monthly ensemble spanning ``n_years`` from ``start`` (keys 0..R-1)."""
+        rng = np.random.default_rng(11)
+        index = pd.date_range(start, periods=12 * n_years, freq="MS")
+        data = {
+            r: pd.DataFrame(
+                rng.gamma(2.0, 100.0, (len(index), len(columns))),
+                index=index,
+                columns=columns,
+            )
+            for r in range(n_realizations)
+        }
+        metadata = EnsembleMetadata(
+            n_realizations=n_realizations,
+            n_sites=len(columns),
+            time_resolution="MS",
+            time_period=(str(index[0].date()), str(index[-1].date())),
+        )
+        return Ensemble(data, metadata=metadata)
+
+    def test_flow_profiles_unchanged_across_leap_year(self, sample_daily_dataframe):
+        """The pools are bit-identical after disaggregating leap-year content."""
+        disagg = NowakDisaggregator()
+        disagg.fit(sample_daily_dataframe)
+        snapshot = {k: v.copy() for k, v in disagg.flow_profiles.items()}
+
+        # 2019-2021 includes Feb 2020 (29-day target, fires the length fix)
+        # and Feb 2019/2021 (28-day targets, fire the truncation path).
+        ensemble = self._monthly_ensemble(
+            sample_daily_dataframe.columns, "2019-01-01", 3
+        )
+        disagg.disaggregate(ensemble, seed=3)
+
+        assert set(disagg.flow_profiles) == set(snapshot)
+        for label, arr in snapshot.items():
+            np.testing.assert_array_equal(disagg.flow_profiles[label], arr)
+
+    def test_batch_vs_isolated_realization_identical(self, sample_daily_dataframe):
+        """A realization's daily output is invariant to its batch, across a leap year."""
+        disagg = NowakDisaggregator()
+        disagg.fit(sample_daily_dataframe)
+
+        full = self._monthly_ensemble(
+            sample_daily_dataframe.columns, "2019-01-01", 3, n_realizations=4
+        )
+        fine_batch = disagg.disaggregate(full, seed=5)
+
+        target = 3  # last key: most exposed to any pool mutation by earlier keys
+        alone = Ensemble(
+            {target: full.data_by_realization[target]},
+            metadata=EnsembleMetadata(
+                n_realizations=1,
+                n_sites=len(sample_daily_dataframe.columns),
+                time_resolution="MS",
+                time_period=full.metadata.time_period,
+            ),
+        )
+        fine_alone = disagg.disaggregate(alone, seed=5)
+
+        pd.testing.assert_frame_equal(
+            fine_batch.data_by_realization[target],
+            fine_alone.data_by_realization[target],
+        )

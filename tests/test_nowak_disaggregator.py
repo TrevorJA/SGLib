@@ -557,3 +557,24 @@ class TestNowakDisaggregatorEdgeCases:
 
         fine = disagg.disaggregate(ensemble, seed=1)
         assert len(fine.data_by_realization[0]) == 28
+
+
+class TestAnchoredDailyIndex:
+    """The daily index follows the anchored synthetic years, leap days included."""
+
+    def test_daily_index_follows_kirsch_start_year(self, sample_daily_dataframe):
+        from synhydro.methods.generation.hybrid.kirsch import KirschGenerator
+
+        gen = KirschGenerator()
+        gen.fit(sample_daily_dataframe)
+        disagg = NowakDisaggregator()
+        disagg.fit(sample_daily_dataframe)
+
+        monthly = gen.generate(n_realizations=1, n_years=2, seed=0, start_year=1947)
+        daily = disagg.disaggregate(monthly, seed=0)
+
+        idx = daily.data_by_realization[0].index
+        assert idx[0] == pd.Timestamp("1947-01-01")
+        assert idx[-1] == pd.Timestamp("1948-12-31")
+        assert len(idx) == 365 + 366  # 1948 is a leap year
+        assert int(((idx.month == 2) & (idx.year == 1948)).sum()) == 29

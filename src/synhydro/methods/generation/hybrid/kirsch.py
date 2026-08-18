@@ -188,7 +188,9 @@ class KirschGenerator(Generator):
 
         return data
 
-    def _get_synthetic_index(self, n_years: int) -> pd.DatetimeIndex:
+    def _get_synthetic_index(
+        self, n_years: int, start_year: int | None = None
+    ) -> pd.DatetimeIndex:
         """
         Build a DatetimeIndex for synthetic flows at the target frequency.
 
@@ -204,13 +206,20 @@ class KirschGenerator(Generator):
         ----------
         n_years : int
             Number of synthetic years to span.
+        start_year : int, optional
+            Calendar year of the first synthetic timestamp. The generated
+            content is calendar-year structured (position 0 is a January),
+            so the index always anchors at January 1 of this year. If None,
+            uses the year after the fitted record ends.
 
         Returns
         -------
         pd.DatetimeIndex
             Index of length ``n_years * self.n_periods_per_year``.
         """
-        start_year = int(self.Q.index.year.max()) + 1
+        if start_year is None:
+            start_year = int(self.Q.index.year.max()) + 1
+        start_year = int(start_year)
         if self._target_frequency == _WEEKLY_FREQ:
             dates = [
                 pd.Timestamp.fromisocalendar(y, w, 7)
@@ -1036,6 +1045,7 @@ class KirschGenerator(Generator):
         seed=None,
         *,
         realization_indices=None,
+        start_year=None,
         **kwargs,
     ):
         """
@@ -1074,6 +1084,12 @@ class KirschGenerator(Generator):
             realization on demand, or disjoint subsets to partition generation
             across workers, while keeping each realization identical to a full
             run.
+        start_year : int, optional
+            Calendar year of the first synthetic timestamp (see
+            ``_get_synthetic_index``). The output index always anchors at
+            January 1 of this year, matching the calendar-year structure of
+            the generated content. If None, uses the year after the fitted
+            record ends.
         **kwargs
             Additional generation parameters.
 
@@ -1103,10 +1119,13 @@ class KirschGenerator(Generator):
 
         master = as_seed_sequence(seed)
 
+        synthetic_index = self._get_synthetic_index(n_years, start_year=start_year)
         realization_dict = {}
         for k in indices:
             rng = realization_rng(master, k, "generation")
-            df = self.generate_single_series(n_years, as_array=False, rng=rng)
+            df = self.generate_single_series(
+                n_years, as_array=False, synthetic_index=synthetic_index, rng=rng
+            )
             realization_dict[k] = df
 
         first_df = next(iter(realization_dict.values()))

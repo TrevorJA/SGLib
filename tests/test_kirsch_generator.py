@@ -255,6 +255,46 @@ class TestKirschGeneratorGenerate:
         assert isinstance(result, np.ndarray)
         assert result.shape == (2 * gen.n_periods_per_year, 3)
 
+    def test_generate_default_index_anchors_after_record(
+        self, sample_monthly_dataframe
+    ):
+        """Default output index starts January 1 of the year after the record."""
+        gen = KirschGenerator()
+        gen.fit(sample_monthly_dataframe)
+
+        result = gen.generate(n_realizations=1, n_years=2, seed=0)
+
+        idx = result.data_by_realization[0].index
+        assert idx[0] == pd.Timestamp("2021-01-01")
+        assert len(idx) == 24
+
+    def test_generate_start_year_anchors_index(self, sample_monthly_dataframe):
+        """start_year anchors the output index at January 1 of that year, with
+        month labels running Jan..Dec within each synthetic year."""
+        gen = KirschGenerator()
+        gen.fit(sample_monthly_dataframe)
+
+        result = gen.generate(n_realizations=2, n_years=3, seed=0, start_year=1945)
+
+        for r in range(2):
+            idx = result.data_by_realization[r].index
+            assert idx[0] == pd.Timestamp("1945-01-01")
+            assert list(idx.month) == list(range(1, 13)) * 3
+            assert list(np.unique(idx.year)) == [1945, 1946, 1947]
+
+    def test_generate_start_year_relabels_only(self, sample_monthly_dataframe):
+        """start_year changes labels, never values (same seed, same content)."""
+        gen = KirschGenerator()
+        gen.fit(sample_monthly_dataframe)
+
+        default = gen.generate(n_realizations=1, n_years=2, seed=7)
+        anchored = gen.generate(n_realizations=1, n_years=2, seed=7, start_year=1945)
+
+        np.testing.assert_array_equal(
+            default.data_by_realization[0].to_numpy(),
+            anchored.data_by_realization[0].to_numpy(),
+        )
+
 
 class TestKirschGeneratorSaveLoad:
     """Tests for KirschGenerator save and load."""

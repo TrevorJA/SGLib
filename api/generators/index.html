@@ -8656,7 +8656,7 @@ cross-year boundary.</p>
 
 
 <a href="#synhydro.methods.generation.hybrid.kirsch.KirschGenerator.generate" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_years</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_timesteps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">realization_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_years</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_timesteps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">realization_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_year</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -8769,6 +8769,26 @@ global indices. Pass a single index (e.g. <code>[7]</code>) to regenerate one
 realization on demand, or disjoint subsets to partition generation
 across workers, while keeping each realization identical to a full
 run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>start_year</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Calendar year of the first synthetic timestamp (see
+<code>_get_synthetic_index</code>). The output index always anchors at
+January 1 of this year, matching the calendar-year structure of
+the generated content. If None, uses the year after the fitted
+record ends.</p>
               </div>
             </td>
             <td>

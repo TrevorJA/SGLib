@@ -1095,6 +1095,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#output-length-and-n_years-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Output Length and n_years Chunking
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1544,6 +1553,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#output-length-and-n_years-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Output Length and n_years Chunking
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1606,7 +1624,7 @@
 <tbody>
 <tr>
 <td><strong>Type</strong></td>
-<td>Nonparametric</td>
+<td>Hybrid (nonparametric FFT phase randomization with parametric kappa marginals)</td>
 </tr>
 <tr>
 <td><strong>Resolution</strong></td>
@@ -1686,6 +1704,7 @@
 X_t = \Phi^{-1}\!\left(\frac{r_d(Q_t)}{N_d + 1}\right)
 \]</div>
 <p>where <span class="arithmatex">\(r_d(\cdot)\)</span> is the rank among the <span class="arithmatex">\(N_d\)</span> observations for day <span class="arithmatex">\(d\)</span> and <span class="arithmatex">\(\Phi^{-1}\)</span> is the standard normal inverse CDF. This produces a series <span class="arithmatex">\(\{X_t\}\)</span> with approximately <span class="arithmatex">\(\mathcal{N}(0,1)\)</span> marginals at each calendar day.</p>
+<p><strong>Deviation from PRSim.</strong> The reference R implementation (<code>PRSim</code>) obtains the normal scores by drawing a <em>random</em> standard normal sample of size <span class="arithmatex">\(N_d\)</span> and assigning its sorted values to the observed ranks, so the normalized series (and hence the amplitude spectrum) differs slightly from run to run. SynHydro uses the deterministic Van der Waerden scores above, so the normalized series and its spectrum are fixed by the data; all randomness enters through the phases and the kappa back-transform.</p>
 <h3 id="fourier-decomposition">Fourier Decomposition<a class="headerlink" href="#fourier-decomposition" title="Permanent link">&para;</a></h3>
 <p>The Discrete Fourier Transform of the normalized series yields:</p>
 <div class="arithmatex">\[
@@ -1710,7 +1729,7 @@ X_t = \Phi^{-1}\!\left(\frac{r_d(Q_t)}{N_d + 1}\right)
 \hat{X}_t = \text{Re}\left(\mathcal{F}^{-1}\{\mathcal{F}\{\hat{X}\}\}_t\right)
 \]</div>
 <h3 id="kappa-distribution-and-back-transformation">Kappa Distribution and Back-Transformation<a class="headerlink" href="#kappa-distribution-and-back-transformation" title="Permanent link">&para;</a></h3>
-<p>For each day of year <span class="arithmatex">\(d\)</span>, a four-parameter kappa distribution (Hosking, 1994) is fitted via L-moment matching. The quantile function is:</p>
+<p>For each day of year <span class="arithmatex">\(d\)</span>, a four-parameter kappa distribution (Hosking, 1994) is fitted via L-moment matching to the pooled observations in a circular moving window of <span class="arithmatex">\(\pm\)</span><code>win_h_length</code> days around <span class="arithmatex">\(d\)</span> (default 15, i.e. a 31-day window <span class="arithmatex">\(d-15, \ldots, d+15\)</span> across all years). Brunner et al. (2019) and PRSim describe a 30-day window; the one-day difference is immaterial in practice but means fitted parameters will not match the R package to the last digit. The quantile function is:</p>
 <div class="arithmatex">\[
 F^{-1}(u) = \xi + \frac{\alpha}{\kappa}\left[1 - \left(\frac{1 - u^h}{h}\right)^{\!\kappa}\right]
 \]</div>
@@ -1719,28 +1738,43 @@ F^{-1}(u) = \xi + \frac{\alpha}{\kappa}\left[1 - \left(\frac{1 - u^h}{h}\right)^
 <div class="arithmatex">\[
 \lambda_1 = b_0, \quad \lambda_2 = 2b_1 - b_0, \quad \tau_3 = \frac{2(3b_2 - b_0)}{2b_1 - b_0} - 3, \quad \tau_4 = \frac{5(2(2b_3 - 3b_2) + b_0)}{2b_1 - b_0} + 6
 \]</div>
-<p>The shape parameters <span class="arithmatex">\((\kappa, h)\)</span> are determined by minimizing the squared difference between the sample <span class="arithmatex">\((\tau_3, \tau_4)\)</span> and the theoretical L-moment ratios of the kappa distribution. The location and scale parameters <span class="arithmatex">\((\xi, \alpha)\)</span> are then derived analytically from <span class="arithmatex">\(\lambda_1\)</span> and <span class="arithmatex">\(\lambda_2\)</span>.</p>
-<p>The back-transformation maps the phase-randomized normal scores to the fitted kappa distribution by rank matching: for each day <span class="arithmatex">\(d\)</span>, the ranks of <span class="arithmatex">\(\hat{X}_t\)</span> among all values for that day are computed, a kappa sample of the same size is generated and sorted, and the ranks are used to select the corresponding kappa quantiles. If the empirical marginal option is used instead, observed values replace the kappa sample, preventing extrapolation beyond the historical range.</p>
+<p>The shape parameters <span class="arithmatex">\((\kappa, h)\)</span> are determined by minimizing the squared difference between the sample <span class="arithmatex">\((\tau_3, \tau_4)\)</span> and the theoretical L-moment ratios of the kappa distribution (Nelder-Mead from <span class="arithmatex">\((1, 1)\)</span>, as in PRSim). The location and scale parameters <span class="arithmatex">\((\xi, \alpha)\)</span> are then derived analytically from <span class="arithmatex">\(\lambda_1\)</span> and <span class="arithmatex">\(\lambda_2\)</span>.</p>
+<p><strong>Fit-rejection rule (SynHydro addition).</strong> A fit is rejected when the minimized objective <span class="arithmatex">\((\tau_3 - \tau_3^{\text{th}})^2 + (\tau_4 - \tau_4^{\text{th}})^2\)</span> exceeds 0.1 or when the derived scale <span class="arithmatex">\(\alpha \le 0\)</span>. PRSim accepts whatever the optimizer returns. A rejected day copies the parameters of the previous day (<span class="arithmatex">\(d - 1\)</span>); days that still have no parameters after the forward pass copy from the following day. If no neighbour has parameters the day falls back to the empirical marginal. Rejections are logged at debug level.</p>
+<p><strong>Upper-tail caveat.</strong> With <span class="arithmatex">\(\kappa &lt; 0\)</span> (heavy upper tail), which the L-moment fit returns for most days on typical streamflow records, the kappa quantile function is unbounded above and the rank-matched back-transform can produce daily values many times larger than the observed maximum (an order of magnitude or more is not unusual for long simulations). This is inherent to the published method and identical to PRSim's behaviour, but users who need to bound extremes should use <code>marginal="empirical"</code> or post-process the output.</p>
+<p>The back-transformation maps the phase-randomized normal scores to the fitted kappa distribution by rank matching: for each day <span class="arithmatex">\(d\)</span>, the ranks of <span class="arithmatex">\(\hat{X}_t\)</span> among all values for that day are computed, a kappa sample of the same size is generated and sorted, and the ranks are used to select the corresponding kappa quantiles. If the empirical marginal option is used instead, observed values replace the kappa sample, preventing extrapolation beyond the historical range. Negative back-transformed values (possible with a kappa lower tail extending below zero) are replaced by independent uniform draws on <span class="arithmatex">\((0, \min_d Q)\)</span> for that day, or by zero if the observed minimum is zero. PRSim draws one uniform replacement value per day per realization and reuses it for every negative value on that day.</p>
+<p><strong>PRSim options not exposed.</strong> The PRSim arguments <code>n_par</code>, <code>GoFtest</code>, <code>marginalpar</code>, <code>verbose</code> and <code>suppWarn</code> have no SynHydro equivalent; the kappa marginal is always four-parameter and no goodness-of-fit test is run.</p>
 <h3 id="synthesis-procedure">Synthesis Procedure<a class="headerlink" href="#synthesis-procedure" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Remove leap days and construct the day-of-year index.</li>
-<li>Fit the kappa distribution for each day <span class="arithmatex">\(d\)</span> (using a moving window of <span class="arithmatex">\(\pm h\)</span> days).</li>
+<li>Fit the kappa distribution for each day <span class="arithmatex">\(d\)</span> (using a moving window of <span class="arithmatex">\(\pm 15\)</span> days).</li>
 <li>Apply the normal score transform to obtain <span class="arithmatex">\(\{X_t\}\)</span>.</li>
 <li>Compute the FFT and extract amplitudes <span class="arithmatex">\(\{A_k\}\)</span>.</li>
 <li>Draw random phases <span class="arithmatex">\(\{\varphi_k'\}\)</span> and construct the surrogate spectrum.</li>
 <li>Apply the inverse FFT to obtain <span class="arithmatex">\(\{\hat{X}_t\}\)</span>.</li>
 <li>Back-transform via rank matching against kappa (or empirical) samples.</li>
 <li>Enforce non-negativity.</li>
+<li>If <code>n_years</code> requests more days than the observed record, repeat steps 5-8 and concatenate.</li>
 </ol>
+<h3 id="output-length-and-n_years-chunking">Output Length and <code>n_years</code> Chunking<a class="headerlink" href="#output-length-and-n_years-chunking" title="Permanent link">&para;</a></h3>
+<p>One phase-randomized surrogate has exactly the length <span class="arithmatex">\(N\)</span> of the observed (leap-day-free) record, because the amplitude spectrum is defined on <span class="arithmatex">\(N\)</span> frequencies. This is the only output length the paper and PRSim produce. SynHydro's <code>generate(n_years=...)</code> extends this as follows: <code>ceil(365 * n_years / N)</code> independent surrogates are generated (each with its own phases and its own kappa sample), back-transformed, concatenated end to end, and the result is truncated to <code>365 * n_years</code> days. By default (<code>n_years=None</code>) a single surrogate of length <span class="arithmatex">\(N\)</span> is returned.</p>
+<p>Consequences of chunking:</p>
+<ul>
+<li>Within each chunk the full amplitude spectrum is preserved; across a chunk boundary the two segments are independent, so autocorrelation, spectral continuity and persistence are broken at every multiple of <span class="arithmatex">\(N\)</span> days (preprocessing trims the record to a whole multiple of 365 days, so boundaries fall between whole years).</li>
+<li>The spectrum of a concatenated series is therefore not the observed spectrum at periods comparable to or longer than <span class="arithmatex">\(N\)</span>, and low-frequency (multi-decadal) persistence cannot be extrapolated beyond the observed record length.</li>
+<li>The output index always starts on 1 January of a nominal year; each chunk follows the day-of-year sequence of the observed record, so the seasonal cycle is aligned with the output dates only when the observed record starts on 1 January.</li>
+</ul>
+<p>For simulations that require continuous long-range dependence over horizons longer than the record, prefer a single surrogate per realization and a larger ensemble.</p>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
 <p>The method preserves the full power spectrum of the normalized series, which in expectation reproduces all temporal autocorrelations including long-range dependence characterized by the Hurst exponent. The seasonal marginal distributions are preserved (or extrapolated via the kappa fit) through the day-of-year back-transformation.</p>
 <p>Phase coherence is destroyed by design, meaning the temporal sequencing of events (e.g., the specific ordering of flood peaks within a year) is randomized. Individual autocorrelation values are preserved only in expectation across the ensemble, not in each realization. The method is univariate and does not model spatial dependence.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Univariate only; no spatial correlation between sites.</li>
-<li>Synthetic series length equals the observed series length (no temporal extrapolation).</li>
+<li>A single surrogate has the observed series length; longer series requested via <code>n_years</code> are concatenations of independent surrogates and lose temporal dependence at the chunk boundaries (see Output Length and <code>n_years</code> Chunking).</li>
 <li>February 29 dates are excluded.</li>
-<li>Kappa distribution fitting may fail for some days of year, requiring fallback to adjacent-day parameters or the empirical distribution.</li>
+<li>Kappa distribution fitting may fail or be rejected for some days of year (objective &gt; 0.1 or <span class="arithmatex">\(\alpha \le 0\)</span>), in which case the adjacent day's parameters or the empirical distribution are used.</li>
+<li>The kappa upper tail is unbounded for <span class="arithmatex">\(\kappa &lt; 0\)</span> and can extrapolate far beyond the observed maximum.</li>
+<li>The kappa fitting window is 31 days (<span class="arithmatex">\(\pm 15\)</span>) rather than the 30 days described in the paper, and normal scores are deterministic (Van der Waerden) rather than PRSim's random normal sample; both are minor and do not affect the algorithm's properties.</li>
 <li>Minimum of 2 complete years required; 10+ recommended for stable kappa fits.</li>
 </ul>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
@@ -1751,7 +1785,7 @@ Brunner, M.I., Bardossy, A., and Furrer, R. (2019). Technical note: Stochastic s
 - Hosking, J.R.M. (1990). L-moments: Analysis and estimation of distributions using linear combinations of order statistics. <em>Journal of the Royal Statistical Society Series B</em>, 52, 105-124.
 - Hosking, J.R.M. (1994). The four-parameter kappa distribution. <em>IBM Journal of Research and Development</em>, 38, 251-258.</p>
 <hr />
-<p><strong>Implementation:</strong> <code>src/synhydro/methods/generation/nonparametric/phase_randomization.py</code></p>
+<p><strong>Implementation:</strong> <code>src/synhydro/methods/generation/hybrid/phase_randomization.py</code></p>
 
 
 

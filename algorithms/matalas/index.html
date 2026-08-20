@@ -902,6 +902,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#deviations-from-matalas-1967" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deviations from Matalas (1967)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1526,6 +1535,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#deviations-from-matalas-1967" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deviations from Matalas (1967)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1675,31 +1693,34 @@ Z_{t,s} = \frac{Q_{t,s} - \mu_{m(t),s}}{\sigma_{m(t),s}}, \qquad s = 1, \ldots, 
 \]</div>
 <p>where <span class="arithmatex">\(m = m(t)\)</span> is the calendar month of time <span class="arithmatex">\(t\)</span> and the month indices wrap cyclically (<span class="arithmatex">\(m = 12\)</span> transitions to <span class="arithmatex">\(m = 1\)</span>).</p>
 <h3 id="parameter-estimation">Parameter Estimation<a class="headerlink" href="#parameter-estimation" title="Permanent link">&para;</a></h3>
-<p>For each month <span class="arithmatex">\(m\)</span>, let <span class="arithmatex">\(\mathbf{Z}^{(m)}\)</span> denote the <span class="arithmatex">\(N \times S\)</span> matrix of standardized observations falling in month <span class="arithmatex">\(m\)</span>. The lag-0 and lag-1 cross-correlation matrices are:</p>
+<p>For each month <span class="arithmatex">\(m\)</span>, let <span class="arithmatex">\(\mathbf{Z}^{(m)}\)</span> and <span class="arithmatex">\(\mathbf{Z}^{(m+1)}\)</span> denote the <span class="arithmatex">\(n \times S\)</span> matrices of standardized observations for the <span class="arithmatex">\(n\)</span> aligned (month <span class="arithmatex">\(m\)</span>, month <span class="arithmatex">\(m+1\)</span>) pairs, where <span class="arithmatex">\(n = N\)</span> for transitions within a year and <span class="arithmatex">\(n = N - 1\)</span> for December-to-January. The lag-0 and lag-1 cross-correlation matrices are all computed from this same aligned set:</p>
 <div class="arithmatex">\[
-\mathbf{S}_0^{(m)} = \frac{1}{N - 1} \left(\mathbf{Z}^{(m)}\right)^\top \mathbf{Z}^{(m)}, \qquad \mathbf{S}_1^{(m)} = \frac{1}{N - 1} \left(\mathbf{Z}^{(m+1)}\right)^\top \mathbf{Z}^{(m)}
+\mathbf{S}_0^{(m)} = \frac{1}{n - 1} \left(\mathbf{Z}^{(m)}\right)^\top \mathbf{Z}^{(m)}, \qquad \mathbf{S}_1^{(m)} = \frac{1}{n - 1} \left(\mathbf{Z}^{(m+1)}\right)^\top \mathbf{Z}^{(m)}, \qquad \mathbf{S}_0^{(m+1)} = \frac{1}{n - 1} \left(\mathbf{Z}^{(m+1)}\right)^\top \mathbf{Z}^{(m+1)}
 \]</div>
 <p>The autoregressive coefficient matrix is obtained by:</p>
 <div class="arithmatex">\[
 \mathbf{A}^{(m)} = \mathbf{S}_1^{(m)} \left(\mathbf{S}_0^{(m)}\right)^{-1}
 \]</div>
+<p>If <span class="arithmatex">\(\mathbf{S}_0^{(m)}\)</span> is singular (for example, two perfectly collinear sites), the Moore-Penrose pseudo-inverse is used in place of the inverse and a warning is logged.</p>
 <p>The innovation covariance is the residual after accounting for the autoregressive component:</p>
 <div class="arithmatex">\[
 \mathbf{M}^{(m)} = \mathbf{S}_0^{(m+1)} - \mathbf{A}^{(m)} \mathbf{S}_0^{(m)} \left(\mathbf{A}^{(m)}\right)^\top
 \]</div>
-<p><span class="arithmatex">\(\mathbf{M}^{(m)}\)</span> is symmetrized and, if necessary, repaired to positive semi-definiteness via spectral projection (setting negative eigenvalues to zero). The Cholesky factorization then yields:</p>
+<p>Because <span class="arithmatex">\(\mathbf{S}_0^{(m+1)}\)</span> is computed from the same aligned pairs as <span class="arithmatex">\(\mathbf{S}_0^{(m)}\)</span> and <span class="arithmatex">\(\mathbf{S}_1^{(m)}\)</span>, <span class="arithmatex">\(\mathbf{M}^{(m)}\)</span> is exactly the sample covariance of the least-squares regression residuals. <span class="arithmatex">\(\mathbf{M}^{(m)}\)</span> is symmetrized and, only if its smallest eigenvalue falls below <span class="arithmatex">\(10^{-8}\)</span>, repaired by clipping the eigenvalues at <span class="arithmatex">\(10^{-8}\)</span> and reconstructing the matrix. The repaired matrix is <em>not</em> rescaled to unit diagonal: <span class="arithmatex">\(\mathbf{M}^{(m)}\)</span> is a covariance whose diagonal sets the innovation variance (<span class="arithmatex">\(1 - \rho^2\)</span> in the univariate case, the scalar form of Matalas Eqs. 1 and 10), and rescaling it would inflate the synthetic variance by roughly <span class="arithmatex">\(1/(1-\rho^2)\)</span>. A warning is logged whenever the repair is applied. The Cholesky factorization then yields:</p>
 <div class="arithmatex">\[
 \mathbf{B}^{(m)} = \text{chol}(\mathbf{M}^{(m)}), \qquad \mathbf{M}^{(m)} = \mathbf{B}^{(m)} \left(\mathbf{B}^{(m)}\right)^\top
 \]</div>
+<p>This is the matrix relation of Matalas Eq. 17, <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top = \mathbf{S}_0 - \mathbf{A}\mathbf{S}_1^\top\)</span>, in its periodic form. Matalas obtains <span class="arithmatex">\(\mathbf{B}\)</span> by principal components; SynHydro uses the Cholesky factor, which is equivalent because <span class="arithmatex">\(\mathbf{B}^* = \mathbf{B}\mathbf{O}\)</span> for any orthogonal <span class="arithmatex">\(\mathbf{O}\)</span> satisfies the same equation (Matalas Eqs. 19-20). If the Cholesky factorization still fails after the eigenvalue repair, a diagonal <span class="arithmatex">\(\mathbf{B}^{(m)} = \text{diag}\left(\sqrt{\max(\text{diag}(\mathbf{M}^{(m)}), 10^{-8})}\right)\)</span> is used, which preserves each site's innovation variance but drops the cross-site innovation correlation for that transition; a warning is logged.</p>
 <h3 id="synthesis-procedure">Synthesis Procedure<a class="headerlink" href="#synthesis-procedure" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Initialize <span class="arithmatex">\(\mathbf{Z}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})\)</span>.</li>
-<li>For each time step <span class="arithmatex">\(t = 0, 1, \ldots, T-1\)</span>, with <span class="arithmatex">\(m = m(t)\)</span>:</li>
+<li>Initialize <span class="arithmatex">\(\mathbf{Z}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})\)</span> at a January <span class="arithmatex">\(T_b\)</span> months ahead of the first output month, where <span class="arithmatex">\(T_b\)</span> is the burn-in length (<code>burn_in</code>, default 120 months, rounded up to a whole number of years).</li>
+<li>For each time step <span class="arithmatex">\(t = 0, 1, \ldots, T_b + T - 1\)</span>, with <span class="arithmatex">\(m = m(t)\)</span>:</li>
 </ol>
 <div class="arithmatex">\[
 \mathbf{Z}_{t+1} = \mathbf{A}^{(m)} \mathbf{Z}_t + \mathbf{B}^{(m)} \boldsymbol{\varepsilon}_{t+1}
 \]</div>
 <ol>
+<li>Discard the first <span class="arithmatex">\(T_b\)</span> months and retain <span class="arithmatex">\(\mathbf{Z}_{T_b}, \ldots, \mathbf{Z}_{T_b + T - 1}\)</span>; the first retained month is January.</li>
 <li>Back-transform to flow space:</li>
 </ol>
 <div class="arithmatex">\[
@@ -1708,6 +1729,14 @@ Z_{t,s} = \frac{Q_{t,s} - \mu_{m(t),s}}{\sigma_{m(t),s}}, \qquad s = 1, \ldots, 
 <ol>
 <li>If a log transformation was applied, invert: <span class="arithmatex">\(\hat{Q}_{t,s} \leftarrow \exp(\hat{Q}_{t,s}) - 1\)</span>, then enforce non-negativity.</li>
 </ol>
+<h3 id="deviations-from-matalas-1967">Deviations from Matalas (1967)<a class="headerlink" href="#deviations-from-matalas-1967" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Periodic extension.</strong> Matalas (1967) describes a stationary model with a single pair of matrices <span class="arithmatex">\((\mathbf{A}, \mathbf{B})\)</span>. SynHydro fits 12 month-specific pairs (a periodic MAR(1), in the spirit of Thomas-Fiering), estimating <span class="arithmatex">\(\mathbf{S}_0^{(m)}\)</span> and <span class="arithmatex">\(\mathbf{S}_1^{(m)}\)</span> from the <span class="arithmatex">\(N\)</span> observations of each month. December-to-January pairs December of year <span class="arithmatex">\(y\)</span> with January of year <span class="arithmatex">\(y+1\)</span>.</li>
+<li><strong>Log-space estimation.</strong> With <code>log_transform=True</code> (default), all moments and matrices are estimated from <span class="arithmatex">\(\ln(Q+1)\)</span> and synthetic flows are back-transformed with <span class="arithmatex">\(\exp(\cdot)-1\)</span>. Matalas (p. 939) notes that parameters estimated in log space do not in general reproduce the real-space moments; no moment matching or bias correction is applied, so real-space monthly means are reproduced only approximately (medians and log-space moments are preserved).</li>
+<li><strong>Calendar-month alignment.</strong> Parameters are estimated by calendar month (<code>index.month</code>), so any start month is accepted; generated output is dated from January of the first observed year.</li>
+<li><strong>Burn-in.</strong> The recursion is started from <span class="arithmatex">\(\mathbf{Z}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})\)</span>, which has no cross-site correlation. Without a burn-in the first month of every realization would have near-zero spatial correlation, followed by a short transient. SynHydro therefore simulates <code>burn_in</code> extra months (default 120, rounded up to whole years so the output still begins in January) and discards them before the first output month. A fixed seed remains fully reproducible. <code>burn_in=0</code> recovers the un-burned start.</li>
+<li><strong>Numerical fallbacks.</strong> A singular <span class="arithmatex">\(\mathbf{S}_0^{(m)}\)</span> is inverted with the pseudo-inverse, and a failed Cholesky factorization of <span class="arithmatex">\(\mathbf{M}^{(m)}\)</span> falls back to a diagonal <span class="arithmatex">\(\mathbf{B}^{(m)}\)</span> (see Parameter Estimation). Both paths log a warning and are not part of Matalas (1967).</li>
+</ul>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
 <p>The MAR(1) model preserves the first two moments (mean and variance) and the lag-1 autocorrelation at each site, as well as the contemporaneous cross-site correlation structure, all at the monthly scale. The seasonal cycle of these statistics is captured through the 12 sets of month-specific matrices.</p>
 <p>Higher-order temporal autocorrelations (lag <span class="arithmatex">\(&gt; 1\)</span>) emerge only indirectly through the chain of first-order transitions and are generally underestimated. The model assumes that the standardized residuals are multivariate Gaussian, which may inadequately represent heavy-tailed or skewed marginal distributions. Long-range persistence (Hurst phenomenon) is not captured.</p>
@@ -1715,7 +1744,7 @@ Z_{t,s} = \frac{Q_{t,s} - \mu_{m(t),s}}{\sigma_{m(t),s}}, \qquad s = 1, \ldots, 
 <ul>
 <li>First-order memory only; multi-month drought persistence is underrepresented.</li>
 <li>Multivariate Gaussian assumption may not hold for strongly skewed flows.</li>
-<li>Covariance matrices may require positive-definiteness repair when the record is short relative to the number of sites.</li>
+<li>Innovation covariance matrices may require positive-definiteness repair (eigenvalue clipping) when the record is short relative to the number of sites; the repair perturbs the innovation structure slightly.</li>
 <li>Stationarity is assumed; the model does not accommodate trends or regime shifts.</li>
 </ul>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>

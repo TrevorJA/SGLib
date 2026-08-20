@@ -1801,15 +1801,17 @@ rescale in step 4 of the synthesis procedure.</p>
 <li>
 <p>If <code>conservation_method='proportional'</code> (the default), clip any negative entries to
    zero and rescale each site's sub-period block to its target annual sum
-   <span class="arithmatex">\(X_{t,s}\)</span>. When the post-clip sum is zero (rare, requires extreme
-   clipping), the site's <span class="arithmatex">\(X_{t,s}\)</span> is split uniformly across its
-   sub-periods. With <code>transform='none'</code> and a full-rank <span class="arithmatex">\(\mathbf{B}\)</span>, this
-   step is a no-op because the linear model already satisfies
-   <span class="arithmatex">\(\mathbf{C}\mathbf{Y} = \mathbf{X}\)</span> exactly; it becomes meaningful only
-   when a nonlinear transform or aggressive clipping breaks linear
-   additivity. The constructor rejects the combination
-   <code>transform != 'none'</code> with <code>conservation_method='none'</code> because the
-   resulting output would be silently non-conservative.</p>
+   <span class="arithmatex">\(X_{t,s}\)</span>. This is the proportional adjustment of Grygier and Stedinger
+   (1988, Eq. 14), <span class="arithmatex">\(\tilde{Y}_{t,s,j} = Y_{t,s,j}\,X_{t,s} / \sum_k Y_{t,s,k}\)</span>;
+   their alternative correction schemes are not implemented. When the
+   post-clip sum is zero (rare, requires extreme clipping), the site's
+   <span class="arithmatex">\(X_{t,s}\)</span> is split uniformly across its sub-periods. With
+   <code>transform='none'</code>, this step is a no-op apart from clipping because
+   the linear model already satisfies <span class="arithmatex">\(\mathbf{C}\mathbf{Y} = \mathbf{X}\)</span>
+   exactly; it becomes meaningful only when a nonlinear transform or
+   clipping breaks linear additivity. The constructor rejects the
+   combination <code>transform != 'none'</code> with <code>conservation_method='none'</code>
+   because the resulting output would be silently non-conservative.</p>
 </li>
 </ol>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
@@ -1819,25 +1821,46 @@ rescale in step 4 of the synthesis procedure.</p>
   <span class="arithmatex">\(\mathbf{Y}\)</span>.</li>
 <li>Cross-site, cross-sub-period correlations.</li>
 <li>Per-site aggregate totals -- exactly, by construction, in the
-  untransformed full-rank case (paper Eq. 31); exactly after proportional
+  untransformed case for any rank, via the null-space factorization
+  (paper Eq. 31); exactly after proportional
   adjustment in the transformed case.</li>
 </ul>
 <p>Inter-annual serial correlation between sub-periods of consecutive years
 is not modeled; see Stedinger and Vogel (1984) for an extension that
 addresses this.</p>
 <h2 id="numerical-considerations">Numerical considerations<a class="headerlink" href="#numerical-considerations" title="Permanent link">&para;</a></h2>
+<p>The factorization of <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span> follows one of two paths
+depending on <code>transform</code>:</p>
 <ul>
-<li><span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span> is rank-deficient by construction with rank
-  at most <span class="arithmatex">\(\min(N - 1,\,(s - 1)\,m)\)</span>. The paper's bound (page 5) is
+<li><strong><code>transform='none'</code> (null-space factorization).</strong>
+  <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span> is rank-deficient by construction with rank
+  at most <span class="arithmatex">\(\min(N - 1,\,(s - 1)\,m)\)</span>. The paper's bound (p. 584) is
   <span class="arithmatex">\(N - 1\)</span>; the tighter <span class="arithmatex">\((s - 1)\,m\)</span> ceiling comes from the null-space
-  constraint <span class="arithmatex">\(\mathbf{C}\mathbf{B} = \mathbf{0}\)</span>.</li>
-<li><span class="arithmatex">\(\mathbf{B}\)</span> is constructed by eigendecomposing
-  <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span> in an orthonormal basis of the null space of
-  <span class="arithmatex">\(\mathbf{C}\)</span> and retaining only eigenvalues above a relative tolerance.
-  This matches the paper's "principal component technique" (page 5) of
-  retaining the leading <span class="arithmatex">\(N - 1\)</span> eigenvectors, with the additional null-
-  space restriction that guarantees <span class="arithmatex">\(\mathbf{C}\mathbf{B} = \mathbf{0}\)</span> to
-  floating-point precision -- preserving exact additivity for every draw.</li>
+  constraint <span class="arithmatex">\(\mathbf{C}\mathbf{B} = \mathbf{0}\)</span>. <span class="arithmatex">\(\mathbf{B}\)</span> is
+  constructed by eigendecomposing <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span> in an
+  orthonormal basis of the null space of <span class="arithmatex">\(\mathbf{C}\)</span> and retaining only
+  eigenvalues above a relative tolerance. This matches the paper's
+  "principal component technique" (p. 584) of retaining the leading
+  <span class="arithmatex">\(N - 1\)</span> eigenvectors, with the additional null-space restriction that
+  guarantees <span class="arithmatex">\(\mathbf{C}\mathbf{B} = \mathbf{0}\)</span> to floating-point
+  precision -- preserving exact additivity for every draw. Because
+  <span class="arithmatex">\(\mathbf{C}\mathbf{B}\mathbf{B}^\top = \mathbf{0}\)</span> holds analytically in
+  this case, the projection discards nothing:
+  <span class="arithmatex">\(\operatorname{tr}(\mathbf{B}\mathbf{B}^\top)\)</span> equals the trace of the
+  conditional covariance to round-off.</li>
+<li><strong><code>transform='log'</code> or <code>'boxcox'</code> (full factorization).</strong> Here
+  <span class="arithmatex">\(\mathbf{Y}\)</span> is fit in transformed space while <span class="arithmatex">\(\mathbf{X}\)</span> stays on the
+  original scale, so <span class="arithmatex">\(\mathbf{C}\mathbf{B}\mathbf{B}^\top \neq \mathbf{0}\)</span>
+  and a null-space projection would discard genuine conditional variance
+  (about 5 percent of the trace for log and 2 percent for Box-Cox on the
+  bundled monthly USGS data). The implementation therefore
+  eigendecomposes the full symmetric <span class="arithmatex">\(\mathbf{B}\mathbf{B}^\top\)</span>, clips
+  numerically non-positive eigenvalues, and retains rank at most
+  <span class="arithmatex">\(\min(N - 1,\,s\,m)\)</span>. Additivity is then restored by the proportional
+  rescale in synthesis step 4.</li>
+</ul>
+<p>Further notes:</p>
+<ul>
 <li>When the residual covariance is numerically zero (e.g., a perfectly
   cyclic input), the noise factor takes rank 0 and the disaggregation
   becomes deterministic, equal to the conditional mean.</li>
@@ -1853,6 +1876,17 @@ addresses this.</p>
   breaks the linear-additivity property; proportional rescaling restores
   per-site conservation at the cost of small distortion of the conditional
   covariance.</li>
+<li>With <code>transform='none'</code> and <code>conservation_method='none'</code> the pure
+  linear-Gaussian model can produce negative sub-period flows, especially
+  in low-flow months or at sites with a high coefficient of variation. The
+  default <code>conservation_method='proportional'</code> clips negatives to zero and
+  rescales; <code>transform='log'</code> avoids negatives by construction.</li>
+<li>In transformed fits, <span class="arithmatex">\(\mathbf{X}\)</span> remains on the original (untransformed)
+  scale so that it matches the annual totals passed to <code>disaggregate()</code>.
+  The regression is therefore between transformed sub-period flows and raw
+  annual totals, and the paper's identities
+  <span class="arithmatex">\(\mathbf{C}\mathbf{A} = \mathbf{I}\)</span> and <span class="arithmatex">\(\mathbf{C}\mathbf{B} = \mathbf{0}\)</span>
+  do not hold in that space.</li>
 <li>Full joint covariance estimation requires reasonably long records
   relative to <span class="arithmatex">\(s \cdot m\)</span>. Short records produce a heavily rank-deficient
   noise factor.</li>

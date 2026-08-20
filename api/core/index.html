@@ -1818,13 +1818,13 @@
         <p>Manage ensemble timeseries data with dual representations.</p>
 <p>The Ensemble class stores synthetic timeseries data in two complementary formats:</p>
 <ol>
-<li><strong>By Realization</strong>: <code>{realization_id: DataFrame[sites × time]}</code></li>
+<li><strong>By Realization</strong>: <code>{realization_id: DataFrame[sites x time]}</code></li>
 <li>Keys are realization numbers (int)</li>
 <li>
 <p>Values are DataFrames with sites as columns</p>
 </li>
 <li>
-<p><strong>By Site</strong>: <code>{site_name: DataFrame[realizations × time]}</code></p>
+<p><strong>By Site</strong>: <code>{site_name: DataFrame[realizations x time]}</code></p>
 </li>
 <li>Keys are site names (str)</li>
 <li>Values are DataFrames with realizations as columns</li>

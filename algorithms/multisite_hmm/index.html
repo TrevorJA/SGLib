@@ -977,6 +977,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#em-convergence-and-restarts" class="md-nav__link">
+    <span class="md-ellipsis">
+      EM Convergence and Restarts
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#stationary-distribution" class="md-nav__link">
     <span class="md-ellipsis">
       Stationary Distribution
@@ -1000,9 +1009,27 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#statistical-properties" class="md-nav__link">
     <span class="md-ellipsis">
       Statistical Properties
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope-and-departures-from-the-paper" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scope and Departures from the Paper
     </span>
   </a>
   
@@ -1509,6 +1536,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#em-convergence-and-restarts" class="md-nav__link">
+    <span class="md-ellipsis">
+      EM Convergence and Restarts
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#stationary-distribution" class="md-nav__link">
     <span class="md-ellipsis">
       Stationary Distribution
@@ -1532,9 +1568,27 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#statistical-properties" class="md-nav__link">
     <span class="md-ellipsis">
       Statistical Properties
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope-and-departures-from-the-paper" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scope and Departures from the Paper
     </span>
   </a>
   
@@ -1674,7 +1728,10 @@ P(s_{t+1} = j \mid s_t = i) = A_{ij}, \qquad \sum_{j=1}^{K} A_{ij} = 1 \quad \fo
 <li><strong>E-step</strong>: Compute state posterior probabilities using the forward-backward algorithm.</li>
 <li><strong>M-step</strong>: Update emission means, covariances, and transition probabilities to maximize the expected log-likelihood.</li>
 </ul>
-<p>The covariance structure may be full (<span class="arithmatex">\(S(S+1)/2\)</span> free parameters per state), diagonal (<span class="arithmatex">\(S\)</span> parameters), or spherical (1 parameter). Full covariance preserves inter-site spatial correlations within each regime.</p>
+<p>The covariance structure may be full (<span class="arithmatex">\(S(S+1)/2\)</span> free parameters per state), diagonal (<span class="arithmatex">\(S\)</span> parameters per state), spherical (1 parameter per state), or tied (a single full matrix, <span class="arithmatex">\(S(S+1)/2\)</span> parameters, shared by all states). Full covariance preserves inter-site spatial correlations within each regime.</p>
+<h3 id="em-convergence-and-restarts">EM Convergence and Restarts<a class="headerlink" href="#em-convergence-and-restarts" title="Permanent link">&para;</a></h3>
+<p>EM is a local optimizer: the fitted parameters depend on the random initialization, and different starts can converge to different local optima with noticeably different log-likelihoods. The implementation therefore supports <code>n_init</code> random restarts. Each restart draws its own hmmlearn seed from a NumPy generator seeded by <code>random_state</code>, so a given <code>random_state</code> always reproduces the same sequence of fits; the restart with the highest log-likelihood is retained.</p>
+<p>After fitting, the generator stores <code>log_likelihood_</code> (best fit), <code>log_likelihoods_</code> (one entry per restart, <code>nan</code> for a failed restart), and <code>converged_</code>. A <code>UserWarning</code> is emitted if the retained fit did not meet hmmlearn's log-likelihood tolerance within <code>max_iterations</code>, and a second <code>UserWarning</code> is emitted if the restarts' log-likelihoods span more than 1 nat, which indicates that EM found several distinct optima and <code>n_init</code> should be increased. The default <code>n_init=1</code> preserves the original single-fit behaviour; <code>n_init</code> of 5 to 10 is recommended for production use.</p>
 <h3 id="stationary-distribution">Stationary Distribution<a class="headerlink" href="#stationary-distribution" title="Permanent link">&para;</a></h3>
 <p>The stationary distribution <span class="arithmatex">\(\boldsymbol{\pi}\)</span> satisfies <span class="arithmatex">\(\boldsymbol{\pi}^\top \mathbf{A} = \boldsymbol{\pi}^\top\)</span> with <span class="arithmatex">\(\sum_k \pi_k = 1\)</span>. It is computed as the normalized eigenvector of <span class="arithmatex">\(\mathbf{A}^\top\)</span> corresponding to eigenvalue 1:</p>
 <div class="arithmatex">\[
@@ -1698,20 +1755,69 @@ s_t \sim \text{Categorical}(\mathbf{A}_{s_{t-1}, \cdot})
 <ol>
 <li>Back-transform: <span class="arithmatex">\(\hat{Q}_{t,s} = \exp(Y_{t,s}) - \delta\)</span>, then enforce non-negativity.</li>
 </ol>
+<h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n_states</code></td>
+<td>2</td>
+<td>Number of hidden states <span class="arithmatex">\(K\)</span> (state 0 is the driest).</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>1.0</td>
+<td>Additive offset <span class="arithmatex">\(\delta\)</span> applied before the log transform.</td>
+</tr>
+<tr>
+<td><code>max_iterations</code></td>
+<td>1000</td>
+<td>Maximum EM iterations per restart; a warning is raised if this is reached without convergence.</td>
+</tr>
+<tr>
+<td><code>n_init</code></td>
+<td>1</td>
+<td>Number of random EM restarts; the highest log-likelihood fit is kept.</td>
+</tr>
+<tr>
+<td><code>covariance_type</code></td>
+<td><code>'full'</code></td>
+<td>Emission covariance structure: <code>'full'</code>, <code>'diag'</code>, <code>'spherical'</code>, or <code>'tied'</code>.</td>
+</tr>
+<tr>
+<td><code>fit(random_state=...)</code></td>
+<td><code>None</code></td>
+<td>Seed controlling all restart initializations for reproducible fitting.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
 <p>The model captures regime-dependent multivariate distributions, preserving the distinct mean levels, variances, and spatial correlation structures associated with each hydroclimatic state. Temporal persistence is governed by the diagonal elements of the transition matrix (state self-transition probabilities), which determine the expected duration of dry and wet regimes.</p>
 <p>Spatial correlations are preserved within each state through the full covariance matrices. However, the marginal distributions of the overall mixture are constrained to be a weighted sum of log-normals, which may not match the true marginals exactly. Higher-order temporal dependence (lag <span class="arithmatex">\(&gt; 1\)</span>) is not explicitly modeled; any apparent longer-memory structure arises solely from the state persistence. The model assumes stationarity of the transition dynamics.</p>
+<h2 id="scope-and-departures-from-the-paper">Scope and Departures from the Paper<a class="headerlink" href="#scope-and-departures-from-the-paper" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Annual HMM only.</strong> Gold et al. (2024) follow the annual multi-site HMM with a KNN-based spatial and annual-to-monthly disaggregation step. That disaggregation is not part of this generator, which returns annual multisite flows only. For temporal disaggregation of the annual output use <code>NowakDisaggregator</code>.</li>
+<li><strong>Viterbi classification not exposed.</strong> The paper classifies historical years into dry/wet states with the Viterbi algorithm for diagnostic plots. This generator fits the HMM and samples from it but does not expose a decoded historical state sequence.</li>
+<li><strong>Back-transform.</strong> The generator uses <span class="arithmatex">\(\exp(Y) - \delta\)</span>, which exactly inverts the forward transform <span class="arithmatex">\(\ln(Q + \delta)\)</span>; the authors' reference script applies <span class="arithmatex">\(\exp(Y)\)</span> without subtracting the offset.</li>
+<li><strong>Emission model.</strong> One multivariate Gaussian per state (an hmmlearn <code>GaussianHMM</code>, equivalent to a mixture with a single component). Earlier docstrings described this as a "Gaussian Mixture Model HMM"; no multi-component mixture is fit.</li>
+</ul>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>First-order Markov assumption; multi-year drought persistence depends entirely on state self-transition probabilities.</li>
 <li>Full covariance estimation becomes expensive and data-hungry for more than roughly 20 sites.</li>
-<li>EM algorithm may converge to local optima; results can vary across random initializations.</li>
+<li>EM algorithm may converge to local optima; results can vary across random initializations. Use <code>n_init &gt; 1</code> and inspect <code>log_likelihoods_</code>.</li>
 <li>Requires approximately 20+ years for 2 states and 50+ years for additional states.</li>
 <li>Log-normal emissions may not capture heavy-tailed or multi-modal within-state behavior.</li>
 </ul>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <p><strong>Primary:</strong>
-Gold, D.F., Reed, P.M., and Gupta, R.S. (2024). Exploring the spatially compounding multi-sectoral drought vulnerabilities in Colorado's West Slope river basins. <em>Earth's Future</em>. https://doi.org/10.1029/2024EF004841</p>
+Gold, D.F., Gupta, R.S., and Reed, P.M. (2024). Exploring the spatially compounding multi-sectoral drought vulnerabilities in Colorado's West Slope river basins. <em>Earth's Future</em>. https://doi.org/10.1029/2024EF004841</p>
 <p><strong>See also:</strong>
 - Rabiner, L.R. (1989). A tutorial on hidden Markov models and selected applications in speech recognition. <em>Proceedings of the IEEE</em>, 77(2), 257-286.
 - Akintug, B., and Rasmussen, P.F. (2005). A Markov switching model for annual hydrologic time series. <em>Water Resources Research</em>, 41(9).</p>

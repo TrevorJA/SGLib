@@ -3258,7 +3258,7 @@ supported_frequencies : tuple of str
 </details>
         <p>Initialize the generator with algorithm configuration.</p>
 <p>Subclasses add algorithm-specific keyword-only parameters before
-<code>name</code> and <code>debug</code>. Data is not passed here — use <code>fit(Q_obs)</code>
+<code>name</code> and <code>debug</code>. Data is not passed here -- use <code>fit(Q_obs)</code>
 or <code>preprocessing(Q_obs)</code> instead.</p>
 
 
@@ -5079,7 +5079,7 @@ If None, uses the length of historic data.</p>
 
 
 <a href="#synhydro.methods.generation.parametric.matalas.MatalasGenerator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MatalasGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">log_transform</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MatalasGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">log_transform</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">burn_in</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">120</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5093,10 +5093,10 @@ If None, uses the length of historic data.</p>
 generation. Extends the Thomas-Fiering univariate model to n sites using
 matrix autoregression, preserving contemporaneous cross-site correlations
 and lag-1 temporal structure at each site.</p>
-<p>For each monthly transition m → m+1, generates:</p>
-<div class="highlight"><pre><span></span><code>Z(t+1) = A(m) · Z(t) + B(m) · ε(t+1)
+<p>For each monthly transition m -&gt; m+1, generates:</p>
+<div class="highlight"><pre><span></span><code>Z(t+1) = A(m) * Z(t) + B(m) * eps(t+1)
 </code></pre></div>
-<p>where Z are standardized flows across all sites, ε ~ N(0, I), and A, B
+<p>where Z are standardized flows across all sites, eps ~ N(0, I), and A, B
 are coefficient matrices fitted from observed cross-correlations.</p>
 
 
@@ -5126,6 +5126,29 @@ skewness and improve normality assumption.</p>
             </td>
             <td>
                   <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>burn_in</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of extra months simulated before the first output month and
+discarded. The recursion is started from Z ~ N(0, I), which ignores
+the spatial correlation S0; the burn-in lets the chain reach its
+periodic stationary distribution so that the first retained month
+already carries the fitted cross-site correlation. The burn-in is
+rounded up to a whole number of years so that the first retained
+month is always January. Set to 0 to start output directly from the
+N(0, I) initial state.</p>
+              </div>
+            </td>
+            <td>
+                  <code>120</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -5168,12 +5191,15 @@ skewness and improve normality assumption.</p>
   <summary>Notes</summary>
   <p>The coefficient matrices are derived from the lag-0 and lag-1
 cross-correlation matrices of the standardized flows:</p>
-<div class="highlight"><pre><span></span><code>A(m) = S₁(m) · S₀(m)⁻¹
-B(m) · B(m)ᵀ = S₀(m+1) - A(m) · S₀(m) · A(m)ᵀ
+<div class="highlight"><pre><span></span><code>A(m) = S1(m) * S0(m)^-1
+B(m) * B(m)^T = S0(m+1) - A(m) * S0(m) * A(m)^T
 </code></pre></div>
-<p>where S₀(m) is the contemporaneous correlation matrix at month m and
-S₁(m) is the lag-1 cross-correlation between months m+1 and m.
-B(m) is the lower Cholesky factor of the residual covariance.</p>
+<p>where S0(m) is the contemporaneous correlation matrix at month m and
+S1(m) is the lag-1 cross-correlation between months m+1 and m.
+B(m) is the lower Cholesky factor of the residual covariance. Matalas
+(1967) obtains B by principal components; any B* = B O with O
+orthogonal gives the same B B^T (Matalas Eqs. 19-20), so the Cholesky
+factor is equivalent.</p>
 </details>
 
 <p><span class="doc-section-title">Examples:</span></p>
@@ -5186,7 +5212,7 @@ B(m) is the lower Cholesky factor of the residual covariance.</p>
 <details class="references" open>
   <summary>References</summary>
   <p>Matalas, N. C. (1967). Mathematical assessment of synthetic hydrology.
-Water Resources Research, 3(4), 937–945.</p>
+Water Resources Research, 3(4), 937-945.</p>
 <p>Salas, J. D., Delleur, J. W., Yevjevich, V., &amp; Lane, W. L. (1980).
 Applied Modeling of Hydrologic Time Series. Water Resources Publications.</p>
 </details>
@@ -5536,7 +5562,7 @@ lag-1 (S1) cross-correlation matrices then solves for A and B.</p>
 
 
 <a href="#synhydro.methods.generation.parametric.arfima.ARFIMAGenerator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ARFIMAGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">d_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'whittle'</span><span class="p">,</span> <span class="n">truncation_lag</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">auto_order</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ARFIMAGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">d_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'mle'</span><span class="p">,</span> <span class="n">truncation_lag</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">auto_order</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">order_criterion</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'aic'</span><span class="p">,</span> <span class="n">backcast_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">d_bounds</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.49</span><span class="p">,</span> <span class="mf">0.49</span><span class="p">),</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5547,9 +5573,14 @@ lag-1 (S1) cross-correlation matrices then solves for A and B.</p>
 
         <p>Autoregressive Fractionally Integrated Moving Average (ARFIMA) generator for synthetic monthly/annual streamflow generation.</p>
 <p>Generates synthetic streamflows using an ARFIMA model that captures long-range
-dependence through fractional differencing parameter d in (0, 0.5). The model
+dependence through fractional differencing parameter d in (-0.5, 0.5). The model
 preserves Hurst exponent, seasonal patterns (if monthly), and autocorrelation
 structure.</p>
+<p>By default d and the ARMA(p,q) coefficients are estimated jointly by the
+approximate maximum likelihood method of Hosking (1984, Sec. 4.2): the
+series is fractionally differenced with backcast presample values
+(Eq. 9, M = 30) and the conditional sum of squares of the ARMA
+innovations is minimised over (d, phi, theta).</p>
 <p>The Hurst exponent H relates to the fractional differencing parameter via H = d + 0.5,
 providing direct parameterization of long-memory behavior.</p>
 <p>Preprocessing applies a shifted-lognormal transformation (Stedinger and
@@ -5631,12 +5662,21 @@ https://doi.org/10.1029/WR020i012p01898</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Method for estimating d: 'whittle' (frequency domain MLE),
-'gph' (Geweke-Porter-Hudak), or 'rs' (R/S analysis).</p>
+                <p>Estimation method.  'mle' estimates d and the ARMA(p,q)
+coefficients jointly by Hosking's (1984, Sec. 4.2) approximate
+maximum likelihood (conditional sum of squares of the ARMA
+innovations of the fractionally differenced series, with
+backcast presample values).  The remaining options are
+two-stage procedures that first estimate d from the series
+alone and then fit the ARMA part to the fractionally
+differenced residual: 'whittle' (profile Whittle likelihood of
+the ARFIMA(0,d,0) spectrum), 'gph' (Geweke-Porter-Hudak) or
+'rs' (R/S analysis).  The two-stage estimates of d are
+contaminated by short-memory structure when p + q &gt; 0.</p>
               </div>
             </td>
             <td>
-                  <code>&#39;whittle&#39;</code>
+                  <code>&#39;mle&#39;</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -5648,7 +5688,13 @@ https://doi.org/10.1029/WR020i012p01898</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Truncation lag K for fractional differencing coefficients.</p>
+                <p>Truncation lag K for the inverse fractional differencing filter
+used in generation (and for the fit-side differencing of the
+two-stage methods).  The truncated inverse filter caps the
+simulated variance at sum_{k&lt;=K} psi_k^2 (about 97% of the
+exact value at d = 0.3, but only 55% at d = 0.45 for K = 100);
+raise K (e.g. 1000 or more) when the estimated d exceeds
+about 0.4.</p>
               </div>
             </td>
             <td>
@@ -5664,14 +5710,69 @@ https://doi.org/10.1029/WR020i012p01898</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If True, select (p, q) via BIC grid search over
-p in {0, 1, 2} and q in {0, 1, 2}.  Overrides user-supplied
-p and q values.  Uses BIC which is proven consistent for
-ARFIMA (Huang et al. 2022, Annals of Statistics).</p>
+                <p>If True, select (p, q) by an information-criterion grid search
+over p in {0, 1, 2} and q in {0, 1, 2}.  Overrides user-supplied
+p and q values.</p>
               </div>
             </td>
             <td>
                   <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>order_criterion</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Information criterion for <code>auto_order</code>: 'aic' (Hosking 1984,
+Sec. 5.1, with the delta_d term) or 'bic' (consistent for
+ARFIMA order selection, Huang et al. 2022).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;aic&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>backcast_length</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number M of presample values backcast with an AR(M) model
+before fractional differencing (Hosking 1984, Eq. 9 and
+Table 1).  Used by <code>d_method='mle'</code> only.  Set to 0 for
+Hosking's Eq. 8 (presample values equal to the mean).  M is
+reduced to n // 4 for short records.</p>
+              </div>
+            </td>
+            <td>
+                  <code>30</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>d_bounds</code>
+            </td>
+            <td>
+                  <code>tuple of float</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Search interval for d in the joint estimator.  Hosking's model
+is stationary and invertible for -0.5 &lt; d &lt; 0.5; use
+(0.01, 0.49) to restrict the fit to persistent processes.</p>
+              </div>
+            </td>
+            <td>
+                  <code>(-0.49, 0.49)</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -5902,11 +6003,15 @@ the need for hard-clipping. See Hosking (1984), Montanari et al.
     <div class="doc doc-contents ">
 
         <p>Estimate ARFIMA model parameters from preprocessed data.</p>
-<p>Sequence:
-1. Estimate fractional differencing parameter d using specified method
-2. Apply fractional differencing to obtain differenced series
-3. Fit ARMA(p,q) to differenced series using Yule-Walker equations
-4. Store all fitted parameters</p>
+<p>With <code>d_method='mle'</code> (default) d and the ARMA(p,q) coefficients
+are estimated jointly by Hosking's (1984, Sec. 4.2) approximate
+maximum likelihood; see <code>_fit_joint_mle</code>.  With the two-stage
+methods the sequence is:</p>
+<ol>
+<li>Estimate d from the series alone ('whittle', 'gph' or 'rs')</li>
+<li>Apply truncated fractional differencing (Hosking Eq. 8)</li>
+<li>Fit ARMA(p,q) to the differenced series (Yule-Walker / CSS)</li>
+</ol>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -6185,7 +6290,7 @@ the need for hard-clipping. See Hosking (1984), Montanari et al.
 
 
 <a href="#synhydro.methods.generation.parametric.sparta.SPARTAGenerator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SPARTAGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">nataf_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'GH'</span><span class="p">,</span> <span class="n">nataf_n_eval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span> <span class="n">nataf_poly_deg</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span> <span class="n">nataf_gh_nodes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">21</span><span class="p">,</span> <span class="n">marginal_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'parametric'</span><span class="p">,</span> <span class="n">matrix_repair_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'spectral'</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SPARTAGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">nataf_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'GH'</span><span class="p">,</span> <span class="n">nataf_n_eval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span> <span class="n">nataf_poly_deg</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span> <span class="n">nataf_gh_nodes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">21</span><span class="p">,</span> <span class="n">marginal_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'parametric'</span><span class="p">,</span> <span class="n">matrix_repair_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'spectral'</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6252,11 +6357,12 @@ Gaussian model with Nataf ICDF mapping.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Polynomial degree for Nataf approximation (default 6).</p>
+                <p>Polynomial degree for Nataf approximation (default 8, identical
+to SMARTA and to <code>nataf_inverse</code>).</p>
               </div>
             </td>
             <td>
-                  <code>6</code>
+                  <code>8</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -6300,7 +6406,9 @@ Gaussian model with Nataf ICDF mapping.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Method for repairing non-PD matrices (default <code>"spectral"</code>).</p>
+                <p>Method for repairing non-positive-definite innovation covariances
+(default <code>"spectral"</code>, i.e. eigenvalue clipping). The diagonal of
+<code>G_s</code> is preserved for every method.</p>
               </div>
             </td>
             <td>
@@ -7172,7 +7280,7 @@ structure via the SMA model with Nataf ICDF mapping.</p>
 
 
 <a href="#synhydro.methods.generation.parametric.multisite_hmm.MultiSiteHMMGenerator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MultiSiteHMMGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">n_states</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">covariance_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'full'</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MultiSiteHMMGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">n_states</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">n_init</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">covariance_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'full'</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -7182,8 +7290,8 @@ structure via the SMA model with Nataf ICDF mapping.</p>
 
 
         <p>Multi-site Hidden Markov Model generator for synthetic streamflow.</p>
-<p>Generates synthetic streamflow using a Gaussian Mixture Model HMM that
-models temporal dependencies through hidden states and spatial correlations
+<p>Generates synthetic streamflow using a Gaussian HMM (a single multivariate
+Gaussian emission per state) that models temporal dependencies through hidden states and spatial correlations
 through multivariate Gaussian emissions with state-specific covariance matrices.</p>
 <p>The method is particularly suited for capturing drought dynamics across
 multiple sites/basins simultaneously.</p>
@@ -7242,11 +7350,32 @@ Recommended: 1.0 for flows in standard units.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Maximum iterations for HMM fitting convergence.</p>
+                <p>Maximum EM iterations per HMM fit. If EM has not converged when this
+limit is reached a <code>UserWarning</code> is emitted.</p>
               </div>
             </td>
             <td>
                   <code>1000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_init</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of random EM restarts. Each restart fits the HMM from a
+different random initialization and the fit with the highest
+log-likelihood is retained. The default of 1 preserves the original
+single-fit behaviour; values of 5-10 are recommended in practice
+because EM frequently converges to local optima.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -7259,9 +7388,10 @@ Recommended: 1.0 for flows in standard units.</p>
             <td>
               <div class="doc-md-description">
                 <p>Type of covariance matrix:
-- 'full': Full covariance matrix (captures all correlations)
-- 'diag': Diagonal covariance (independent sites)
-- 'spherical': Single variance for all dimensions</p>
+- 'full': Full covariance matrix per state (captures all correlations)
+- 'diag': Diagonal covariance per state (independent sites)
+- 'spherical': Single variance per state for all dimensions
+- 'tied': One full covariance matrix shared by all states</p>
               </div>
             </td>
             <td>
@@ -7369,6 +7499,40 @@ Recommended: 1.0 for flows in standard units.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="synhydro.methods.generation.parametric.multisite_hmm.MultiSiteHMMGenerator.log_likelihood_">log_likelihood_</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Log-likelihood of the retained (best) fit.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="synhydro.methods.generation.parametric.multisite_hmm.MultiSiteHMMGenerator.log_likelihoods_">log_likelihoods_</span></code></td>
+            <td>
+                  <code>list of float</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Log-likelihood of every restart, in restart order. Failed restarts
+are recorded as <code>nan</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="synhydro.methods.generation.parametric.multisite_hmm.MultiSiteHMMGenerator.converged_">converged_</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether EM converged for the retained fit within <code>max_iterations</code>.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -7381,9 +7545,9 @@ Recommended: 1.0 for flows in standard units.</p>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">Q_annual</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">'annual_flows.csv'</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt;</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Initialize generator</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">gen</span> <span class="o">=</span> <span class="n">MultiSiteHMMGenerator</span><span class="p">(</span><span class="n">n_states</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">gen</span> <span class="o">=</span> <span class="n">MultiSiteHMMGenerator</span><span class="p">(</span><span class="n">n_states</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">gen</span><span class="o">.</span><span class="n">preprocessing</span><span class="p">(</span><span class="n">Q_annual</span><span class="p">)</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">gen</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">gen</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">&gt;&gt;&gt;</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Generate 100 realizations of 50 years each</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">ensemble</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">n_realizations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">n_years</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
@@ -7393,10 +7557,12 @@ Recommended: 1.0 for flows in standard units.</p>
 <details class="note" open>
   <summary>Notes</summary>
   <ul>
-<li>Designed for annual timestep data (can handle other frequencies)</li>
+<li>Annual timestep data only (<code>supported_frequencies = ("YS",)</code>)</li>
 <li>Log transformation ensures positive emissions</li>
 <li>Full covariance preserves spatial correlations between sites</li>
 <li>State ordering: states sorted by mean (low mean = dry state)</li>
+<li>EM can converge to local optima; use <code>n_init &gt; 1</code> and inspect
+  <code>log_likelihoods_</code> to check that restarts agree</li>
 </ul>
 </details>
         <p>Initialize the MultiSiteHMMGenerator.</p>
@@ -7438,7 +7604,10 @@ Recommended: 1.0 for flows in standard units.</p>
     <div class="doc doc-contents ">
 
         <p>Output frequency matches input frequency.</p>
-<p>Typically used for annual data ('YS' or 'AS'), but flexible.</p>
+<p>Typically used for annual data ('YS'), but flexible. Anchored
+annual aliases inferred by pandas (e.g. 'YS-JAN', 'AS-JAN') are
+normalized to 'YS' and monthly aliases to 'MS' so that the value
+matches the canonical <code>input_frequency</code> of disaggregators.</p>
 
     </div>
 
@@ -7569,8 +7738,13 @@ positive values for fitting.</p>
     <div class="doc doc-contents ">
 
         <p>Fit the multi-site HMM to observed data.</p>
-<p>Estimates hidden states, transition probabilities, state-specific means,
-and covariance matrices using the GMMHMM algorithm.</p>
+<p>Estimates transition probabilities, state-specific means, and
+covariance matrices with the Baum-Welch (EM) algorithm via hmmlearn's
+<code>GaussianHMM</code>.</p>
+<p>Runs <code>n_init</code> EM restarts from different random initializations and
+retains the fit with the highest log-likelihood. Restart seeds are
+derived deterministically from <code>random_state</code> so that the same
+<code>random_state</code> always yields the same fit.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7626,12 +7800,60 @@ automatically.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Additional fitting parameters. May include <code>random_state</code> for
-reproducible fitting.</p>
+                <p>Additional fitting parameters. May include <code>random_state</code> (int
+or None) for reproducible fitting.</p>
               </div>
             </td>
             <td>
                   <code>{}</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Warns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="UserWarning">UserWarning</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If EM did not converge within <code>max_iterations</code> for the retained
+fit, or if the restarts converged to different local optima
+(log-likelihood spread greater than 1 nat).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="RuntimeError">RuntimeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If every restart fails.</p>
+              </div>
             </td>
           </tr>
       </tbody>
@@ -8861,7 +9083,7 @@ global realization index.</p>
 
 
 <a href="#synhydro.methods.generation.hybrid.warm.WARMGenerator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WARMGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">wavelet</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'cmor1.5-1.0'</span><span class="p">,</span> <span class="n">scales</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_octaves</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_voices</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span> <span class="n">s0</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ar_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_ar_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">ar_select</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'fixed'</span><span class="p">,</span> <span class="n">bands</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">background_spectrum</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'red'</span><span class="p">,</span> <span class="n">significance_level</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">,</span> <span class="n">min_band_scales</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">noise_model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'ar_bootstrap'</span><span class="p">,</span> <span class="n">lower_bound</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WARMGenerator</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">wavelet</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'cmor1.5-1.0'</span><span class="p">,</span> <span class="n">scales</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_octaves</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_voices</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span> <span class="n">s0</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ar_order</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n_ar_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">ar_select</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ar_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'burg'</span><span class="p">,</span> <span class="n">sawp_resampling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'historical'</span><span class="p">,</span> <span class="n">bands</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">background_spectrum</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'white'</span><span class="p">,</span> <span class="n">significance_level</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">,</span> <span class="n">min_band_scales</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">noise_model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'ar_bootstrap'</span><span class="p">,</span> <span class="n">lower_bound</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -8880,24 +9102,39 @@ stationary signals (one per band plus a noise residual), and reverses the
 process to synthesize new traces with the same non-stationary spectral
 structure as the historic record.</p>
 <p>Significance of spectral peaks is assessed using the chi-squared
-background spectrum framework of Torrence and Compo (1998), with either a
-white-noise or AR(1) red-noise background.</p>
+background spectrum framework of Torrence and Compo (1998), against a
+white-noise background by default (as in Nowak et al., 2011) or an
+optional AR(1) red-noise background.</p>
 
 
 <details class="note" open>
   <summary>Notes</summary>
-  <p>The WARMGenerator is univariate. For multi-site simulation as described in
-Nowak et al. (2011, Section 2.4), apply this generator to an aggregate
-gauge time series and then disaggregate spatially using the proportional
-KNN method of Nowak et al. (2010), available in SynHydro as
-<code>synhydro.methods.disaggregation.spatial.NowakDisaggregator</code>.</p>
+  <p>The WARMGenerator is univariate. Nowak et al. (2011, Section 2.4) obtain
+multi-site traces by applying WARM to an aggregate gauge and then
+disaggregating the result spatially with the proportion (KNN analog)
+method of Nowak et al. (2010). That spatial proportion disaggregation is
+not implemented in SynHydro. The related
+<code>synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator</code>
+implements only the temporal (annual to daily) KNN disaggregation of
+Nowak et al. (2010) and does not perform the Section 2.4 spatial step.</p>
+<p>The autoregressive model of each band must be able to carry a spectral
+peak. An AR(1) process has a monotone spectrum and cannot, so the default
+order selection is AIC over <code>[1, n_ar_max]</code> (<code>ar_select='aic'</code>),
+which in practice picks an order of at least 2 for a quasi-periodic band.
+Passing <code>ar_order</code> explicitly without <code>ar_select</code> switches to a fixed
+order; <code>ar_order=1</code> reduces the band component to red noise and the
+observed spectral peak will not be reproduced.</p>
+<p>AR coefficients are estimated with Burg's recursion by default
+(<code>ar_method='burg'</code>). Yule-Walker estimates (<code>ar_method='yule_walker'</code>)
+are strongly biased toward damped poles for the narrow-band series
+produced by the band reconstruction and under-reproduce peak power.</p>
 </details>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">synhydro.methods.generation.hybrid.warm</span><span class="w"> </span><span class="kn">import</span> <span class="n">WARMGenerator</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">Q_annual</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">'annual_flows.csv'</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">warm</span> <span class="o">=</span> <span class="n">WARMGenerator</span><span class="p">(</span><span class="n">background_spectrum</span><span class="o">=</span><span class="s1">'red'</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">warm</span> <span class="o">=</span> <span class="n">WARMGenerator</span><span class="p">()</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">warm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Q_annual</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">ensemble</span> <span class="o">=</span> <span class="n">warm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">n_years</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">n_realizations</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span></code></pre></div>
@@ -8910,6 +9147,8 @@ Method (WARM) for multi-site streamflow simulation of data with
 non-stationary spectra. Journal of Hydrology, 410(1-2), 1-12.</p>
 <p>Torrence, C., and Compo, G.P. (1998). A practical guide to wavelet analysis.
 Bulletin of the American Meteorological Society, 79(1), 61-78.</p>
+<p>Kay, S.M., and Marple, S.L. (1981). Spectrum analysis: A modern
+perspective. Proceedings of the IEEE, 69(11), 1380-1419.</p>
 </details>
         <p>Initialize the WARM Generator.</p>
 
@@ -8935,9 +9174,11 @@ Bulletin of the American Meteorological Society, 79(1), 61-78.</p>
             <td>
               <div class="doc-md-description">
                 <p>Wavelet type for the continuous wavelet transform. The default
-complex Morlet (bandwidth=1.5, center frequency=1.0, equivalent to
-omega_0 = 2*pi ~= 6.28) matches the Nowak et al. (2011) and
-Torrence and Compo (1998) convention. Other PyWavelets continuous
+complex Morlet (bandwidth B=1.5, center frequency C=1.0; in the
+Torrence and Compo dimensionless convention omega_0 =
+2<em>pi</em>C*sqrt(B/2) ~= 5.44) is a close approximation to the
+omega_0 = 6 Morlet of Nowak et al. (2011) and Torrence and Compo
+(1998). Other PyWavelets continuous
 wavelets are accepted but use the cmor1.5-1.0 reconstruction
 constants and may produce slightly biased amplitudes.</p>
               </div>
@@ -9028,13 +9269,15 @@ corresponding to a Fourier period of approximately <code>2 * dt</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>Order of the autoregressive model fitted to each band's
-stationary component when <code>ar_select='fixed'</code>. Per Nowak et al.
-(2011), low-order AR models are usually adequate for the smooth
-band reconstructions.</p>
+stationary component and to the noise residual when
+<code>ar_select='fixed'</code>. If given and <code>ar_select</code> is <code>None</code>,
+<code>ar_select</code> defaults to <code>'fixed'</code>. Note that an AR(1) has a
+monotone spectrum and cannot reproduce a spectral peak; use an
+order of at least 2 for quasi-periodic bands.</p>
               </div>
             </td>
             <td>
-                  <code>1</code>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -9063,12 +9306,61 @@ band reconstructions.</p>
             <td>
               <div class="doc-md-description">
                 <p>Strategy for choosing AR order. <code>'fixed'</code> uses <code>ar_order</code> for
-every band. <code>'aic'</code> selects the order in <code>[1, n_ar_max]</code>
-minimizing Akaike's information criterion.</p>
+every component. <code>'aic'</code> selects the order in <code>[1, n_ar_max]</code>
+minimizing Akaike's information criterion. When <code>None</code>
+(default), <code>'fixed'</code> is used if <code>ar_order</code> was given and
+<code>'aic'</code> otherwise.</p>
               </div>
             </td>
             <td>
                   <code>&#39;fixed&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ar_method</code>
+            </td>
+            <td>
+                  <code>(<span title="burg">burg</span>, <span title="yule_walker">yule_walker</span>)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Estimator for the AR coefficients. <code>'burg'</code> uses Burg's
+recursion, which is guaranteed stable and much less biased than
+Yule-Walker for the narrow-band series produced by the band
+reconstruction; the innovation variance is then set so the
+model's stationary variance equals the sample variance.
+<code>'yule_walker'</code> reproduces the earlier behaviour.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;burg&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sawp_resampling</code>
+            </td>
+            <td>
+                  <code>(<span title="historical">historical</span>, <span title="random_offset">random_offset</span>)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How the historical SAWP envelope is re-applied at synthesis.
+<code>'historical'</code> (default) applies the historical SAWP in its
+observed order (cyclically extended if <code>n_years</code> exceeds the
+record), matching step (iii) of Nowak et al. (2011), so the
+ensemble reproduces the observed epoch timing of spectral power
+(their Fig. 7). <code>'random_offset'</code> reads the historical SAWP
+cyclically from a uniformly random starting year, so the timing
+of high- and low-power epochs is randomized across realizations
+and the ensemble-average local spectrum is stationary; use it
+when you do not want to condition on the historical epoch
+timing.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;historical&#39;</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -9096,18 +9388,20 @@ significant peaks in the global wavelet spectrum at the chosen
                 <code>background_spectrum</code>
             </td>
             <td>
-                  <code>(<span title="red">red</span>, <span title="white">white</span>)</code>
+                  <code>(<span title="white">white</span>, <span title="red">red</span>)</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>Background spectrum for the chi-squared significance test of
-Torrence and Compo (1998). <code>'red'</code> uses a theoretical AR(1)
-spectrum with lag-1 coefficient estimated from the record;
-<code>'white'</code> uses a flat spectrum.</p>
+Torrence and Compo (1998). <code>'white'</code> (default) uses a flat
+spectrum, matching the 95% white-noise test of Nowak et al.
+(2011); <code>'red'</code> uses a theoretical AR(1) spectrum with lag-1
+coefficient estimated from the record, a more conservative test
+for persistent records that may flag no band at all.</p>
               </div>
             </td>
             <td>
-                  <code>&#39;red&#39;</code>
+                  <code>&#39;white&#39;</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -9250,7 +9544,9 @@ Defaults to zero (the physical lower bound on streamflow).</p>
             <td>
               <div class="doc-md-description">
                 <p>If <code>ar_order</code> &lt; 1, <code>n_ar_max</code> &lt; 1, <code>ar_select</code> not in
-{'fixed', 'aic'}, <code>background_spectrum</code> not in {'red', 'white'},
+{'fixed', 'aic'}, <code>ar_method</code> not in {'burg', 'yule_walker'},
+<code>sawp_resampling</code> not in {'random_offset', 'historical'},
+<code>background_spectrum</code> not in {'red', 'white'},
 <code>significance_level</code> not in (0, 1), or <code>wavelet</code> not a
 recognized continuous wavelet.</p>
               </div>
@@ -9419,6 +9715,11 @@ permitted because WARM is univariate.</p>
    obtain a stationary series and fit an AR(p) model.</li>
 <li>Form the noise residual as the observed series minus the sum of all
    band reconstructions, and fit an AR model to it.</li>
+<li>Compute a per-band amplitude factor so that each re-enveloped
+   synthetic band reproduces the variance of its observed
+   reconstruction, and a total variance correction factor that
+   restores the cross-covariance between components lost under
+   independent simulation (Nowak et al. 2011, Eqs. 6-7).</li>
 </ol>
 
 
@@ -10321,8 +10622,10 @@ contains {'xi', 'alfa', 'k', 'h'}.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Per-site pre-CWT series (mean-centered or normal-score) of length N.
-Keyed by site name.</p>
+                <p>Per-site pre-CWT series of length N, keyed by site name. Despite the
+name, this holds the mean-centered series under the default
+transform='mean_center' and the normal-score series only when
+transform='normal_score'. The name is kept for backward compatibility.</p>
               </div>
             </td>
           </tr>
@@ -10703,8 +11006,11 @@ length after removal is not a multiple of 365.</p>
         <p>Fit the multisite wavelet phase randomization model.</p>
 <p>This method:
 1. Fits per-site, per-day-of-year kappa distributions using L-moments.
-2. Applies the normal score transform per site and day of year.
-3. Computes the CWT of each normal-score series and stores per-site
+2. Transforms each site's series for the CWT: subtracts the global
+   site mean (transform='mean_center', default, as in PRSim.wave) or
+   applies the per-day-of-year normal score transform
+   (transform='normal_score').
+3. Computes the CWT of each transformed series and stores per-site
    amplitude spectra.</p>
 
 
@@ -10956,12 +11262,14 @@ to the current state and selecting successor values with Lall-Sharma kernel weig
   <summary>References</summary>
   <p>Lall, U., and Sharma, A. (1996). A nearest neighbor bootstrap for resampling
 hydrologic time series. Water Resources Research, 32(3), 679-693.</p>
-<p>Prairie, J., Rajagopalan, B., Fulp, T., and Zagona, E. (2006). Modified K-NN
+</details>
+
+<details class="see-also" open>
+  <summary>See Also</summary>
+  <p>Prairie, J., Rajagopalan, B., Fulp, T., and Zagona, E. (2006). Modified K-NN
 model for stochastic streamflow simulation. Journal of Hydrologic Engineering,
-11(4), 371-378.</p>
-<p>Prairie, J., Nowak, K., Rajagopalan, B., Lall, U., and Fulp, T. (2008). A
-stochastic nonparametric approach for streamflow generation combining
-observational and paleoreconstructed data. Water Resources Research, 44, W06423.</p>
+11(4), 371-378. The modified KNN (local-polynomial conditional mean plus
+residual resampling) is not implemented; only the Lall-Sharma bootstrap is.</p>
 </details>
         <p>Initialize KNN Bootstrap generator.</p>
 
@@ -10987,7 +11295,10 @@ observational and paleoreconstructed data. Water Resources Research, 44, W06423.
             <td>
               <div class="doc-md-description">
                 <p>Number of neighbors K. If None, uses ceil(sqrt(n)) where n is the
-number of historical timesteps.</p>
+size of the searched sample (Lall and Sharma, 1996): for monthly
+data, n is the number of feature-successor pairs in each calendar
+month's pool, so K varies by month; for annual data, n is the
+number of feature-successor pairs (N - 1 for block_size=1).</p>
               </div>
             </td>
             <td>
@@ -11241,8 +11552,10 @@ the temporal frequency of the data.</p>
         <p>Fit KNN model(s) to preprocessed data.</p>
 <p>For monthly data, fits 12 separate KNN models, one per calendar
 month, so that the neighbor search is conditioned on month (Lall &amp;
-Sharma 1996; Prairie et al. 2006). For annual data, fits a single
-global model (Prairie et al. 2008).</p>
+Sharma 1996). When <code>n_neighbors</code> is None, each
+monthly model uses K_m = ceil(sqrt(n_m)) with n_m the size of that
+month's pool, following the Lall-Sharma heuristic applied to the
+searched sample. For annual data, fits a single global model.</p>
 <p>Also computes Lall-Sharma kernel weights for neighbor selection.</p>
 
 

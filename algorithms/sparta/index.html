@@ -957,6 +957,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#deviations-from-tsoukalas-et-al-2018" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deviations from Tsoukalas et al. (2018)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1544,6 +1553,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#deviations-from-tsoukalas-et-al-2018" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deviations from Tsoukalas et al. (2018)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1731,6 +1749,8 @@ z_s = \tilde{\rho}_s \, z_{s-1} + \sqrt{1 - \tilde{\rho}_s^2} \, w_s
 <li><strong>Equivalent cross-correlations:</strong> Nataf inversion for each (site pair, month).</li>
 <li><strong>PAR(1) matrices:</strong> Build <span class="arithmatex">\(\tilde{A}_s\)</span>, compute <span class="arithmatex">\(\tilde{G}_s\)</span>, Cholesky decompose to get <span class="arithmatex">\(\tilde{B}_s\)</span>.</li>
 </ol>
+<p><strong>Input handling.</strong> Daily or weekly input is summed to monthly totals before fitting. Season-to-season correlations (step 2) are computed on an <span class="arithmatex">\((N \times 12)\)</span> calendar matrix whose column 0 is January; partial calendar years at either end of the record are trimmed for this step with a logged warning (at least two complete January-to-December years are required), while marginals and cross-correlations (steps 1 and 3) use every available month. Records may therefore start in any month.</p>
+<p><strong>Repair of <span class="arithmatex">\(\tilde{G}_s\)</span>.</strong> When the Cholesky factorization of <span class="arithmatex">\(\tilde{G}_s\)</span> fails (for instance when the equivalent cross-correlations of adjacent months are inconsistent), <span class="arithmatex">\(\tilde{G}_s\)</span> is made positive definite by clipping its eigenvalues at <span class="arithmatex">\(10^{-8}\)</span> (<code>matrix_repair_method="spectral"</code>, default). Because <span class="arithmatex">\(\tilde{G}_s\)</span> is a covariance whose diagonal <span class="arithmatex">\(1 - (\tilde{\rho}_s^i)^2\)</span> fixes the innovation variance, it is <em>not</em> rescaled to unit diagonal; other <code>matrix_repair_method</code> values repair the correlation form of <span class="arithmatex">\(\tilde{G}_s\)</span> and restore its diagonal. The repair perturbs the off-diagonal structure slightly, so the cross-correlation of that month is reproduced only approximately.</p>
 <h3 id="synthesis-procedure">Synthesis Procedure<a class="headerlink" href="#synthesis-procedure" title="Permanent link">&para;</a></h3>
 <ol>
 <li>
@@ -1750,13 +1770,21 @@ z_s = \tilde{\rho}_s \, z_{s-1} + \sqrt{1 - \tilde{\rho}_s^2} \, w_s
 <div class="arithmatex">\[
 x_{s,t}^i = F_{x_s^i}^{-1}\!\left(\Phi(z_{s,t}^i)\right)
 \]</div>
+<p>Generated output is dated from January of the first observed year, so position 0 of each realization is always January regardless of the observed start month.</p>
+<h3 id="deviations-from-tsoukalas-et-al-2018">Deviations from Tsoukalas et al. (2018)<a class="headerlink" href="#deviations-from-tsoukalas-et-al-2018" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Nataf inversion.</strong> Equivalent correlations are obtained with Gauss-Hermite quadrature on a grid of support points followed by polynomial/interpolation inversion (<code>nataf_method="GH"</code>, default), consistent with the anySim R package rather than the Monte-Carlo polynomial fit described in the paper. <code>"MC"</code> and <code>"Int"</code> are available as alternatives. Gauss-Hermite quadrature is less accurate for discrete or zero-inflated marginals (a point mass at zero is not well resolved by the quadrature nodes); use <code>nataf_method="MC"</code> or <code>"Int"</code> in that case.</li>
+<li><strong>Initial state and burn-in.</strong> Following SimSPARTA.R, the univariate recursion starts from <span class="arithmatex">\(z_{1,1} = w_{1,1}\)</span> and the multivariate recursion from <span class="arithmatex">\(\mathbf{z}_{1,1} = \tilde{B}_1 \mathbf{w}_{1,1}\)</span> (covariance <span class="arithmatex">\(\tilde{G}_1\)</span> rather than <span class="arithmatex">\(\tilde{C}_1\)</span>). No burn-in is discarded; the effect is confined to the first few months of each realization.</li>
+<li><strong>Marginal families.</strong> Only gamma and lognormal marginals (BIC-selected by maximum likelihood, location fixed at zero) are implemented, whereas the paper's case studies fit Pearson type III marginals by the method of moments. The sample size used in BIC counts all values; this does not affect the selection because both candidates have two parameters.</li>
+<li><strong>Zero flows.</strong> Observed zeros are excluded from the marginal fit for their (month, site) pair: preprocessing clips the stored record to a floor of <span class="arithmatex">\(10^{-6}\)</span>, and any value at or below that floor is dropped before the gamma/lognormal MLE, so the fitted parameters describe the positive flows only. If fewer than five positive values remain, an exponential marginal with the month's mean is used instead. Because the fitted marginals are strictly positive, the generator never produces zeros; months with intermittent (zero-inflated) flow are therefore not explicitly modeled, and their dry-month frequency will not be reproduced. Season-to-season and cross-correlations (steps 2 and 3) are computed on the clipped record, so zeros do contribute to the correlation targets.</li>
+</ul>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
 <p>SPARTA exactly preserves the target marginal distribution at each (month, site) by construction. Lag-1 season-to-season autocorrelations are preserved through the PAR(1) structure and Nataf inversion. Lag-0 cross-correlations across sites are preserved per month. Higher-order autocorrelations (lag &gt; 1) are not explicitly modeled but emerge from the PAR(1) chain.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Only lag-1 autocorrelation is explicitly modeled. Long-range dependence requires SMARTA or higher-order PAR.</li>
 <li>Per-season Nataf inversion is computationally intensive: <span class="arithmatex">\(S \times (m + m(m-1)/2)\)</span> inversions.</li>
-<li>Innovation covariance <span class="arithmatex">\(\tilde{G}_s\)</span> may not be positive-definite when sites have very different distributions or autocorrelation strengths across seasons.</li>
+<li>Innovation covariance <span class="arithmatex">\(\tilde{G}_s\)</span> may not be positive-definite when sites have very different distributions or autocorrelation strengths across seasons; it is then repaired by eigenvalue clipping (see above), which slightly perturbs the cross-correlation of that month.</li>
 <li>The model assumes cyclostationarity (same seasonal pattern every year). Trends or regime shifts are not modeled.</li>
 <li>Only lag-0 cross-correlations are explicitly preserved; lagged cross-correlations emerge implicitly.</li>
 </ul>

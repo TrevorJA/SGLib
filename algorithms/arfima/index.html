@@ -918,18 +918,27 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#estimation-of-d" class="md-nav__link">
+  <a href="#joint-approximate-maximum-likelihood-default-d_methodmle" class="md-nav__link">
     <span class="md-ellipsis">
-      Estimation of \(d\)
+      Joint approximate maximum likelihood (default, d_method='mle')
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#armap-q-fitting" class="md-nav__link">
+  <a href="#order-selection" class="md-nav__link">
     <span class="md-ellipsis">
-      ARMA(p, q) Fitting
+      Order selection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-stage-estimators-d_methodwhittle-gph-rs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Two-stage estimators (d_method='whittle', 'gph', 'rs')
     </span>
   </a>
   
@@ -944,6 +953,15 @@
   <a href="#synthesis-procedure" class="md-nav__link">
     <span class="md-ellipsis">
       Synthesis Procedure
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deviations-from-hosking-1984" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deviations from Hosking (1984)
     </span>
   </a>
   
@@ -1543,18 +1561,27 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#estimation-of-d" class="md-nav__link">
+  <a href="#joint-approximate-maximum-likelihood-default-d_methodmle" class="md-nav__link">
     <span class="md-ellipsis">
-      Estimation of \(d\)
+      Joint approximate maximum likelihood (default, d_method='mle')
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#armap-q-fitting" class="md-nav__link">
+  <a href="#order-selection" class="md-nav__link">
     <span class="md-ellipsis">
-      ARMA(p, q) Fitting
+      Order selection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-stage-estimators-d_methodwhittle-gph-rs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Two-stage estimators (d_method='whittle', 'gph', 'rs')
     </span>
   </a>
   
@@ -1569,6 +1596,15 @@
   <a href="#synthesis-procedure" class="md-nav__link">
     <span class="md-ellipsis">
       Synthesis Procedure
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deviations-from-hosking-1984" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deviations from Hosking (1984)
     </span>
   </a>
   
@@ -1649,7 +1685,7 @@
 </tbody>
 </table>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The ARFIMA(p, d, q) model extends classical ARMA by allowing the differencing parameter <span class="arithmatex">\(d\)</span> to take fractional values in <span class="arithmatex">\((0, 0.5)\)</span>. This enables the model to reproduce the long-range dependence (Hurst phenomenon) observed in many hydrologic time series, where the autocorrelation function decays hyperbolically rather than exponentially. The short-memory ARMA(p, q) component captures local temporal structure, while the fractional integration parameter <span class="arithmatex">\(d\)</span> governs the rate of low-frequency spectral divergence. The relationship <span class="arithmatex">\(H = d + 0.5\)</span> links the model directly to the Hurst exponent.</p>
+<p>The ARFIMA(p, d, q) model extends classical ARMA by allowing the differencing parameter <span class="arithmatex">\(d\)</span> to take fractional values in <span class="arithmatex">\((-0.5, 0.5)\)</span>; persistence (the Hurst phenomenon) corresponds to <span class="arithmatex">\(d &gt; 0\)</span>. This enables the model to reproduce the long-range dependence (Hurst phenomenon) observed in many hydrologic time series, where the autocorrelation function decays hyperbolically rather than exponentially. The short-memory ARMA(p, q) component captures local temporal structure, while the fractional integration parameter <span class="arithmatex">\(d\)</span> governs the rate of low-frequency spectral divergence. The relationship <span class="arithmatex">\(H = d + 0.5\)</span> links the model directly to the Hurst exponent.</p>
 <h2 id="notation">Notation<a class="headerlink" href="#notation" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1685,7 +1721,7 @@
 </tr>
 <tr>
 <td><span class="arithmatex">\(d\)</span></td>
-<td>Fractional differencing parameter, <span class="arithmatex">\(d \in (0, 0.5)\)</span></td>
+<td>Fractional differencing parameter, <span class="arithmatex">\(d \in (-0.5, 0.5)\)</span></td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(H\)</span></td>
@@ -1721,7 +1757,15 @@
 </tr>
 <tr>
 <td><span class="arithmatex">\(K\)</span></td>
-<td>Truncation lag for the infinite coefficient series</td>
+<td>Truncation lag for the infinite coefficient series (generation side)</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(M\)</span></td>
+<td>Number of backcast presample values (default 30)</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(e_t\)</span></td>
+<td>One-step ARMA innovation (residual)</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(\mu_m, \sigma_m\)</span></td>
@@ -1739,7 +1783,7 @@
 <div class="arithmatex">\[
 \Phi(B)\,(1 - B)^d\,X_t = \Theta(B)\,\varepsilon_t
 \]</div>
-<p>where <span class="arithmatex">\(\Phi(B) = 1 - \phi_1 B - \cdots - \phi_p B^p\)</span> is the AR polynomial, <span class="arithmatex">\(\Theta(B) = 1 + \theta_1 B + \cdots + \theta_q B^q\)</span> is the MA polynomial, and <span class="arithmatex">\((1 - B)^d\)</span> is the fractional differencing operator. The process is stationary and invertible when <span class="arithmatex">\(0 &lt; d &lt; 0.5\)</span> and the roots of <span class="arithmatex">\(\Phi\)</span> and <span class="arithmatex">\(\Theta\)</span> lie outside the unit circle.</p>
+<p>where <span class="arithmatex">\(\Phi(B) = 1 - \phi_1 B - \cdots - \phi_p B^p\)</span> is the AR polynomial, <span class="arithmatex">\(\Theta(B) = 1 + \theta_1 B + \cdots + \theta_q B^q\)</span> is the MA polynomial, and <span class="arithmatex">\((1 - B)^d\)</span> is the fractional differencing operator. The process is stationary and invertible when <span class="arithmatex">\(-0.5 &lt; d &lt; 0.5\)</span> and the roots of <span class="arithmatex">\(\Phi\)</span> and <span class="arithmatex">\(\Theta\)</span> lie outside the unit circle.</p>
 <p>The fractional differencing operator is expanded as an infinite-order filter:</p>
 <div class="arithmatex">\[
 (1 - B)^d = \sum_{k=0}^{\infty} \pi_k\,B^k
@@ -1748,11 +1792,15 @@
 <div class="arithmatex">\[
 \pi_0 = 1, \qquad \pi_k = \pi_{k-1} \cdot \frac{k - 1 - d}{k}, \quad k \geq 1
 \]</div>
-<p>In practice, the sum is truncated at lag <span class="arithmatex">\(K\)</span> (default 100). Application of this filter yields the fractionally differenced series:</p>
+<p>Hosking (1984) writes the exact operator applied to an observed record as Eq. 7, which involves the unobserved presample values <span class="arithmatex">\(X_0, X_{-1}, \ldots\)</span>. Replacing all presample values by the mean gives his Eq. 8,</p>
 <div class="arithmatex">\[
-W_t = \sum_{k=0}^{K} \pi_k\,X_{t-k}
+\nabla_0^d X_t = \sum_{j=0}^{t-1} \pi_j X_{t-j},
 \]</div>
-<p>which, under the ARFIMA model, follows a stationary ARMA(p, q) process.</p>
+<p>and replacing only the values before <span class="arithmatex">\(t = -M\)</span> by the mean while backcasting <span class="arithmatex">\(X_{-M}, \ldots, X_{-1}\)</span> gives Eq. 9,</p>
+<div class="arithmatex">\[
+W_t = \nabla_M^d X_t = \sum_{j=0}^{t+M-1} \pi_j X_{t-j}, \qquad t = 1, \ldots, N.
+\]</div>
+<p>Under the ARFIMA model, <span class="arithmatex">\(\{W_t\}\)</span> follows a stationary zero-mean ARMA(p, q) process. The default estimator uses Eq. 9 with <span class="arithmatex">\(M = 30\)</span> (the value Hosking adopts after the sensitivity study in his Table 1) and the full-length filter; the two-stage estimators use Eq. 8 truncated at lag <span class="arithmatex">\(K\)</span>.</p>
 <h3 id="preprocessing">Preprocessing<a class="headerlink" href="#preprocessing" title="Permanent link">&para;</a></h3>
 <p>Fitting an ARFIMA model with Gaussian innovations directly on raw streamflow produces unphysical negative simulated values, and clipping these to zero introduces upward bias in the mean and distorts the marginal distribution (Stedinger and Taylor, 1982; Salas et al., 1980). The implemented preprocessing applies a two-stage transformation so that the back-transformed synthetic series is strictly positive by construction.</p>
 <p><strong>Stage 1 -- shifted-log transformation</strong> (Stedinger and Taylor, 1982). For each calendar month <span class="arithmatex">\(m\)</span> a lower bound <span class="arithmatex">\(\tau_m\)</span> is estimated:</p>
@@ -1769,43 +1817,125 @@ X_t = \frac{Y_t - \mu_{m(t)}}{\sigma_{m(t)}}
 \]</div>
 <p>For annual data (<span class="arithmatex">\(_\text{is\_monthly} = \text{False}\)</span>), the same two stages are applied with a single global <span class="arithmatex">\(\tau\)</span>, <span class="arithmatex">\(\mu\)</span>, and <span class="arithmatex">\(\sigma\)</span> (no per-month branching).</p>
 <h3 id="parameter-estimation">Parameter Estimation<a class="headerlink" href="#parameter-estimation" title="Permanent link">&para;</a></h3>
-<h4 id="estimation-of-d">Estimation of <span class="arithmatex">\(d\)</span><a class="headerlink" href="#estimation-of-d" title="Permanent link">&para;</a></h4>
-<p>Three frequency-domain estimators are available:</p>
-<p><strong>Whittle estimator</strong> (Fox and Taqqu, 1986). The spectral density of the fractional differencing component is:</p>
+<h4 id="joint-approximate-maximum-likelihood-default-d_methodmle">Joint approximate maximum likelihood (default, <code>d_method='mle'</code>)<a class="headerlink" href="#joint-approximate-maximum-likelihood-default-d_methodmle" title="Permanent link">&para;</a></h4>
+<p>Hosking (1984, Sec. 4.2) estimates <span class="arithmatex">\(d\)</span> and the ARMA coefficients jointly. The exact Gaussian likelihood (his Eq. 5) requires inverting the <span class="arithmatex">\(N \times N\)</span> covariance matrix at every iteration and is impractical beyond <span class="arithmatex">\(N \approx 100\)</span>, so the likelihood of <span class="arithmatex">\(X\)</span> is approximated by the likelihood of the fractionally differenced series (Eq. 6):</p>
 <div class="arithmatex">\[
-f(\omega;\,d) \propto \left[2(1 - \cos \omega)\right]^{-d}
+\tilde{L}(X;\, d, \phi, \theta, \sigma_\varepsilon^2) = L_{\text{ARMA}}(W(d);\, \phi, \theta, \sigma_\varepsilon^2), \qquad W_t(d) = \nabla_M^d X_t .
 \]</div>
-<p>The Whittle likelihood is minimized over <span class="arithmatex">\(d \in [0.01,\,0.49]\)</span>:</p>
+<p>The dependence on <span class="arithmatex">\(d\)</span> enters only through the differenced series <span class="arithmatex">\(W(d)\)</span>, and for a given <span class="arithmatex">\(W\)</span> the ARMA likelihood can be evaluated by any standard algorithm. The Jacobian of <span class="arithmatex">\(X \to W\)</span> is ignored (it is close to one unless <span class="arithmatex">\(d\)</span> is near <span class="arithmatex">\(0.5\)</span> and is asymptotically negligible).</p>
+<p>The implementation evaluates <span class="arithmatex">\(\tilde{L}\)</span> as follows. Let <span class="arithmatex">\(X_t\)</span> be the standardized series with its sample mean removed (<span class="arithmatex">\(\hat{\mu}\)</span> is the sample mean rather than a free likelihood parameter; the per-period standardization already centres <span class="arithmatex">\(X_t\)</span>).</p>
+<ol>
+<li><strong>Backcasting (Eq. 9).</strong> An AR(<span class="arithmatex">\(M\)</span>) model is fitted to <span class="arithmatex">\(X_t\)</span> by Yule-Walker, and the time-reversed series is forecast <span class="arithmatex">\(M\)</span> steps ahead to obtain <span class="arithmatex">\(\hat{X}_{-M}, \ldots, \hat{X}_{-1}\)</span> (Box and Jenkins, 1976, p. 199; a stationary Gaussian process is time-reversible). <span class="arithmatex">\(M\)</span> = <code>backcast_length</code> (default 30, reduced to <span class="arithmatex">\(\lfloor N/4 \rfloor\)</span> for short records; <code>backcast_length=0</code> gives Eq. 8). The backcasts do not depend on <span class="arithmatex">\(d\)</span> and are computed once.</li>
+<li><strong>Fractional differencing.</strong> For a candidate <span class="arithmatex">\(d\)</span>, <span class="arithmatex">\(W_t(d)\)</span> is computed from the extended series <span class="arithmatex">\((\hat{X}_{-M}, \ldots, \hat{X}_{-1}, X_1, \ldots, X_N)\)</span> with the full-length <span class="arithmatex">\(\pi_j(d)\)</span> filter (no truncation at <span class="arithmatex">\(K\)</span>).</li>
+<li><strong>ARMA innovations.</strong> The one-step innovations are obtained from the recursion with zero presample values,</li>
+</ol>
 <div class="arithmatex">\[
-\hat{d} = \arg\min_d \sum_{j=1}^{n/2} \left[\ln f(\omega_j;\,d) + \frac{I(\omega_j)}{f(\omega_j;\,d)}\right]
+e_t = W_t - \sum_{k=1}^{p} \phi_k W_{t-k} - \sum_{j=1}^{q} \theta_j e_{t-j},
 \]</div>
-<p>where <span class="arithmatex">\(I(\omega_j)\)</span> is the periodogram at Fourier frequency <span class="arithmatex">\(\omega_j = 2\pi j / n\)</span>.</p>
-<p><strong>GPH log-periodogram regression</strong> (Geweke and Porter-Hudak, 1983). Using the <span class="arithmatex">\(m = \lfloor\sqrt{n}\rfloor\)</span> lowest Fourier frequencies:</p>
+<p>and the ARMA likelihood is replaced by its conditional-sum-of-squares (CSS) form, so that maximizing <span class="arithmatex">\(\tilde{L}\)</span> is equivalent to</p>
 <div class="arithmatex">\[
-\ln I(\omega_j) = c - d\,\ln\!\left[2(1 - \cos \omega_j)\right] + u_j
+(\hat{d}, \hat{\phi}, \hat{\theta}) = \arg\min_{d, \phi, \theta} \; \sum_{t = p+1}^{N} e_t(d, \phi, \theta)^2 .
 \]</div>
-<p>The OLS slope estimate of the regressor yields <span class="arithmatex">\(\hat{d}\)</span>.</p>
-<p><strong>Rescaled range (R/S) analysis.</strong> The Hurst exponent <span class="arithmatex">\(H\)</span> is estimated via log-linear regression of the R/S statistic against subsample size, and then <span class="arithmatex">\(\hat{d} = \hat{H} - 0.5\)</span>.</p>
-<h4 id="armap-q-fitting">ARMA(p, q) Fitting<a class="headerlink" href="#armap-q-fitting" title="Permanent link">&para;</a></h4>
-<p>After fractional differencing, the series <span class="arithmatex">\(\{W_t\}\)</span> is modeled as ARMA(p, q).</p>
-<p>For pure AR models (<span class="arithmatex">\(q = 0\)</span>), the Yule-Walker equations are solved. Let <span class="arithmatex">\(\gamma_k = \text{Cov}(W_t, W_{t-k})\)</span> denote the autocovariance at lag <span class="arithmatex">\(k\)</span>. The AR coefficients satisfy:</p>
+<ol>
+<li><strong>Optimisation.</strong> L-BFGS-B over <span class="arithmatex">\(d \in\)</span> <code>d_bounds</code> (default <span class="arithmatex">\((-0.49, 0.49)\)</span>, the stationary-invertible range of Hosking's model; use <span class="arithmatex">\((0.01, 0.49)\)</span> to force persistence) and coefficients in <span class="arithmatex">\((-0.99, 0.99)\)</span>, with candidate ARMA polynomials whose roots lie on or inside the unit circle rejected. The search starts from the profile Whittle estimate of <span class="arithmatex">\(d\)</span> (below) and from <span class="arithmatex">\(d_0 \in \{0.1, 0.3\}\)</span>, with ARMA coefficients at zero, and keeps the best local optimum. The innovation variance <span class="arithmatex">\(\hat{\sigma}_\varepsilon^2\)</span> is the variance of <span class="arithmatex">\(e_t\)</span>, <span class="arithmatex">\(t &gt; \max(p, q, 1)\)</span>, at the optimum.</li>
+</ol>
+<p>The ARMA part is estimated by CSS rather than the exact ARMA likelihood (Hosking used Ansley's, 1979, algorithm). The two are asymptotically equivalent and Hosking notes (Sec. 4.3) that the approximate-versus-exact differences he observed were "the same as, or perhaps slightly larger than, one observes between the conditional least squares and exact ML methods of estimating an ARMA(p, q) model".</p>
+<p><strong>Behaviour on simulated data.</strong> The table below reports the mean (standard deviation) of <span class="arithmatex">\(\hat{d}\)</span> and of the ARMA coefficient over 30 exact ARFIMA samples of length <span class="arithmatex">\(N = 600\)</span> (generated by Cholesky factorisation of the autocovariance computed from Hosking's Eq. 3), for the default joint estimator and for the two-stage Whittle procedure (<code>d_method='whittle'</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Two-stage <span class="arithmatex">\(\hat{d}\)</span></th>
+<th>Two-stage coef.</th>
+<th>Joint <span class="arithmatex">\(\hat{d}\)</span></th>
+<th>Joint coef.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ARFIMA(1, 0.20, 0), <span class="arithmatex">\(\phi = 0.5\)</span></td>
+<td>0.490 (0.000)</td>
+<td>0.20 (0.03)</td>
+<td>0.116 (0.135)</td>
+<td>0.56 (0.12)</td>
+</tr>
+<tr>
+<td>ARFIMA(1, 0.20, 0), <span class="arithmatex">\(\phi = -0.3\)</span></td>
+<td>0.029 (0.024)</td>
+<td>-0.14 (0.03)</td>
+<td>0.175 (0.060)</td>
+<td>-0.29 (0.07)</td>
+</tr>
+<tr>
+<td>ARFIMA(1, 0.35, 0), <span class="arithmatex">\(\phi = 0.5\)</span></td>
+<td>0.490 (0.000)</td>
+<td>0.34 (0.03)</td>
+<td>0.265 (0.144)</td>
+<td>0.56 (0.13)</td>
+</tr>
+<tr>
+<td>ARFIMA(1, 0.35, 0), <span class="arithmatex">\(\phi = -0.3\)</span></td>
+<td>0.172 (0.037)</td>
+<td>-0.13 (0.03)</td>
+<td>0.327 (0.058)</td>
+<td>-0.29 (0.06)</td>
+</tr>
+<tr>
+<td>ARFIMA(0, 0.20, 1), <span class="arithmatex">\(\theta = 0.5\)</span></td>
+<td>0.474 (0.017)</td>
+<td>0.30 (0.05)</td>
+<td>0.185 (0.049)</td>
+<td>0.49 (0.05)</td>
+</tr>
+<tr>
+<td>ARFIMA(0, 0.20, 1), <span class="arithmatex">\(\theta = -0.3\)</span></td>
+<td>0.019 (0.016)</td>
+<td>-0.11 (0.03)</td>
+<td>0.161 (0.078)</td>
+<td>-0.27 (0.08)</td>
+</tr>
+<tr>
+<td>ARFIMA(0, 0.35, 1), <span class="arithmatex">\(\theta = 0.5\)</span></td>
+<td>0.490 (0.000)</td>
+<td>0.40 (0.04)</td>
+<td>0.334 (0.050)</td>
+<td>0.49 (0.05)</td>
+</tr>
+<tr>
+<td>ARFIMA(0, 0.35, 1), <span class="arithmatex">\(\theta = -0.3\)</span></td>
+<td>0.148 (0.038)</td>
+<td>-0.09 (0.02)</td>
+<td>0.316 (0.076)</td>
+<td>-0.28 (0.08)</td>
+</tr>
+</tbody>
+</table>
+<p>The two-stage estimate of <span class="arithmatex">\(d\)</span> absorbs the short-memory structure (it hits the upper bound for a positive AR or MA root and collapses towards zero for a negative root) and the ARMA coefficient fitted to the residual is correspondingly shrunk. The joint estimator recovers both parameters. The one case with a noticeable remaining bias, ARFIMA(1, d, 0) with <span class="arithmatex">\(\phi = 0.5\)</span>, reflects the weak separate identifiability of <span class="arithmatex">\(d\)</span> and a positive AR(1) root at this sample size (<span class="arithmatex">\(\hat{d} + \hat{\phi}\)</span> is well determined while the split is not): the exact Gaussian maximum likelihood estimator evaluated on the same samples gives <span class="arithmatex">\(\hat{d} = 0.135\)</span> (sd 0.11) for <span class="arithmatex">\(d = 0.2\)</span>, so this is a property of the likelihood, not of the approximation.</p>
+<h4 id="order-selection">Order selection<a class="headerlink" href="#order-selection" title="Permanent link">&para;</a></h4>
+<p>When <code>auto_order=True</code>, the joint fit is repeated for every <span class="arithmatex">\((p, q) \in \{0, 1, 2\}^2\)</span> and the order minimising an information criterion is selected. Hosking (Sec. 5.1) uses</p>
 <div class="arithmatex">\[
-\begin{pmatrix} \gamma_0 &amp; \gamma_1 &amp; \cdots &amp; \gamma_{p-1} \\ \gamma_1 &amp; \gamma_0 &amp; \cdots &amp; \gamma_{p-2} \\ \vdots &amp; &amp; \ddots &amp; \vdots \\ \gamma_{p-1} &amp; \gamma_{p-2} &amp; \cdots &amp; \gamma_0 \end{pmatrix} \begin{pmatrix} \phi_1 \\ \phi_2 \\ \vdots \\ \phi_p \end{pmatrix} = \begin{pmatrix} \gamma_1 \\ \gamma_2 \\ \vdots \\ \gamma_p \end{pmatrix}
+\text{AIC} = -2 \ln L_{\max} + 2 \ln L_0 + 2\,(p + q + \delta_d),
 \]</div>
-<p>For mixed ARMA (<span class="arithmatex">\(q &gt; 0\)</span>), the conditional sum of squares (CSS) method is used. The one-step-ahead prediction errors are:</p>
+<p>where <span class="arithmatex">\(L_0\)</span> is the likelihood of a white-noise model and <span class="arithmatex">\(\delta_d = 1\)</span> if <span class="arithmatex">\(d\)</span> is estimated. With Gaussian innovations <span class="arithmatex">\(-2 \ln L_{\max} = n_{\text{eff}} \ln \hat{\sigma}_\varepsilon^2 + \text{const}\)</span>, and the <span class="arithmatex">\(L_0\)</span> term is common to all candidates, so the implemented criterion is</p>
 <div class="arithmatex">\[
-e_t = W_t - \sum_{k=1}^{p} \phi_k W_{t-k} - \sum_{j=1}^{q} \theta_j e_{t-j}
+\text{AIC} \doteq n_{\text{eff}} \ln \hat{\sigma}_\varepsilon^2 + 2\,(p + q + 1), \qquad
+\text{BIC} \doteq n_{\text{eff}} \ln \hat{\sigma}_\varepsilon^2 + (p + q + 1) \ln n_{\text{eff}},
 \]</div>
-<p>and the parameters are estimated by minimizing <span class="arithmatex">\(\sum_t e_t^2\)</span> via L-BFGS-B with coefficient bounds <span class="arithmatex">\((-0.99, 0.99)\)</span> to enforce stationarity and invertibility.</p>
-<p>When automatic order selection is enabled, a grid search over <span class="arithmatex">\(p \in \{0, 1, 2\}\)</span> and <span class="arithmatex">\(q \in \{0, 1, 2\}\)</span> is performed, selecting the combination that minimizes the Bayesian Information Criterion:</p>
+<p>with <span class="arithmatex">\(\hat{\sigma}_\varepsilon^2\)</span> evaluated on the common sample <span class="arithmatex">\(t \geq 3\)</span> (<span class="arithmatex">\(n_{\text{eff}} = N - 2\)</span>) so that all candidates are compared on the same residuals. <code>order_criterion='aic'</code> (default) follows Hosking; <code>'bic'</code> is available because it is consistent for ARFIMA order selection (Huang et al., 2022). <span class="arithmatex">\(d\)</span> is estimated in every candidate, so <span class="arithmatex">\(\delta_d\)</span> is constant across the grid; models with <span class="arithmatex">\(d\)</span> fixed at zero are not included in the search.</p>
+<h4 id="two-stage-estimators-d_methodwhittle-gph-rs">Two-stage estimators (<code>d_method='whittle'</code>, <code>'gph'</code>, <code>'rs'</code>)<a class="headerlink" href="#two-stage-estimators-d_methodwhittle-gph-rs" title="Permanent link">&para;</a></h4>
+<p>These estimate <span class="arithmatex">\(d\)</span> from the series alone, then apply Eq. 8 truncated at <span class="arithmatex">\(K\)</span> and fit the ARMA part to the residual <span class="arithmatex">\(W_t\)</span> (Yule-Walker for pure AR, CSS for mixed ARMA, with the same order-selection criterion applied to the differenced series when <code>auto_order=True</code>). They are retained for comparison and for the <code>whittle</code> starting value of the joint fit; as the table above shows, their <span class="arithmatex">\(\hat{d}\)</span> is contaminated whenever <span class="arithmatex">\(p + q &gt; 0\)</span> (Hosking's Table 4 illustrates the same effect on the Nile flows).</p>
+<p><strong>Profile Whittle</strong> (Fox and Taqqu, 1986). With <span class="arithmatex">\(g(\omega;\,d) = [2(1 - \cos \omega)]^{-d}\)</span>, the ARFIMA(0, d, 0) spectral shape, and the scale profiled out,</p>
 <div class="arithmatex">\[
-\text{BIC} = n_{\text{eff}} \ln(\hat{\sigma}_\varepsilon^2) + (p + q) \ln(n_{\text{eff}})
+\hat{d} = \arg\min_{d \in [0.01, 0.49]} \left\{ m \ln\!\left[\frac{1}{m}\sum_{j=1}^{m} \frac{I(\omega_j)}{g(\omega_j;\,d)}\right] + \sum_{j=1}^{m} \ln g(\omega_j;\,d) \right\},
 \]</div>
+<p>where <span class="arithmatex">\(I(\omega_j)\)</span> is the periodogram at the <span class="arithmatex">\(m = \lfloor N/2 \rfloor - 1\)</span> Fourier frequencies. The profile form is invariant to the scale of <span class="arithmatex">\(X_t\)</span>; the non-profiled form with the scale fixed at one biases <span class="arithmatex">\(\hat{d}\)</span> upward by <span class="arithmatex">\(+0.04\)</span> to <span class="arithmatex">\(+0.06\)</span>.</p>
+<p><strong>GPH log-periodogram regression</strong> (Geweke and Porter-Hudak, 1983). OLS of <span class="arithmatex">\(\ln I(\omega_j)\)</span> on <span class="arithmatex">\(-\ln[2(1 - \cos \omega_j)]\)</span> over the <span class="arithmatex">\(\lfloor\sqrt{N}\rfloor\)</span> lowest Fourier frequencies. The implementation regresses on <span class="arithmatex">\(+\ln[2(1 - \cos \omega_j)]\)</span> and negates the slope, which is equivalent.</p>
+<p><strong>Rescaled range (R/S).</strong> <span class="arithmatex">\(\hat{d} = \hat{H} - 0.5\)</span> with <span class="arithmatex">\(\hat{H}\)</span> from a log-linear regression of the R/S statistic on subsample size.</p>
 <h3 id="synthesis-procedure">Synthesis Procedure<a class="headerlink" href="#synthesis-procedure" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Estimate <span class="arithmatex">\(\hat{d}\)</span> and compute the fractional differencing coefficients <span class="arithmatex">\(\{\pi_k\}\)</span>.</li>
-<li>Apply fractional differencing to obtain <span class="arithmatex">\(\{W_t\}\)</span> and fit the ARMA(p, q) model.</li>
-<li>Generate synthetic ARMA innovations and the differenced series:</li>
+<li>Estimate <span class="arithmatex">\((\hat{d}, \hat{\phi}, \hat{\theta}, \hat{\sigma}_\varepsilon^2)\)</span> as described above.</li>
+<li>Compute the inverse fractional differencing coefficients <span class="arithmatex">\(\{\psi_k\}\)</span>, <span class="arithmatex">\(k = 0, \ldots, K\)</span>.</li>
+<li>Generate <span class="arithmatex">\(n + n_{\text{burn}}\)</span> synthetic ARMA innovations and the differenced series, where <span class="arithmatex">\(n_{\text{burn}} = K + \max(50, 10\max(p, q))\)</span>:</li>
 </ol>
 <div class="arithmatex">\[
 \hat{W}_t = \sum_{k=1}^{p} \hat{\phi}_k \hat{W}_{t-k} + \sum_{j=1}^{q} \hat{\theta}_j \varepsilon_{t-j} + \varepsilon_t, \qquad \varepsilon_t \sim \mathcal{N}(0, \hat{\sigma}_\varepsilon^2)
@@ -1821,20 +1951,29 @@ e_t = W_t - \sum_{k=1}^{p} \phi_k W_{t-k} - \sum_{j=1}^{q} \theta_j e_{t-j}
 \psi_0 = 1, \qquad \psi_k = \psi_{k-1} \cdot \frac{k - 1 + d}{k}, \quad k \geq 1
 \]</div>
 <ol>
+<li>Discard the first <span class="arithmatex">\(n_{\text{burn}}\)</span> values of <span class="arithmatex">\(\hat{X}_t\)</span>. The ARMA recursion starts from <span class="arithmatex">\(\hat{W}_0 = \varepsilon_0\)</span> and the FIR filter only reaches its full length at <span class="arithmatex">\(t = K\)</span>, so without burn-in the variance of the first output step is <span class="arithmatex">\(\sigma_\varepsilon^2\)</span> rather than <span class="arithmatex">\(\sigma_\varepsilon^2 \sum_k \psi_k^2\)</span> (about 79% of the steady value at <span class="arithmatex">\(d = 0.3\)</span>, 70% at <span class="arithmatex">\(d = 0.35\)</span>). The extra draws come from the same seeded generator, so results remain reproducible for a given <code>seed</code>.</li>
 <li>Reverse the standardization in log space: <span class="arithmatex">\(\hat{Y}_t = \hat{X}_t \cdot \sigma_{m(t)} + \mu_{m(t)}\)</span>.</li>
 <li>Reverse the shifted-log transformation: <span class="arithmatex">\(\hat{Q}_t = \tau_{m(t)} + \exp(\hat{Y}_t)\)</span>.</li>
 </ol>
 <p>Because <span class="arithmatex">\(\tau_m \geq 0\)</span> and <span class="arithmatex">\(\exp(\hat{Y}_t) &gt; 0\)</span>, the simulated flows are strictly positive without any hard-clipping step.</p>
+<h3 id="deviations-from-hosking-1984">Deviations from Hosking (1984)<a class="headerlink" href="#deviations-from-hosking-1984" title="Permanent link">&para;</a></h3>
+<p><strong>CSS in place of the exact ARMA likelihood.</strong> Hosking evaluates <span class="arithmatex">\(L(w; 0, \beta)\)</span> in Eq. 6 exactly (Ansley, 1979). The implementation uses the conditional sum of squares of the ARMA innovations, i.e. it conditions on zero presample values of <span class="arithmatex">\(W_t\)</span> and <span class="arithmatex">\(e_t\)</span>. The two are asymptotically equivalent; the difference is of the same order as that between CSS and exact ML for an ordinary ARMA model.</p>
+<p><strong>Mean.</strong> Hosking treats <span class="arithmatex">\(\mu\)</span> as a free parameter of the likelihood. The implementation removes the sample mean of the standardized series (which is zero for annual data and very close to zero for monthly data after per-month standardization).</p>
+<p><strong>Order selection grid.</strong> The search covers <span class="arithmatex">\((p, q) \in \{0, 1, 2\}^2\)</span> with <span class="arithmatex">\(d\)</span> always estimated; Hosking additionally compared models with <span class="arithmatex">\(d\)</span> fixed at zero (the <span class="arithmatex">\(\delta_d\)</span> term in his AIC). A pure ARMA alternative must be checked by the user.</p>
+<p><strong>Finite inverse filter in generation.</strong> Hosking's exact simulation (Sec. 3, algorithm A) uses the Cholesky factor of the full autocovariance matrix, and his faster alternative (Eq. 4) filters an exact ARFIMA(0, d, 0) sample through the ARMA recursion. The implementation generates ARMA innovations first and inverts the fractional differencing with a FIR filter of length <span class="arithmatex">\(K\)</span> (<code>truncation_lag</code>, default 100). The truncation caps the simulated variance of <span class="arithmatex">\(X_t\)</span> at <span class="arithmatex">\(\sigma_\varepsilon^2 \sum_{k=0}^{K} \psi_k^2\)</span> instead of the exact <span class="arithmatex">\(\sigma_\varepsilon^2\,\Gamma(1-2d)/\Gamma(1-d)^2\)</span>. With <span class="arithmatex">\(K = 100\)</span> the ratio is 0.97 at <span class="arithmatex">\(d = 0.3\)</span> but only 0.55 at <span class="arithmatex">\(d = 0.45\)</span> (0.65 at <span class="arithmatex">\(K = 1000\)</span>), because <span class="arithmatex">\(\psi_k \sim k^{d-1}\)</span> decays very slowly as <span class="arithmatex">\(d \to 0.5\)</span>. Users whose estimated <span class="arithmatex">\(d\)</span> exceeds about 0.4 should raise <code>truncation_lag</code> substantially (and accept the corresponding <span class="arithmatex">\(O(nK)\)</span> cost); the burn-in length grows with <span class="arithmatex">\(K\)</span> automatically.</p>
+<p><strong>Fit-side truncation in the two-stage estimators.</strong> The <code>whittle</code>, <code>gph</code> and <code>rs</code> paths difference with Eq. 8 truncated at <span class="arithmatex">\(K\)</span> and without backcasting; the default joint estimator uses Eq. 9 with the full-length filter.</p>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
 <p>The ARFIMA model directly parameterizes long-range dependence through <span class="arithmatex">\(d\)</span>, reproducing the hyperbolic decay of the autocorrelation function <span class="arithmatex">\(\rho(k) \sim C k^{2d-1}\)</span> as <span class="arithmatex">\(k \to \infty\)</span> and the spectral divergence <span class="arithmatex">\(f(\omega) \sim C' \omega^{-2d}\)</span> near the origin. The short-memory ARMA component captures structure at lags <span class="arithmatex">\(1\)</span> through <span class="arithmatex">\(p\)</span> and the moving-average smoothing at lags <span class="arithmatex">\(1\)</span> through <span class="arithmatex">\(q\)</span>.</p>
-<p>Monthly means and standard deviations are preserved through the per-month log-space standardization. The shifted-lognormal preprocessing also preserves the positive support of streamflow and accommodates marginal skewness commonly observed in monthly flow records. The model assumes Gaussian innovations in log space, which may underrepresent extreme events or heavy-tailed behavior. Spatial dependence is not modeled. Truncation of the infinite coefficient series at lag <span class="arithmatex">\(K\)</span> introduces approximation error that grows as <span class="arithmatex">\(d\)</span> approaches <span class="arithmatex">\(0.5\)</span>.</p>
+<p>Monthly means and standard deviations are preserved through the per-month log-space standardization. The shifted-lognormal preprocessing also preserves the positive support of streamflow and accommodates marginal skewness commonly observed in monthly flow records. The model assumes Gaussian innovations in log space, which may underrepresent extreme events or heavy-tailed behavior. Spatial dependence is not modeled. Truncation of the inverse filter at lag <span class="arithmatex">\(K\)</span> in generation introduces approximation error that grows as <span class="arithmatex">\(d\)</span> approaches <span class="arithmatex">\(0.5\)</span> (see <em>Deviations from Hosking (1984)</em> for numbers).</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Univariate only; must be combined with spatial methods for multisite applications.</li>
 <li>Reliable estimation of <span class="arithmatex">\(d\)</span> requires long records (50+ years recommended).</li>
 <li>Gaussian innovation assumption may underrepresent tail behavior.</li>
-<li>Truncation of the fractional differencing series at finite <span class="arithmatex">\(K\)</span> is an approximation.</li>
-<li>CSS estimation for the MA component exhibits known small-sample bias.</li>
+<li>Truncation of the fractional differencing series at finite <span class="arithmatex">\(K\)</span> is an approximation; it under-reproduces variance for <span class="arithmatex">\(d &gt; 0.4\)</span> unless <code>truncation_lag</code> is raised (see <em>Deviations</em>).</li>
+<li><span class="arithmatex">\(d\)</span> and a positive low-order AR root are weakly separately identified in samples of a few hundred values; the joint estimate of <span class="arithmatex">\(d\)</span> can then be biased low with a large standard error (see the simulation table), which is a property of the likelihood rather than of the estimator.</li>
+<li>The two-stage <code>whittle</code>, <code>gph</code> and <code>rs</code> options estimate <span class="arithmatex">\(d\)</span> ignoring the ARMA part and are contaminated by short-memory structure; they are kept for comparison only.</li>
+<li>CSS estimation exhibits known small-sample bias relative to exact ML.</li>
 </ul>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <p><strong>Primary:</strong>
@@ -1842,6 +1981,9 @@ Hosking, J.R.M. (1984). Modeling persistence in hydrological time series using f
 <p><strong>See also:</strong>
 - Granger, C.W.J., and Joyeux, R. (1980). An introduction to long-memory time series models and fractional differencing. <em>Journal of Time Series Analysis</em>, 1(1), 15-29. https://doi.org/10.1111/j.1467-9892.1980.tb00297.x
 - Geweke, J., and Porter-Hudak, S. (1983). The estimation and application of long memory time series models. <em>Journal of Time Series Analysis</em>, 4(4), 221-238. https://doi.org/10.1111/j.1467-9892.1983.tb00371.x
+- Box, G.E.P., and Jenkins, G.M. (1976). <em>Time Series Analysis: Forecasting and Control</em> (revised ed.). Holden-Day.
+- Ansley, C.F. (1979). An algorithm for the exact likelihood of a mixed autoregressive-moving average process. <em>Biometrika</em>, 66(1), 59-65. https://doi.org/10.1093/biomet/66.1.59
+- Huang, H.-H., Chan, N.H., Chen, K., and Ing, C.-K. (2022). Consistent order selection for ARFIMA processes. <em>The Annals of Statistics</em>, 50(3), 1297-1319. https://doi.org/10.1214/21-AOS2149
 - Fox, R., and Taqqu, M.S. (1986). Large-sample properties of parameter estimates for strongly dependent stationary Gaussian time series. <em>The Annals of Statistics</em>, 14(2), 517-532.
 - Montanari, A., Rosso, R., and Taqqu, M.S. (1997). Fractionally differenced ARIMA models applied to hydrologic time series. <em>Water Resources Research</em>, 33(5), 1035-1044. https://doi.org/10.1029/97WR00043
 - Koutsoyiannis, D. (2002). The Hurst phenomenon and fractional Gaussian noise made easy. <em>Hydrological Sciences Journal</em>, 47(4), 573-595.

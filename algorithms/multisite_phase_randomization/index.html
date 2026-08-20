@@ -1588,7 +1588,7 @@
 <tbody>
 <tr>
 <td><strong>Type</strong></td>
-<td>Nonparametric</td>
+<td>Hybrid (nonparametric wavelet phase randomization with parametric kappa marginals)</td>
 </tr>
 <tr>
 <td><strong>Resolution</strong></td>
@@ -1676,7 +1676,9 @@
 <div class="arithmatex">\[
 W_s(a, t) = \int_{-\infty}^{\infty} y_{u,s} \, \frac{1}{\sqrt{a}} \psi^*\!\left(\frac{u - t}{a}\right) du
 \]</div>
-<p>where <span class="arithmatex">\(\psi\)</span> is the complex Morlet wavelet (pywt identifier <code>cmor1.5-1.0</code>, bandwidth 1.5, center frequency 1.0). In the discrete implementation, scales are spaced log-uniformly from 2 to <span class="arithmatex">\(N/8\)</span> over <span class="arithmatex">\(n_{\text{scales}} = 100\)</span> values.</p>
+<p>where <span class="arithmatex">\(\psi\)</span> is the complex Morlet wavelet (pywt identifier <code>cmor1.5-1.0</code>, bandwidth 1.5, center frequency 1.0), evaluated with pywt's FFT-based CWT (<code>method="fft"</code>). In the discrete implementation, scales are spaced log-uniformly from 2 to <span class="arithmatex">\(N/8\)</span> over <span class="arithmatex">\(n_{\text{scales}} = 100\)</span> values, <code>np.geomspace(2, N / 8, 100)</code>.</p>
+<p><strong>Scale grid (deliberate deviation from PRSim.wave).</strong> PRSim.wave (<code>prsim.wave()</code>, <code>n_wave=100</code>) builds 100 log2-spaced scales spanning <span class="arithmatex">\(1, \ldots, N\)</span>, rounds them to integers and removes duplicates, leaving roughly 90 unique integer scales; the paper likewise states 100 scales. SynHydro keeps 100 scales but differs in the end points and in not rounding: the grid omits scale 1 (the wavelet is barely resolved at one sample and contributes mostly aliasing), truncates at <span class="arithmatex">\(N/8\)</span> (coefficients at longer scales are dominated by the cone of influence), and uses exact geometric spacing so that <span class="arithmatex">\(\Delta_j\)</span> is constant and the inverse-CWT sum is well conditioned. The computational cost is comparable to PRSim.wave, so the choice is about scale coverage rather than speed. The choice is not neutral for short-lag autocorrelation: on the example record the lag-1 autocorrelation of the synthetic series was 0.71 with a minimum scale of 1, 0.81 with the default minimum scale of 2, and 0.92 with a minimum scale of 8 (observed 0.95), because removing the smallest scales removes the high-frequency noise that decorrelates adjacent days. Users who need closer short-lag fidelity should expect to trade it against the attenuation of the highest-frequency variance; the number of scales is configurable (<code>n_scales</code>), but the end points 2 and <span class="arithmatex">\(N/8\)</span> are fixed at fit time and are not constructor options.</p>
+<p><strong>Wavelet (deviation from PRSim.wave).</strong> The same <code>cmor1.5-1.0</code> Morlet is used both for the observed series and for the white-noise phase field. PRSim.wave uses the Morlet with non-dimensional frequency parameter <code>wparam</code> 5 for the data and 6 for the noise. For comparison, pywt's <code>cmorB-C</code> family with <span class="arithmatex">\(B = 1.5\)</span> corresponds to an effective Torrence and Compo (1998) frequency parameter <span class="arithmatex">\(\omega_0 = 2\pi\sqrt{B/2} pprox 5.44\)</span>, between PRSim's 5 and the paper's 6. The bandwidth/centre-frequency pair determines how sharply scale maps to Fourier period; using one wavelet for both fields makes the shared-phase substitution scale-consistent, whereas PRSim's mismatch slightly blurs it. Any pywt complex wavelet name can be passed via the <code>wavelet</code> argument.</p>
 <p>Phase randomization replaces the observed phase at each scale and time with a shared random phase:</p>
 <div class="arithmatex">\[
 \hat{W}_s(a, t) = |W_s(a, t)| \cdot e^{i \phi_\varepsilon(a, t)}
@@ -1686,9 +1688,9 @@ W_s(a, t) = \int_{-\infty}^{\infty} y_{u,s} \, \frac{1}{\sqrt{a}} \psi^*\!\left(
 <div class="arithmatex">\[
 \hat{y}_{t,s} \propto \Delta_j \sum_{a} \frac{\operatorname{Re}\!\left[\hat{W}_s(a, t)\right]}{\sqrt{a}}
 \]</div>
-<p>where <span class="arithmatex">\(\Delta_j = \ln(a_{j+1}/a_j)\)</span> is the log-scale spacing (constant for geometrically spaced scales).</p>
+<p>where <span class="arithmatex">\(\Delta_j = \ln(a_{j+1}/a_j)\)</span> is the log-scale spacing (constant for geometrically spaced scales). This is the inverse-transform (reconstruction) formula of Torrence and Compo (1998); the wavelet-dependent reconstruction constant <span class="arithmatex">\(C_\delta\)</span> (and the other fixed factors) are absorbed into the per-site normalization <span class="arithmatex">\(C\)</span> described below, so only the relative weighting <span class="arithmatex">\(\Delta_j / \sqrt{a}\)</span> across scales matters here.</p>
 <h3 id="parameter-estimation">Parameter Estimation<a class="headerlink" href="#parameter-estimation" title="Permanent link">&para;</a></h3>
-<p><strong>Marginal distributions.</strong> For each site <span class="arithmatex">\(s\)</span> and day of year <span class="arithmatex">\(d\)</span>, the four-parameter kappa distribution is fitted by the method of L-moments. All observations within a <span class="arithmatex">\(\pm w\)</span>-day circular window around <span class="arithmatex">\(d\)</span> (pooled across all years) are used, giving approximately <span class="arithmatex">\(2w + 1\)</span> pooling days and <span class="arithmatex">\(N_{\text{yr}} \times (2w + 1)\)</span> samples. The kappa quantile function is:</p>
+<p><strong>Marginal distributions.</strong> For each site <span class="arithmatex">\(s\)</span> and day of year <span class="arithmatex">\(d\)</span>, the four-parameter kappa distribution is fitted by the method of L-moments. All observations within a <span class="arithmatex">\(\pm w\)</span>-day circular window around <span class="arithmatex">\(d\)</span> (pooled across all years) are used, giving <span class="arithmatex">\(2w + 1 = 31\)</span> pooling days (default <code>win_h_length=15</code>) and <span class="arithmatex">\(N_{\text{yr}} \times 31\)</span> samples. Brunner and Gilleland (2020) and PRSim.wave use a 30-day window; the extra day is immaterial but means parameters will not match the R package exactly. A fit is rejected when the minimized L-moment objective exceeds 0.1 or the derived scale <span class="arithmatex">\(\alpha \le 0\)</span> (PRSim.wave has no such check); a rejected day inherits the previous day's parameters, or the next day's if none exist, and falls back to the empirical marginal otherwise. The kappa quantile function is:</p>
 <div class="arithmatex">\[
 F^{-1}(p;\, \xi, \alpha, k, h) =
 \xi + \frac{\alpha}{k} \left[ 1 - \left(\frac{1 - p^h}{h}\right)^k \right]
@@ -1710,10 +1712,10 @@ y_{t,s} = Q_{t,s} - \bar{Q}_s
 <p>Fit kappa distribution parameters <span class="arithmatex">\((\xi_d^s, \alpha_d^s, k_d^s, h_d^s)\)</span> for each day <span class="arithmatex">\(d\)</span> and site <span class="arithmatex">\(s\)</span> using L-moments over the <span class="arithmatex">\(\pm w\)</span>-day window.</p>
 </li>
 <li>
-<p>Apply the normal score transform to <span class="arithmatex">\(Q_{t,s}\)</span> per day of year, producing <span class="arithmatex">\(y_{t,s}\)</span> for each site.</p>
+<p>Transform <span class="arithmatex">\(Q_{t,s}\)</span> to <span class="arithmatex">\(y_{t,s}\)</span> for each site: subtract the global site mean (<code>transform='mean_center'</code>, the default, as in PRSim.wave), or apply the per-day-of-year normal score transform (<code>transform='normal_score'</code>).</p>
 </li>
 <li>
-<p>Compute the CWT of each normal-score series: <span class="arithmatex">\(W_s(a, t) = \text{CWT}(y_{\cdot,s},\, a,\, \psi)\)</span>.</p>
+<p>Compute the CWT of each transformed series: <span class="arithmatex">\(W_s(a, t) = \text{CWT}(y_{\cdot,s},\, a,\, \psi)\)</span> on the 100-scale geometric grid.</p>
 </li>
 <li>
 <p>For each realization:</p>
@@ -1724,21 +1726,27 @@ y_{t,s} = Q_{t,s} - \bar{Q}_s
    $<span class="arithmatex">\(\phi_\varepsilon(a, t) = \arg\!\left[\text{CWT}(\varepsilon,\, a,\, \psi)\right]\)</span>$</p>
 <p>c. For each site <span class="arithmatex">\(s\)</span>, form synthetic CWT coefficients:
    $<span class="arithmatex">\(\hat{W}_s(a, t) = |W_s(a, t)| \cdot e^{i\phi_\varepsilon(a, t)}\)</span>$</p>
-<p>d. Recover the synthetic normal-score series via the approximate inverse CWT:
+<p>d. Recover the synthetic transformed series via the approximate inverse CWT:
    $<span class="arithmatex">\(\hat{y}_{t,s} = C \, \Delta_j \sum_{a} \frac{\operatorname{Re}\!\left[\hat{W}_s(a, t)\right]}{\sqrt{a}}\)</span>$
-   where <span class="arithmatex">\(C\)</span> is a normalization constant chosen so that <span class="arithmatex">\(\hat{y}_{t,s}\)</span> has unit variance.</p>
-<p>e. Back-transform to original units. For each day <span class="arithmatex">\(d\)</span> and site <span class="arithmatex">\(s\)</span>, rank <span class="arithmatex">\(\{\hat{y}_{t,s} : \text{doy}(t) = d\}\)</span>, draw <span class="arithmatex">\(N_{\text{yr}}\)</span> kappa quantiles, and map via rank-order to produce <span class="arithmatex">\(\hat{Q}_{t,s}\)</span>. Enforce non-negativity.</p>
+   where <span class="arithmatex">\(C\)</span> is a per-site normalization constant chosen so that <span class="arithmatex">\(\hat{y}_{t,s}\)</span> has unit variance. Because the back-transform in step (e) is rank-based, neither the pre-CWT transform nor <span class="arithmatex">\(C\)</span> affects the output marginals; they only affect which series the wavelet amplitudes describe.</p>
+<p>e. Back-transform to original units. For each day <span class="arithmatex">\(d\)</span> and site <span class="arithmatex">\(s\)</span>, rank <span class="arithmatex">\(\{\hat{y}_{t,s} : \text{doy}(t) = d\}\)</span>, draw <span class="arithmatex">\(N_{\text{yr}}\)</span> kappa quantiles, and map via rank-order to produce <span class="arithmatex">\(\hat{Q}_{t,s}\)</span>. Negative values (possible from the kappa lower tail) are each replaced by an independent uniform draw on <span class="arithmatex">\((0, \min_d Q_s)\)</span>, or by zero if the observed minimum for that day is zero; PRSim.wave draws a single replacement value per day instead; note that Brunner and Gilleland (2020) state that negative values are set to zero, so the paper and the PRSim code differ on this point and SynHydro follows the code.</p>
+<ol>
+<li>If <code>n_years</code> requests more than <span class="arithmatex">\(N\)</span> days, repeat step 4 <code>ceil(365 * n_years / N)</code> times with independent noise and kappa samples, concatenate the chunks, and truncate to <code>365 * n_years</code> days. Spectral and spatial structure is preserved within each chunk, but consecutive chunks are independent, so temporal dependence is broken at each chunk boundary (see Limitations). With <code>n_years=None</code> (default) one chunk of length <span class="arithmatex">\(N\)</span> is returned.</li>
+</ol>
 <h2 id="statistical-properties">Statistical Properties<a class="headerlink" href="#statistical-properties" title="Permanent link">&para;</a></h2>
-<p>The method preserves, per site, the full spectral envelope (CWT amplitude spectrum) of the normal-score series, which encodes both short-range seasonality and long-range persistence. The back-transformation via the kappa distribution reproduces the daily marginal distributions accurately, including heavy tails, because L-moments are resistant to outliers and the kappa family subsumes GEV, logistic, exponential, and Pareto distributions as special cases.</p>
+<p>The method preserves, per site, the wavelet amplitude spectrum of the transformed series over the retained scale range (2 to <span class="arithmatex">\(N/8\)</span> days), which encodes seasonality and intermediate-range persistence. The back-transformation via the kappa distribution reproduces the daily marginal distributions accurately, including heavy tails, because L-moments are resistant to outliers and the kappa family subsumes GEV, logistic, exponential, and Pareto distributions as special cases.</p>
 <p>Spatial correlation is preserved because all sites receive identical phase perturbations. In the wavelet domain, phase at each scale and time jointly determines whether a cross-site event (e.g., a flood pulse) occurs; sharing <span class="arithmatex">\(\phi_\varepsilon\)</span> keeps these co-occurrence patterns intact. The approach does not impose a parametric spatial model and is therefore robust to non-Gaussian and nonlinear dependence structures.</p>
 <p>Higher-order cross-site statistics (e.g., cross-site lag correlations) are not explicitly targeted and will depend on how well the single shared phase field represents the observed joint phase structure across sites.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The approximate inverse CWT does not guarantee exact reconstruction of the original signal; the round-trip error is acceptable for generating synthetic variability but not for signal decomposition.</li>
+<li>Short-lag autocorrelation is attenuated. Replacing the observed phases by those of a white-noise field (and the rank-based back-transform) lowers the lag-1 autocorrelation of the synthetic series relative to the observed record: on the example data 0.95 observed versus roughly 0.74 to 0.80 synthetic, with the exact value depending on the scale grid (see Model Structure). This is intrinsic to the method and also seen with PRSim.wave. Recession limbs and multi-day low-flow sequences are therefore rougher than observed.</li>
+<li>Tail dependence between sites is weaker than observed. Sharing the phase field reproduces the linear cross-site correlation well, but the co-occurrence of extremes (upper-tail dependence) is only partially preserved because each site's extremes are regenerated independently from its own kappa sample; basin-wide extreme events are under-represented relative to the record.</li>
+<li>Longer series requested via <code>n_years</code> are concatenations of independent chunks of length <span class="arithmatex">\(N\)</span>; autocorrelation and persistence are lost at chunk boundaries, and multi-decadal persistence cannot be extrapolated beyond the observed record length.</li>
 <li>Spatial correlation is preserved on average over realizations, but individual realizations may deviate from the observed correlation matrix, particularly for short records.</li>
 <li>The CWT of a white-noise series does not have a flat spectrum, so the shared phase field is not strictly uniform over scale; this introduces some residual scale-dependence in the inter-site phase coherence.</li>
 <li>The method assumes stationarity; non-stationary trends or shifts in the observed record are embedded in the fitted amplitudes and marginals but not explicitly modeled.</li>
-<li>Computational cost scales as <span class="arithmatex">\(O(S \cdot n_{\text{scales}} \cdot N)\)</span> per scale (direct-convolution CWT), and grows with scale because the Morlet wavelet support widens proportionally. At daily resolution with 100 scales and records of ~12,000 days, the CWT step dominates fit() runtime (~15 s per site).</li>
+<li>Computational cost of the FFT-based CWT scales as <span class="arithmatex">\(O(S \cdot n_{\text{scales}} \cdot N \log N)\)</span> and is independent of the wavelet support at each scale. With the default 100 scales the cost is comparable to PRSim.wave's roughly 90 unique integer scales.</li>
 </ul>
 <h2 id="implementation-notes">Implementation Notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
 <p>The default <code>transform='mean_center'</code> matches the PRSim reference implementation (Brunner and Gilleland, 2020). The <code>transform='normal_score'</code> option applies the Van der Waerden transform per day of year before the CWT, producing a more Gaussian-distributed spectral input; this approach is the basis of the single-site PRSim formulation (Brunner et al., 2019). In both cases the kappa back-transformation uses rank-order mapping, so the absolute scale of the pre-CWT series does not affect the fitted marginals.</p>
@@ -1749,9 +1757,10 @@ Brunner, M.I., and Gilleland, E. (2020). Stochastic simulation of streamflow and
 - Brunner, M.I., Bardossy, A., and Furrer, R. (2019). Technical note: Stochastic simulation of streamflow time series using phase randomization. <em>Hydrology and Earth System Sciences</em>, 23, 3175-3187. https://doi.org/10.5194/hess-23-3175-2019
 - Hosking, J.R.M. (1994). The four-parameter kappa distribution. <em>IBM Journal of Research and Development</em>, 38(3), 251-258. https://doi.org/10.1147/rd.383.0251
 - Hosking, J.R.M. (1990). L-moments: Analysis and estimation of distributions using linear combinations of order statistics. <em>Journal of the Royal Statistical Society, Series B</em>, 52(1), 105-124.
+- Torrence, C., and Compo, G.P. (1998). A practical guide to wavelet analysis. <em>Bulletin of the American Meteorological Society</em>, 79(1), 61-78. https://doi.org/10.1175/1520-0477(1998)079&lt;0061:APGTWA&gt;2.0.CO;2
 - Theiler, J., Eubank, S., Longtin, A., Galdrikian, B., and Farmer, J.D. (1992). Testing for nonlinearity in time series: the method of surrogate data. <em>Physica D</em>, 58, 77-94. https://doi.org/10.1016/0167-2789(92)90043-8</p>
 <hr />
-<p><strong>Implementation:</strong> <code>src/synhydro/methods/generation/nonparametric/multisite_phase_randomization.py</code></p>
+<p><strong>Implementation:</strong> <code>src/synhydro/methods/generation/hybrid/multisite_phase_randomization.py</code></p>
 
 
 

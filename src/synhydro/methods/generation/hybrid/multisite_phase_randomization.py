@@ -24,7 +24,7 @@ from scipy.optimize import minimize
 from scipy.special import gamma
 from scipy.stats import norm as _norm
 
-from synhydro.core.base import Generator, FittedParams
+from synhydro.core.base import Generator, FittedParams, make_output_index
 from synhydro.core.ensemble import Ensemble
 
 logger = logging.getLogger(__name__)
@@ -51,8 +51,10 @@ class MultisitePhaseRandomizationGenerator(Generator):
     cwt_amplitudes_ : dict of np.ndarray
         Per-site CWT amplitude spectra of shape (n_scales, N). Keyed by site name.
     norm_ : dict of np.ndarray
-        Per-site pre-CWT series (mean-centered or normal-score) of length N.
-        Keyed by site name.
+        Per-site pre-CWT series of length N, keyed by site name. Despite the
+        name, this holds the mean-centered series under the default
+        transform='mean_center' and the normal-score series only when
+        transform='normal_score'. The name is kept for backward compatibility.
     obs_mean_ : dict of float
         Per-site global mean subtracted during mean-center transform. Empty when
         transform='normal_score'.
@@ -269,8 +271,11 @@ class MultisitePhaseRandomizationGenerator(Generator):
 
         This method:
         1. Fits per-site, per-day-of-year kappa distributions using L-moments.
-        2. Applies the normal score transform per site and day of year.
-        3. Computes the CWT of each normal-score series and stores per-site
+        2. Transforms each site's series for the CWT: subtracts the global
+           site mean (transform='mean_center', default, as in PRSim.wave) or
+           applies the per-day-of-year normal score transform
+           (transform='normal_score').
+        3. Computes the CWT of each transformed series and stores per-site
            amplitude spectra.
 
         Parameters
@@ -451,15 +456,18 @@ class MultisitePhaseRandomizationGenerator(Generator):
         self, y_syn: np.ndarray, site: str, rng: np.random.Generator
     ) -> np.ndarray:
         """
-        Back-transform a synthetic normal-score series to original flow units.
+        Back-transform a synthetic transformed series to original flow units.
 
         Uses rank-based mapping: for each day of year, the synthetic values are
         ranked and mapped to kappa quantiles drawn from the fitted marginal.
+        Only ranks are used, so the result is the same whether y_syn is in the
+        mean-centered (default) or normal-score domain.
 
         Parameters
         ----------
         y_syn : np.ndarray
-            Synthetic series in the normal-score domain, length N.
+            Synthetic series in the transformed (mean-centered or normal-score)
+            domain, length N.
         site : str
             Site name whose fitted kappa parameters are used.
         rng : np.random.Generator
@@ -986,9 +994,7 @@ class MultisitePhaseRandomizationGenerator(Generator):
             Daily index with February 29 entries removed.
         """
         n_calendar = n_days + n_days // 365 + 10
-        all_days = pd.date_range(
-            start=f"{start_year}-01-01", periods=n_calendar, freq="D"
-        )
+        all_days = make_output_index(f"{start_year}-01-01", n_calendar, "D")
         noleap = all_days[~((all_days.month == 2) & (all_days.day == 29))]
         return noleap[:n_days]
 

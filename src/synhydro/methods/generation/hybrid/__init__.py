@@ -3,9 +3,9 @@ Hybrid (semi-parametric) generation methods for SynHydro.
 
 Generators in this module combine parametric and non-parametric components in
 the synthesis path. Examples include parametric pre-whitening followed by
-non-parametric bootstrap of residuals (Kirsch), and parametric marginal
-distributions combined with non-parametric spectral or state-conditional
-resampling (Phase Randomization, WARM).
+non-parametric bootstrap of residuals (Kirsch), parametric marginal
+distributions combined with non-parametric spectral resampling (Phase
+Randomization, WARM).
 
 References
 ----------

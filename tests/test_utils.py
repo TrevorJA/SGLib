@@ -373,6 +373,64 @@ class TestEnsembleHDF5IO:
             assert (loaded_df.index == original_df.index).all()
             assert np.allclose(original_df.values, loaded_df.values, rtol=1e-6)
 
+    def test_daily_roundtrip_second_resolution_index(
+        self, sample_ensemble_data, temp_hdf5_file
+    ):
+        """Dates are read back as datetime64[s], the standard output dtype."""
+        ensemble = Ensemble(sample_ensemble_data)
+        ensemble.to_hdf5(str(temp_hdf5_file))
+        loaded = Ensemble.from_hdf5(str(temp_hdf5_file))
+        idx = loaded.data_by_realization[0].index
+        assert isinstance(idx, pd.DatetimeIndex)
+        assert idx.dtype == np.dtype("datetime64[s]")
+        assert idx.name == "datetime"
+        orig = sample_ensemble_data[0].index
+        assert (idx.values == orig.values.astype("datetime64[s]")).all()
+
+    @pytest.mark.parametrize("stored_by_node", [True, False])
+    def test_roundtrip_beyond_year_2262(self, tmp_path, stored_by_node):
+        """Multi-millennial annual runs (datetime64[s] index) survive HDF5 IO.
+
+        Generators such as SMARTA build a second-resolution index for runs
+        longer than the nanosecond range (year 2262). from_hdf5 must parse
+        those dates without OutOfBoundsDatetime and preserve index and values.
+        """
+        n_years = 1500
+        years = np.arange(1945, 1945 + n_years)
+        dates = pd.DatetimeIndex(
+            np.array([f"{y}-01-01" for y in years], dtype="datetime64[s]")
+        )
+        assert dates[-1].year > 2262
+        rng = np.random.default_rng(0)
+        data = {
+            r: pd.DataFrame(
+                rng.gamma(2.0, 50.0, size=(n_years, 2)),
+                index=dates,
+                columns=["site_1", "site_2"],
+            )
+            for r in range(2)
+        }
+        ensemble = Ensemble(data)
+        assert ensemble.metadata.time_period == ("1945-01-01", "3444-01-01")
+
+        path = tmp_path / "long.h5"
+        ensemble.to_hdf5(str(path), stored_by_node=stored_by_node, dtype="float64")
+        loaded = Ensemble.from_hdf5(str(path), stored_by_node=stored_by_node)
+
+        for r in ensemble.realization_ids:
+            orig = ensemble.data_by_realization[r]
+            back = loaded.data_by_realization[r]
+            assert back.index.dtype == np.dtype("datetime64[s]")
+            assert back.index.equals(orig.index)
+            assert list(back.columns) == list(orig.columns)
+            np.testing.assert_array_equal(back.values, orig.values)
+
+        # Downstream helpers tolerate the second-resolution index
+        sub = loaded.subset(start_date="3000-01-01")
+        assert len(sub.data_by_realization[0]) == 445
+        assert len(loaded.resample("10YS").data_by_realization[0]) == 150
+        assert loaded.summary(by="site").shape == (2, 4)
+
 
 class TestEnsembleStatistics:
     """Tests for Ensemble statistical methods."""

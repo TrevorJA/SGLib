@@ -40,7 +40,7 @@ Generate new flows by direct resampling of the historical record with no fitted 
 
 | Algorithm | Type | Resolution |
 |-----------|------|------------|
-| [Nowak KNN](nowak_disaggregation.md) | Non-parametric | Monthly to Daily |
+| [Nowak KNN](nowak_disaggregation.md) | Non-parametric | {Annual, Monthly, Weekly} to {Monthly, Weekly, Daily} |
 | [Valencia-Schaake](valencia_schaake.md) | Parametric | Annual to Monthly |
 
 ## Key Properties Preserved

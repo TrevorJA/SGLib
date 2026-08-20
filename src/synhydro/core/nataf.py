@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 # Type alias for inverse CDF (quantile) functions: p -> x
 ICDF = Callable[[np.ndarray], np.ndarray]
 
+# Open-interval bounds for probabilities fed to ICDFs in the Int method
+_U_MIN = np.nextafter(0.0, 1.0)
+_U_MAX = np.nextafter(1.0, 0.0)
+
 
 # ---------------------------------------------------------------------------
 # Forward Nataf: Gaussian-domain rho -> actual-domain rho
@@ -103,8 +107,14 @@ def nataf_forward_gh(
         pts = pts_raw @ rot.T  # (n_pts, 2)
 
         # Map to uniform via standard normal CDF
+        # Match anySim: only replace u == 1 (here u >= 1 - eps) with 0.999.
+        # The 0.999 clamp is inherited verbatim from anySim
+        # (ifelse(u == 1, 0.999, u)); it only affects the outermost
+        # Gauss-Hermite nodes, whose weights are negligible.
+        # A symmetric tiny floor guards ICDFs undefined at exactly 0.
         u = norm.cdf(pts)
-        u = np.clip(u, 1e-10, 1.0 - 1e-3)  # match R: u=ifelse(u==1,0.999,u)
+        u = np.where(u >= 1.0 - 1e-15, 0.999, u)
+        u = np.maximum(u, 1e-300)
 
         # Evaluate ICDFs
         x1 = icdf_x(u[:, 0])
@@ -182,6 +192,8 @@ def nataf_forward_int(
     rho_z: Union[float, np.ndarray],
     icdf_x: ICDF,
     icdf_y: ICDF,
+    epsabs: float = 1.49e-8,
+    epsrel: float = 1.49e-8,
 ) -> np.ndarray:
     """Evaluate the Nataf integral via 2D numerical integration.
 
@@ -193,11 +205,21 @@ def nataf_forward_int(
         Quantile function for variable x.
     icdf_y : callable
         Quantile function for variable y.
+    epsabs, epsrel : float
+        Absolute and relative tolerances passed to ``scipy.integrate.dblquad``.
 
     Returns
     -------
     np.ndarray
         Actual-domain correlation(s).
+
+    Raises
+    ------
+    RuntimeError
+        If the integration does not yield a finite value on any of the
+        progressively narrowed domains [-lim, lim]^2, lim = 7, 6, ..., 3.
+        Raising (rather than returning NaN) prevents ``nataf_inverse`` from
+        silently fitting its polynomial through NaN support points.
 
     References
     ----------
@@ -227,30 +249,41 @@ def nataf_forward_int(
 
         def integrand(u2, u1):
             z2_corr = rz * u1 + np.sqrt(1.0 - rz**2) * u2
-            val = (
-                icdf_x(norm.cdf(np.atleast_1d(u1)))[0]
-                * icdf_y(norm.cdf(np.atleast_1d(z2_corr)))[0]
-                * np.exp(-0.5 * (u1**2 + u2**2))
-            )
+            # The rotated coordinate can reach |z| ~ lim * sqrt(2), where
+            # norm.cdf rounds to exactly 0 or 1 in double precision and the
+            # ICDF returns +/-inf. Keep u strictly inside (0, 1); the
+            # Gaussian weight there is < 1e-20 so the clip is harmless.
+            u1_p = np.clip(norm.cdf(np.atleast_1d(u1)), _U_MIN, _U_MAX)
+            u2_p = np.clip(norm.cdf(np.atleast_1d(z2_corr)), _U_MIN, _U_MAX)
+            val = icdf_x(u1_p)[0] * icdf_y(u2_p)[0] * np.exp(-0.5 * (u1**2 + u2**2))
             return val
 
-        # Adaptive integration with fallback on reduced limits
+        # Adaptive integration over [-lim, lim]^2; on a genuine integration
+        # failure (non-finite value or numerical error in the integrand)
+        # retry with a narrower domain. Programming errors propagate.
         result = np.nan
         while lim >= 3.0:
             try:
-                val, _ = integrate.dblquad(integrand, -lim, lim, -lim, lim, limit=100)
+                val, _ = integrate.dblquad(
+                    integrand, -lim, lim, -lim, lim, epsabs=epsabs, epsrel=epsrel
+                )
+            except (ValueError, OverflowError, FloatingPointError, ZeroDivisionError) as exc:
+                logger.debug(
+                    "Nataf integration at rho_z=%.4f, lim=%.1f failed: %s", rz, lim, exc
+                )
+            else:
                 if np.isfinite(val):
                     result = val
                     break
-            except Exception:
-                pass
             lim -= 1.0
 
-        if np.isfinite(result):
-            rho_x[t] = q1 + q2 * result
-        else:
-            rho_x[t] = np.nan
-            logger.warning("Nataf numerical integration failed for rho_z=%.4f", rz)
+        if not np.isfinite(result):
+            raise RuntimeError(
+                f"Nataf numerical integration failed for rho_z={rz:.4f} on all "
+                "integration domains (lim 7 down to 3). Check that the ICDFs are "
+                "finite on (0, 1), or use method='GH' or 'MC'."
+            )
+        rho_x[t] = q1 + q2 * result
 
     return rho_x
 
@@ -304,6 +337,13 @@ def nataf_inverse(
     """
     target_rho = np.atleast_1d(np.asarray(target_rho, dtype=float))
 
+    # Short-circuit: if every target is exactly zero, the grid would
+    # collapse (rmin = rmax = 0) and np.polyfit would fail. By Lemma 2,
+    # rho_x = 0 iff rho_z = 0, so the answer is identically zero.
+    if np.all(target_rho == 0.0):
+        rz_grid = np.zeros(n_eval)
+        return np.zeros_like(target_rho), np.column_stack([rz_grid, rz_grid])
+
     # Determine evaluation range based on sign of target correlations
     rmin = -1.0 if np.any(target_rho < 0) else 0.0
     rmax = 1.0 if np.any(target_rho > 0) else 0.0
@@ -332,6 +372,25 @@ def nataf_inverse(
     # Invert: given target rx, find rz via interpolation
     # rx_fine should be monotonically increasing (Lemma 1)
     rho_equiv = np.interp(target_rho, rx_fine, rz_fine)
+
+    # Warn when targets fall outside the attainable (Frechet-Hoeffding) range;
+    # np.interp clamps them to the boundary rz values (-1 or 1).
+    rx_lo, rx_hi = float(rx_fine.min()), float(rx_fine.max())
+    below = target_rho < rx_lo
+    above = target_rho > rx_hi
+    if np.any(below):
+        logger.warning(
+            "%d target correlation(s) (min %.4f) are below the attainable "
+            "Frechet-Hoeffding lower bound %.4f for these marginals; "
+            "clipped to the bound (rho_equiv = %.4f).",
+            int(np.sum(below)), float(target_rho[below].min()), rx_lo, float(rmin),
+        )
+    if np.any(above):
+        logger.warning(
+            "%d target correlation(s) (max %.4f) exceed the attainable upper "
+            "bound %.4f for these marginals; clipped to the bound.",
+            int(np.sum(above)), float(target_rho[above].max()), rx_hi,
+        )
 
     # Clip to valid range
     rho_equiv = np.clip(rho_equiv, -1.0, 1.0)

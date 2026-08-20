@@ -8,7 +8,7 @@
 
 ## Overview
 
-The Kirsch method generates synthetic multi-site streamflow by bootstrapping standardized residuals and imposing fitted intra-annual correlation structure through Cholesky decomposition. A cross-year shifted matrix construction preserves continuity across the year boundary. An optional normal score transform reduces bias when operating in log-transformed space. The method is hybrid: a parametric layer (per-period mean, standard deviation, intra-annual correlation) wraps a non-parametric bootstrap of the standardized residuals.
+The Kirsch method (called "modified fractional Gaussian noise", mFGN, in the original paper) generates synthetic multi-site streamflow by bootstrapping standardized residuals and imposing fitted intra-annual correlation structure through Cholesky decomposition. A cross-year shifted matrix construction preserves continuity across the year boundary. An optional normal score transform reduces bias when operating in log-transformed space. The method is hybrid: a parametric layer (per-period mean, standard deviation, intra-annual correlation) wraps a non-parametric bootstrap of the standardized residuals.
 
 The published algorithm (Kirsch et al., 2013) is described on weekly timesteps with 52 columns per year. SynHydro implements both **weekly** (52 columns, 26-period half-shift) and **monthly** (12 columns, 6-period half-shift) resolutions from a single code path. The algebra is identical at both resolutions; only the period count and the half-year split change. The implementation derives the number of periods per year and the half-shift from the input data frequency in `preprocessing`, so calling code does not pick the resolution explicitly except through the input timestep.
 
@@ -45,6 +45,8 @@ $$
 Z_{y,p,s} = \frac{Q'_{y,p,s} - \mu_{p,s}}{\sigma_{p,s}}
 $$
 
+The per-period moments $\mu_{p,s}$ and $\sigma_{p,s}$ (sample standard deviation, $N - 1$ denominator) are computed from the complete years only, the same $N$ years that form $\mathbf{Z}$ and $\mathbf{Y}$; partial years at the ends of the record are excluded before aggregation so that a partially observed first or last period cannot bias the moments.
+
 When operating in log space, a normal score transform (NST) is applied to each $(p, s)$ pair. The residuals are ranked and mapped to standard normal quantiles via Hazen plotting positions:
 
 $$
@@ -53,7 +55,7 @@ $$
 
 where $r(\cdot)$ denotes the rank among the $N$ values and $\Phi^{-1}$ is the standard normal inverse CDF.
 
-**Note:** The normal score transform is a SynHydro-specific extension to the original Kirsch (2013) method, which only applies z-score standardization (his eq. 3). NST is added in log-space here to prevent bias in the back-transformed marginal distribution when standardized log-residuals are non-Gaussian; the inverse NST (with linear tail extrapolation) maps Cholesky-mixed values back to the empirical $(p, s)$ marginal. Set `generate_using_log_flow=False` to skip both the log transform and NST and run the algorithm closer to the published version.
+**Note:** The normal score transform is a SynHydro-specific extension to the original Kirsch (2013) method, which only applies z-score standardization (his eq. 3). NST is added in log-space here to prevent bias in the back-transformed marginal distribution when standardized log-residuals are non-Gaussian; the inverse NST (with linear tail extrapolation) maps Cholesky-mixed values back to the empirical $(p, s)$ marginal. Set `generate_using_log_flow=False` to skip both the log transform and NST and run the algorithm closer to the published version. **Warning:** without the log transform, destandardization $Z \sigma + \mu$ is applied to raw flows and can produce negative values whenever a mixed residual falls below $-\mu_{p,s} / \sigma_{p,s}$; on the example data about 2.4% of generated flows were negative. The paper applies the log transform for exactly this reason (the log-space back-transform $\exp(\cdot)$ is always positive), so `generate_using_log_flow=True` (the default) is the setting that matches Kirsch et al. (2013), and `False` is provided for diagnostics rather than production use. No negativity clipping is applied in either mode.
 
 ### Cross-Year Shifted Matrix
 
@@ -67,7 +69,7 @@ For weekly ($H = 26$) this pairs weeks 27-52 of year $y$ with weeks 1-26 of year
 
 ### Cholesky Decomposition
 
-For each site $s$, the $P \times P$ sample correlation matrices $\mathbf{R}^{(s)}$ and $\mathbf{R}'^{(s)}$ are computed from $\mathbf{Y}^{(s)}$ and $\mathbf{Y}'^{(s)}$ respectively. If either matrix is not positive definite, it is repaired (default: spectral projection — negative eigenvalues are clipped to a small positive constant and the matrix is rescaled to unit diagonal). The upper Cholesky factors $\mathbf{U}^{(s)}$ and $\mathbf{U}'^{(s)}$ are then computed.
+For each site $s$, the $P \times P$ sample correlation matrices $\mathbf{R}^{(s)}$ and $\mathbf{R}'^{(s)}$ are computed from $\mathbf{Y}^{(s)}$ and $\mathbf{Y}'^{(s)}$ respectively. If either matrix is not positive definite, it is repaired (default: spectral projection -- negative eigenvalues are clipped to a small positive constant and the matrix is rescaled to unit diagonal). The upper Cholesky factors $\mathbf{U}^{(s)}$ and $\mathbf{U}'^{(s)}$ are then computed.
 
 Per Kirsch et al. (2013, eqs. 4-5), the correlation matrix and its Cholesky factor are intra-annual operators defined for a single site at a time. Cross-site correlation is preserved through the **shared bootstrap index matrix $\mathbf{M}$** (Kirsch et al., 2013, p. 7), not through a joint multi-site correlation matrix. This implementation therefore computes per-site Cholesky factors $\mathbf{U}^{(s)}, \mathbf{U}'^{(s)}$ and reuses one $\mathbf{M}$ across all sites in the synthesis step below.
 
@@ -114,6 +116,8 @@ The synthetic ensemble's DatetimeIndex is constructed so that ordinal position $
 
 The method preserves per-period (monthly or weekly) means and standard deviations at each site (by construction through standardization and destandardization), spatial cross-site correlations (all sites share the same bootstrap indices for each year), and intra-annual temporal correlation (through the Cholesky decomposition of the $P \times P$ correlation matrix). The cross-year shifted matrix construction maintains continuity across the year boundary.
 
+Intra-annual correlation is reproduced exactly within each half of the year, but the lag-1 correlation across the mid-year seam (between the two half-year blocks, e.g. month 6 to month 7 at monthly resolution) is only approximately reproduced, because the two halves are generated from different Cholesky factors (the original and the year-shifted correlation matrices). This is inherent to the published method and is proportionally more visible at monthly resolution, where the seam accounts for one of twelve lag-1 pairs, than at weekly resolution.
+
 Because the method resamples from the historical record, the empirical marginal distribution is approximately preserved. The normal score transform and its inverse allow modest extrapolation beyond the observed range in the tails. However, generated values remain close to the historical envelope, and genuinely novel extremes cannot be produced.
 
 ## Limitations
@@ -121,7 +125,8 @@ Because the method resamples from the historical record, the empirical marginal 
 - Generated values are bounded near the historical range (bootstrap limitation).
 - Requires complete years; the cross-year shifted matrix loses one year of data, and the weekly path additionally drops ISO week 53 from years that have one.
 - Sample correlation matrices may need positive-definiteness repair, which can inflate apparent correlations.
-- The method does not model long-range persistence or nonstationarity.
+- The method does not model long-range persistence or nonstationarity. The climate-adjustment factors of Kirsch et al. (2013) (their Eqs. 6-12, which scale the historical record by user-specified changes in mean and variance before resampling to build alternative hydro-climate scenarios) are not implemented; the generator reproduces the stationary historical statistics only. Scenario adjustments must be applied by the user to the observed record before fitting or to the output afterwards.
+- With `generate_using_log_flow=False`, generated flows can be negative (see the Standardization note above).
 
 ## References
 

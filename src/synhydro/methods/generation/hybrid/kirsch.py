@@ -47,7 +47,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from synhydro.core.base import Generator, FittedParams
+from synhydro.core.base import Generator, FittedParams, make_output_index
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 from synhydro.core.seeding import as_seed_sequence, realization_rng
 from synhydro.core.statistics import repair_correlation_matrix
@@ -226,11 +226,11 @@ class KirschGenerator(Generator):
                 for y in range(start_year, start_year + n_years)
                 for w in range(1, self.n_periods_per_year + 1)
             ]
-            return pd.DatetimeIndex(dates)
-        return pd.date_range(
-            start=f"{start_year}-01-01",
-            periods=n_years * self.n_periods_per_year,
-            freq=self._target_frequency,
+            return pd.DatetimeIndex(np.array(dates, dtype="datetime64[s]"))
+        return make_output_index(
+            f"{start_year}-01-01",
+            n_years * self.n_periods_per_year,
+            self._target_frequency,
         )
 
     def preprocessing(
@@ -473,11 +473,6 @@ class KirschGenerator(Generator):
 
         n_per_year = self.n_periods_per_year
 
-        # Per-period statistics by direct groupby on the (year, period) MultiIndex.
-        grouped = self.Qm.groupby(level="period")
-        self.mean_period = grouped.mean()
-        self.std_period = grouped.std()
-
         # Keep only years that contain all n_per_year periods so the reshape is safe.
         period_counts = self.Qm.groupby(level="year").size()
         complete_years = period_counts[period_counts == n_per_year].index
@@ -486,6 +481,13 @@ class KirschGenerator(Generator):
 
         valid_years = Qm_complete.index.get_level_values("year").unique().to_numpy()
         n_years = len(valid_years)
+
+        # Per-period statistics from the complete years only, so that the
+        # standardization is consistent with the Z_h / Y matrices built below
+        # and partial periods at the record ends do not bias the moments.
+        grouped = Qm_complete.groupby(level="period")
+        self.mean_period = grouped.mean()
+        self.std_period = grouped.std()
 
         Qm_arr = Qm_complete.values.reshape(n_years, n_per_year, self.n_sites)
         mean_arr = self.mean_period.values  # (n_per_year, n_sites)

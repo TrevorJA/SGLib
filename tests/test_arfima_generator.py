@@ -58,9 +58,20 @@ class TestARFIMAInit:
         gen = ARFIMAGenerator()
         assert gen.p == 1
         assert gen.q == 0
-        assert gen.d_method == "whittle"
+        assert gen.d_method == "mle"
         assert gen.auto_order is False
+        assert gen.order_criterion == "aic"
+        assert gen.backcast_length == 30
+        assert gen.d_bounds == (-0.49, 0.49)
         assert gen.is_fitted is False
+
+    def test_invalid_options_raise(self):
+        with pytest.raises(ValueError):
+            ARFIMAGenerator(d_method="nope")
+        with pytest.raises(ValueError):
+            ARFIMAGenerator(order_criterion="hqic")
+        with pytest.raises(ValueError):
+            ARFIMAGenerator(d_bounds=(0.3, 0.1))
 
     def test_custom_params(self):
         gen = ARFIMAGenerator(p=2, q=1, d_method="gph", auto_order=True)
@@ -75,6 +86,8 @@ class TestARFIMAInit:
         assert params["p"] == 2
         assert params["q"] == 1
         assert params["auto_order"] is True
+        assert params["order_criterion"] == "aic"
+        assert params["backcast_length"] == 30
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +150,11 @@ class TestARFIMAFit:
         gen = ARFIMAGenerator()
         gen.fit(monthly_series)
         assert gen.is_fitted
+        assert -0.49 <= gen.d <= 0.49
+
+    def test_fit_d_bounds_respected(self, monthly_series):
+        gen = ARFIMAGenerator(d_bounds=(0.01, 0.49))
+        gen.fit(monthly_series)
         assert 0.01 <= gen.d <= 0.49
 
     def test_fit_with_q_obs(self, monthly_series):
@@ -190,21 +208,28 @@ class TestARFIMAFit:
         assert fp is not None
         assert fp["n_parameters_"] > 0
 
-    def test_fit_auto_order_bic(self, monthly_series):
-        gen = ARFIMAGenerator(auto_order=True)
+    @pytest.mark.parametrize("criterion", ["aic", "bic"])
+    def test_fit_auto_order(self, monthly_series, criterion):
+        gen = ARFIMAGenerator(auto_order=True, order_criterion=criterion)
         gen.fit(monthly_series)
         assert gen.is_fitted
-        # BIC should have selected some order
-        assert gen.p >= 0
-        assert gen.q >= 0
-        assert gen.p <= 2
-        assert gen.q <= 2
+        assert 0 <= gen.p <= 2
+        assert 0 <= gen.q <= 2
+        assert len(gen.phi) == gen.p
+        assert len(gen.theta) == gen.q
+        assert (gen.p, gen.q) in gen._joint_fit_cache
+
+    def test_fit_auto_order_two_stage(self, monthly_series):
+        gen = ARFIMAGenerator(auto_order=True, d_method="whittle")
+        gen.fit(monthly_series)
+        assert 0 <= gen.p <= 2
+        assert 0 <= gen.q <= 2
 
     def test_fit_annual(self, annual_series):
         gen = ARFIMAGenerator()
         gen.fit(annual_series)
         assert gen.is_fitted
-        assert 0.01 <= gen.d <= 0.49
+        assert -0.49 <= gen.d <= 0.49
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +329,25 @@ class TestARFIMAGeneration:
         ens = gen.generate(n_realizations=2, n_years=10, seed=42)
         assert len(ens.data_by_realization) == 2
 
+    def test_generate_long_annual_run_second_resolution(self, annual_series):
+        """Annual output beyond year 2262 uses a datetime64[s] index."""
+        gen = ARFIMAGenerator()
+        gen.fit(annual_series)
+        ens = gen.generate(n_realizations=1, n_years=5000, seed=3)
+        df = ens.data_by_realization[0]
+        assert len(df) == 5000
+        assert df.index.dtype == "datetime64[s]"
+        assert df.index[0] == pd.Timestamp("2010-01-01")
+        assert df.index[-1].year == 2010 + 4999
+        assert (df.values > 0).all()
+
+    def test_generate_monthly_index_continues_record(self, monthly_series):
+        gen = ARFIMAGenerator()
+        gen.fit(monthly_series)
+        df = gen.generate(n_realizations=1, n_years=2, seed=3).data_by_realization[0]
+        expected = pd.date_range("2010-01-01", periods=24, freq="MS")
+        assert (df.index.values == expected.values).all()
+
 
 # ---------------------------------------------------------------------------
 # Statistical properties
@@ -338,7 +382,7 @@ class TestARFIMAStatisticalProperties:
         ), f"Std not preserved: obs={obs_std:.1f}, syn={ensemble_std:.1f}"
 
     def test_mean_preserved_high_cv(self, monthly_series_high_cv):
-        """Mean must be preserved on high-CV data — the pre-fix truncation
+        """Mean must be preserved on high-CV data -- the pre-fix truncation
         biased the mean upward via the np.maximum(X, 0) clip."""
         gen = ARFIMAGenerator(p=1, q=0)
         gen.fit(monthly_series_high_cv)
@@ -417,3 +461,243 @@ class TestARFIMASerialization:
 
         ens = loaded.generate(n_realizations=1, n_years=5, seed=42)
         assert len(ens.data_by_realization) == 1
+
+
+# ---------------------------------------------------------------------------
+# Whittle estimator and burn-in (AUDIT.md follow-up item 6)
+# ---------------------------------------------------------------------------
+
+
+def _exact_arfima_0d0(d: float, n: int, rng: np.random.Generator) -> np.ndarray:
+    """Simulate an exact ARFIMA(0,d,0) series via Cholesky of Hosking's ACF."""
+    from scipy.linalg import cholesky, toeplitz
+
+    rho = np.ones(n)
+    for k in range(1, n):
+        rho[k] = rho[k - 1] * (k - 1 + d) / (k - d)
+    L = cholesky(toeplitz(rho), lower=True)
+    return L @ rng.standard_normal(n)
+
+
+class TestWhittleEstimator:
+    @pytest.mark.parametrize("d_true", [0.2, 0.35])
+    def test_profile_whittle_unbiased(self, d_true):
+        """Mean d_hat over exact ARFIMA(0,d,0) replicates is close to d.
+
+        The non-profiled objective (scale fixed at 1) gave ~0.24 / ~0.40
+        for d = 0.2 / 0.35 on z-scored input.
+        """
+        rng = np.random.default_rng(123)
+        n = 600
+        idx = pd.date_range("1950-01-01", periods=n, freq="MS")
+        d_hats = []
+        for _ in range(12):
+            x = _exact_arfima_0d0(d_true, n, rng)
+            q = pd.Series(np.exp(x), index=idx, name="site_1")
+            gen = ARFIMAGenerator(p=0, q=0, d_method="whittle")
+            gen.fit(q)
+            d_hats.append(gen.d)
+        assert abs(np.mean(d_hats) - d_true) < 0.03
+
+    def test_profile_whittle_scale_invariant(self):
+        """The profile form does not depend on the scale of Q_norm."""
+        rng = np.random.default_rng(5)
+        x = _exact_arfima_0d0(0.3, 400, rng)
+        gen = ARFIMAGenerator(p=0, q=0)
+        gen.Q_norm = pd.Series(x)
+        d_unit = gen._whittle_estimator()
+        gen.Q_norm = pd.Series(7.0 * x)
+        d_scaled = gen._whittle_estimator()
+        assert abs(d_unit - d_scaled) < 1e-4
+
+
+class TestBurnIn:
+    def test_burn_in_at_least_truncation_lag(self):
+        gen = ARFIMAGenerator(truncation_lag=250)
+        assert gen._burn_in_length() >= 250
+
+    def test_first_step_has_full_variance(self):
+        """Without burn-in, X_0 = eps_0 has variance sigma_eps^2 instead of
+        sigma_eps^2 * sum(psi_k^2); with burn-in the first output step is
+        already in the (truncated) stationary regime.
+
+        Checks var(X_0) / var(X_12) (same calendar month, so the per-month
+        scaling cancels); without burn-in this ratio is ~0.6 at d = 0.35.
+        """
+        rng = np.random.default_rng(21)
+        n = 480
+        idx = pd.date_range("1960-01-01", periods=n, freq="MS")
+        x = _exact_arfima_0d0(0.35, n, rng)
+        series = pd.Series(np.exp(x), index=idx, name="site_1")
+        gen = ARFIMAGenerator(p=0, q=0)
+        gen.fit(series)
+        assert gen.d > 0.25
+        tau = gen.log_transform.params_["tau"]
+        month0 = gen.Q_obs.index[-1].month % 12 + 1
+        tau0 = float(tau.loc[month0, "site_1"])
+        q = np.array(
+            [
+                gen._generate_single(13, rng=np.random.default_rng(s)).values
+                for s in range(500)
+            ]
+        )
+        v0 = np.var(np.log(q[:, 0] - tau0))
+        v12 = np.var(np.log(q[:, 12] - tau0))
+        assert v0 / v12 == pytest.approx(1.0, abs=0.15)
+
+    def test_seed_reproducible_with_burn_in(self, monthly_series):
+        gen = ARFIMAGenerator()
+        gen.fit(monthly_series)
+        a = gen.generate(n_realizations=2, n_years=5, seed=9)
+        b = gen.generate(n_realizations=2, n_years=5, seed=9)
+        for i in range(2):
+            np.testing.assert_allclose(
+                a.data_by_realization[i].values, b.data_by_realization[i].values
+            )
+
+
+# ---------------------------------------------------------------------------
+# Joint approximate maximum likelihood (Hosking 1984, Sec. 4.2)
+# ---------------------------------------------------------------------------
+
+
+def _arma_acov(phi, theta, nlags, length=4000):
+    """Autocovariance of a unit-variance ARMA via its psi weights."""
+    from scipy.signal import lfilter
+
+    impulse = np.zeros(length)
+    impulse[0] = 1.0
+    psi = lfilter(np.r_[1.0, theta], np.r_[1.0, -np.asarray(phi)], impulse)
+    return np.array([np.sum(psi[: length - k] * psi[k:]) for k in range(nlags)])
+
+
+def _exact_arfima(d, phi, theta, n, rng, tail=2000):
+    """Exact ARFIMA(p,d,q) sample: Hosking (1984) Eq. 3 convolution + Cholesky."""
+    from scipy.linalg import cholesky, toeplitz
+    from scipy.special import gamma
+
+    gw = _arma_acov(np.atleast_1d(phi), np.atleast_1d(theta), tail)
+    gx = np.zeros(n + tail)
+    gx[0] = gamma(1 - 2 * d) / gamma(1 - d) ** 2
+    for k in range(1, n + tail):
+        gx[k] = gx[k - 1] * (k - 1 + d) / (k - d)
+    js = np.arange(-tail + 1, tail)
+    g = np.array([np.sum(gw[np.abs(js)] * gx[np.abs(k + js)]) for k in range(n)])
+    L = cholesky(toeplitz(g), lower=True)
+    return L @ rng.standard_normal(n)
+
+
+class TestJointEstimator:
+    def test_backcast_uses_ar_structure(self):
+        """Backcasts of an AR(1) series extrapolate x_0 with the AR coefficient."""
+        rng = np.random.default_rng(0)
+        x = _exact_arfima(0.0, [0.8], [], 500, rng)
+        x = x - x.mean()
+        gen = ARFIMAGenerator(backcast_length=30)
+        pre = gen._backcast_presample(x)
+        assert pre.shape == (30,)
+        # the last backcast value is x_{-1}, which should be close to 0.8 * x_0
+        assert abs(pre[-1] - 0.8 * x[0]) < 0.6
+        gen0 = ARFIMAGenerator(backcast_length=0)
+        assert gen0._backcast_presample(x).shape == (0,)
+
+    def test_backcast_length_capped_for_short_records(self):
+        gen = ARFIMAGenerator(backcast_length=30)
+        x = np.random.default_rng(1).normal(size=40)
+        assert gen._backcast_presample(x).shape == (10,)
+
+    def test_fractional_difference_matches_truncated_filter(self):
+        """With M = 0 and no truncation, Eq. 9 reduces to Eq. 8."""
+        rng = np.random.default_rng(2)
+        x = rng.normal(size=80)
+        d = 0.3
+        gen = ARFIMAGenerator(truncation_lag=200)
+        gen.Q_norm = pd.Series(x)
+        gen.pi_coeffs = gen._compute_fractional_diff_coefficients(d)
+        w_eq8 = gen._apply_fractional_differencing().values
+        w_eq9 = gen._fractional_difference_backcast(x, d, len(x))
+        np.testing.assert_allclose(w_eq9, w_eq8, atol=1e-10)
+
+    def test_arma_innovations_match_recursion(self):
+        rng = np.random.default_rng(3)
+        w = rng.normal(size=50)
+        phi = np.array([0.5, -0.2])
+        theta = np.array([0.3])
+        np.testing.assert_allclose(
+            ARFIMAGenerator._arma_innovations(w, phi, theta),
+            ARFIMAGenerator._compute_css_residuals(w, phi, theta),
+            atol=1e-12,
+        )
+
+    def test_arma_admissibility(self):
+        ok = ARFIMAGenerator._arma_is_admissible
+        assert ok(np.array([0.5]), np.array([]))
+        assert ok(np.array([]), np.array([-0.9]))
+        assert not ok(np.array([1.2]), np.array([]))
+        assert not ok(np.array([0.9, 0.9]), np.array([]))
+
+    @pytest.mark.parametrize(
+        "p, q, d_true, coef",
+        [(1, 0, 0.35, -0.3), (0, 1, 0.2, 0.5), (0, 1, 0.35, -0.3)],
+    )
+    def test_joint_removes_two_stage_contamination(self, p, q, d_true, coef):
+        """Joint estimates are close to truth where the two-stage Whittle
+        estimate of d is badly contaminated by the ARMA part.
+
+        Two-stage (Whittle then ARMA) at n = 600, 30 reps:
+            ARFIMA(1,0.35,0) phi=-0.3:   d_hat 0.17, phi_hat -0.13
+            ARFIMA(0,0.20,1) theta=0.5:  d_hat 0.47, theta_hat 0.30
+            ARFIMA(0,0.35,1) theta=-0.3: d_hat 0.15, theta_hat -0.09
+        Joint approximate ML:
+            d_hat 0.33 / 0.19 / 0.32, coef -0.29 / 0.49 / -0.28
+        """
+        rng = np.random.default_rng(77)
+        n = 600
+        idx = pd.date_range("1950-01-01", periods=n, freq="MS")
+        d_joint, c_joint, d_two = [], [], []
+        for _ in range(8):
+            x = _exact_arfima(d_true, [coef] if p else [], [coef] if q else [], n, rng)
+            series = pd.Series(np.exp(x), index=idx, name="site_1")
+            gen = ARFIMAGenerator(p=p, q=q)
+            gen.fit(series)
+            d_joint.append(gen.d)
+            c_joint.append(gen.phi[0] if p else gen.theta[0])
+            two = ARFIMAGenerator(p=p, q=q, d_method="whittle")
+            two.fit(series)
+            d_two.append(two.d)
+        assert abs(np.mean(d_joint) - d_true) < 0.06
+        assert abs(np.mean(c_joint) - coef) < 0.08
+        assert abs(np.mean(d_two) - d_true) > 0.1
+
+    def test_joint_agrees_with_profile_whittle_when_white(self):
+        """For ARFIMA(0,d,0) the joint CSS estimate agrees with Whittle."""
+        rng = np.random.default_rng(11)
+        n = 600
+        idx = pd.date_range("1950-01-01", periods=n, freq="MS")
+        diffs = []
+        for _ in range(6):
+            x = _exact_arfima_0d0(0.3, n, rng)
+            series = pd.Series(np.exp(x), index=idx, name="site_1")
+            a = ARFIMAGenerator(p=0, q=0)
+            a.fit(series)
+            b = ARFIMAGenerator(p=0, q=0, d_method="whittle")
+            b.fit(series)
+            diffs.append(a.d - b.d)
+        assert abs(np.mean(diffs)) < 0.05
+
+    def test_joint_fit_sets_expected_attributes(self, monthly_series):
+        gen = ARFIMAGenerator(p=1, q=1)
+        gen.fit(monthly_series)
+        assert len(gen.W) == len(monthly_series)
+        assert len(gen.phi) == 1 and len(gen.theta) == 1
+        assert gen.sigma_eps_sq > 0
+        assert gen._arma_is_admissible(gen.phi, gen.theta)
+        assert len(gen.pi_coeffs) == gen.truncation_lag + 1
+
+    def test_joint_fit_deterministic(self, monthly_series):
+        a = ARFIMAGenerator()
+        a.fit(monthly_series)
+        b = ARFIMAGenerator()
+        b.fit(monthly_series)
+        assert a.d == b.d
+        np.testing.assert_array_equal(a.phi, b.phi)

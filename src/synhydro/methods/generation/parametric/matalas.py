@@ -13,9 +13,9 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from synhydro.core.base import Generator, FittedParams
-from synhydro.core.ensemble import Ensemble
-from synhydro.core.statistics import repair_correlation_matrix
+from synhydro.core.base import Generator, FittedParams, make_output_index
+from synhydro.core.ensemble import Ensemble, EnsembleMetadata
+from synhydro.core.statistics import repair_covariance_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +29,11 @@ class MatalasGenerator(Generator):
     matrix autoregression, preserving contemporaneous cross-site correlations
     and lag-1 temporal structure at each site.
 
-    For each monthly transition m → m+1, generates:
+    For each monthly transition m -> m+1, generates:
 
-        Z(t+1) = A(m) · Z(t) + B(m) · ε(t+1)
+        Z(t+1) = A(m) * Z(t) + B(m) * eps(t+1)
 
-    where Z are standardized flows across all sites, ε ~ N(0, I), and A, B
+    where Z are standardized flows across all sites, eps ~ N(0, I), and A, B
     are coefficient matrices fitted from observed cross-correlations.
 
     Parameters
@@ -41,6 +41,15 @@ class MatalasGenerator(Generator):
     log_transform : bool, default=True
         Apply log(Q + 1) transformation before standardization to reduce
         skewness and improve normality assumption.
+    burn_in : int, default=120
+        Number of extra months simulated before the first output month and
+        discarded. The recursion is started from Z ~ N(0, I), which ignores
+        the spatial correlation S0; the burn-in lets the chain reach its
+        periodic stationary distribution so that the first retained month
+        already carries the fitted cross-site correlation. The burn-in is
+        rounded up to a whole number of years so that the first retained
+        month is always January. Set to 0 to start output directly from the
+        N(0, I) initial state.
     name : str, optional
         Name for this generator instance.
     debug : bool, default=False
@@ -51,12 +60,15 @@ class MatalasGenerator(Generator):
     The coefficient matrices are derived from the lag-0 and lag-1
     cross-correlation matrices of the standardized flows:
 
-        A(m) = S₁(m) · S₀(m)⁻¹
-        B(m) · B(m)ᵀ = S₀(m+1) - A(m) · S₀(m) · A(m)ᵀ
+        A(m) = S1(m) * S0(m)^-1
+        B(m) * B(m)^T = S0(m+1) - A(m) * S0(m) * A(m)^T
 
-    where S₀(m) is the contemporaneous correlation matrix at month m and
-    S₁(m) is the lag-1 cross-correlation between months m+1 and m.
-    B(m) is the lower Cholesky factor of the residual covariance.
+    where S0(m) is the contemporaneous correlation matrix at month m and
+    S1(m) is the lag-1 cross-correlation between months m+1 and m.
+    B(m) is the lower Cholesky factor of the residual covariance. Matalas
+    (1967) obtains B by principal components; any B* = B O with O
+    orthogonal gives the same B B^T (Matalas Eqs. 19-20), so the Cholesky
+    factor is equivalent.
 
     Examples
     --------
@@ -67,7 +79,7 @@ class MatalasGenerator(Generator):
     References
     ----------
     Matalas, N. C. (1967). Mathematical assessment of synthetic hydrology.
-    Water Resources Research, 3(4), 937–945.
+    Water Resources Research, 3(4), 937-945.
 
     Salas, J. D., Delleur, J. W., Yevjevich, V., & Lane, W. L. (1980).
     Applied Modeling of Hydrologic Time Series. Water Resources Publications.
@@ -80,18 +92,25 @@ class MatalasGenerator(Generator):
         self,
         *,
         log_transform: bool = True,
+        burn_in: int = 120,
         name: Optional[str] = None,
         debug: bool = False,
         **kwargs,
     ):
         super().__init__(name=name, debug=debug)
 
+        if burn_in < 0:
+            raise ValueError(f"burn_in must be non-negative, got {burn_in}")
+
         self.log_transform = log_transform
+        # Round up to whole years so the first retained month is January.
+        self.burn_in = int(12 * np.ceil(burn_in / 12))
 
         self.init_params.algorithm_params = {
             "method": "Matalas MAR(1)",
             "reference": "Matalas (1967)",
             "log_transform": log_transform,
+            "burn_in": self.burn_in,
         }
         self.init_params.transformation_params = {
             "log_transform": log_transform,
@@ -100,8 +119,8 @@ class MatalasGenerator(Generator):
         # Fitted attributes (set during fit)
         self._mu: Optional[pd.DataFrame] = None  # shape (12, n_sites)
         self._sigma: Optional[pd.DataFrame] = None  # shape (12, n_sites)
-        self._A: Optional[List[NDArray]] = None  # list of 12 (n×n) matrices
-        self._B: Optional[List[NDArray]] = None  # list of 12 (n×n) matrices
+        self._A: Optional[List[NDArray]] = None  # list of 12 (nxn) matrices
+        self._B: Optional[List[NDArray]] = None  # list of 12 (nxn) matrices
 
     @property
     def output_frequency(self) -> str:
@@ -177,7 +196,7 @@ class MatalasGenerator(Generator):
         if self.log_transform:
             Q = np.log(Q + 1.0)
 
-        # Monthly means and standard deviations (shape: 12 × n_sites)
+        # Monthly means and standard deviations (shape: 12 x n_sites)
         mu = np.zeros((12, n_sites))
         sigma = np.zeros((12, n_sites))
         for m in range(12):
@@ -197,7 +216,7 @@ class MatalasGenerator(Generator):
             Z.loc[mask] = (Z.loc[mask].values - mu[m]) / sigma[m]
 
         # Fit 12 transition matrices A(m) and B(m), m=0..11
-        # Transition m → (m+1) % 12
+        # Transition m -> (m+1) % 12
         self._A = []
         self._B = []
 
@@ -205,13 +224,13 @@ class MatalasGenerator(Generator):
             next_m = (m + 1) % 12
 
             # Collect Z(m, y) and Z(m+1, y) pairs
-            # For Dec→Jan, pair Dec of year y with Jan of year y+1
+            # For Dec->Jan, pair Dec of year y with Jan of year y+1
             Z_curr = self._extract_month_vectors(Z, m + 1)  # shape (n_years, n_sites)
             Z_next = self._extract_month_vectors(
                 Z, next_m + 1
             )  # shape (n_years, n_sites)
 
-            # Align Dec→Jan across year boundary
+            # Align Dec->Jan across year boundary
             if m == 11:
                 Z_curr = Z_curr[:-1]  # Dec years 0..T-2
                 Z_next = Z_next[1:]  # Jan years 1..T-1
@@ -238,12 +257,12 @@ class MatalasGenerator(Generator):
             # Element [i, j] = sum_y z_i(m+1, y) * z_j(m, y)
             S1 = (Z_next.T @ Z_curr) / (n_obs - 1)
 
-            # Lag-0 at month m+1 (needed for residual covariance)
-            Z_next2 = self._extract_month_vectors(Z, next_m + 1)
-            n2 = len(Z_next2)
-            S0_next = (Z_next2.T @ Z_next2) / (n2 - 1)
+            # Lag-0 at month m+1 (needed for residual covariance), computed
+            # from the same aligned pairs as S0 and S1 so that M below is
+            # exactly the sample covariance of the regression residuals.
+            S0_next = (Z_next.T @ Z_next) / (n_obs - 1)
 
-            # A(m) = S1 · S0⁻¹
+            # A(m) = S1 * S0^-1
             try:
                 A = S1 @ np.linalg.solve(S0, np.eye(n_sites))
             except np.linalg.LinAlgError:
@@ -252,12 +271,24 @@ class MatalasGenerator(Generator):
                 )
                 A = S1 @ np.linalg.pinv(S0)
 
-            # Residual covariance: M = S0(m+1) - A · S0(m) · Aᵀ
+            # Residual covariance: M = S0(m+1) - A * S0(m) * A^T
             M = S0_next - A @ S0 @ A.T
 
-            # Symmetrize and enforce PSD before Cholesky
+            # Symmetrize and enforce PSD before Cholesky. M is a covariance,
+            # so clip eigenvalues without rescaling to unit diagonal; the
+            # diagonal of BB^T must stay at 1 - rho^2 in the univariate case
+            # (the scalar form of Matalas Eqs. 1 and 10; Eq. 17 is the
+            # matrix equation B B^T = S0 - A S1^T).
             M = 0.5 * (M + M.T)
-            M = repair_correlation_matrix(M, method="spectral")
+            min_eig = np.linalg.eigvalsh(M).min()
+            if min_eig < 1e-8:
+                self.logger.warning(
+                    "Innovation covariance at month %d transition is not "
+                    "positive-definite (min eigenvalue %.2e); clipping eigenvalues",
+                    m + 1,
+                    min_eig,
+                )
+                M = repair_covariance_matrix(M)
 
             try:
                 B = np.linalg.cholesky(M)
@@ -305,18 +336,26 @@ class MatalasGenerator(Generator):
         mu = self._mu.values  # (12, n_sites)
         sigma = self._sigma.values  # (12, n_sites)
 
+        # Simulate burn_in extra months ahead of the output window and
+        # discard them. burn_in is a multiple of 12, so step 0 of the full
+        # chain is a January and the first retained month is also January.
+        n_burn = self.burn_in
+        n_total = n_steps + n_burn
+
         # Initialize: draw first month from marginal (standard normal)
         Z_prev = rng.standard_normal(n_sites)
 
-        Z_all = np.zeros((n_steps, n_sites))
-        Z_all[0] = Z_prev
+        Z_full = np.zeros((n_total, n_sites))
+        Z_full[0] = Z_prev
 
-        for t in range(1, n_steps):
+        for t in range(1, n_total):
             m_prev = (t - 1) % 12  # 0-indexed month of previous step
             eps = rng.standard_normal(n_sites)
             Z_curr = self._A[m_prev] @ Z_prev + self._B[m_prev] @ eps
-            Z_all[t] = Z_curr
+            Z_full[t] = Z_curr
             Z_prev = Z_curr
+
+        Z_all = Z_full[n_burn:]
 
         # Back-transform: Q = sigma(m) * Z + mu(m)  then invert log if needed
         Q_syn = np.zeros_like(Z_all)
@@ -332,7 +371,7 @@ class MatalasGenerator(Generator):
 
         # Build DataFrame with monthly DatetimeIndex
         start = pd.Timestamp(f"{self.Q_obs_monthly.index[0].year}-01-01")
-        dates = pd.date_range(start=start, periods=n_steps, freq="MS")
+        dates = make_output_index(start, n_steps, "MS")
         return pd.DataFrame(Q_syn, index=dates, columns=self._sites)
 
     def generate(
@@ -384,12 +423,21 @@ class MatalasGenerator(Generator):
             realizations[i] = df
 
         self.logger.info(
-            "Generated %d realizations of %d years × %d sites",
+            "Generated %d realizations of %d years x %d sites",
             n_realizations,
             n_years,
             self._n_sites,
         )
-        return Ensemble(realizations)
+
+        first = realizations[0]
+        metadata = EnsembleMetadata(
+            generator_class=self.__class__.__name__,
+            n_realizations=n_realizations,
+            n_sites=self._n_sites,
+            time_resolution=self.output_frequency,
+            time_period=(str(first.index[0].date()), str(first.index[-1].date())),
+        )
+        return Ensemble(realizations, metadata=metadata)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -400,7 +448,7 @@ class MatalasGenerator(Generator):
             str(self.Q_obs_monthly.index[0].date()),
             str(self.Q_obs_monthly.index[-1].date()),
         )
-        # Parameters: 12 transitions × (n² for A + n² for B) + 12×n means + 12×n stds
+        # Parameters: 12 transitions x (n^2 for A + n^2 for B) + 12xn means + 12xn stds
         n = self._n_sites
         n_params = 12 * (2 * n * n + 2 * n)
 
@@ -412,6 +460,7 @@ class MatalasGenerator(Generator):
             transformations_={
                 "log_transform": self.log_transform,
                 "n_transition_matrices": 12,
+                "burn_in": self.burn_in,
             },
             n_parameters_=n_params,
             sample_size_=len(self.Q_obs_monthly),

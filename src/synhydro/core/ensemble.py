@@ -19,6 +19,64 @@ import h5py
 logger = logging.getLogger(__name__)
 
 
+def _parse_timestamp(value: Union[str, pd.Timestamp, np.datetime64]) -> pd.Timestamp:
+    """Parse a single date that may lie beyond the nanosecond range.
+
+    Parameters
+    ----------
+    value : str, pd.Timestamp or np.datetime64
+        Date to parse.
+
+    Returns
+    -------
+    pd.Timestamp
+        Nanosecond timestamp when representable, otherwise a second-resolution
+        timestamp (years beyond 2262).
+    """
+    try:
+        return pd.Timestamp(value)
+    except (pd.errors.OutOfBoundsDatetime, ValueError):
+        return pd.Timestamp(np.datetime64(str(value), "s"))
+
+
+def _parse_date_dataset(dates_ds: h5py.Dataset) -> pd.DatetimeIndex:
+    """Build a DatetimeIndex from the ``date`` dataset of an HDF5 group.
+
+    Integer datasets (legacy files) are interpreted as nanosecond
+    timestamps. String datasets, which is what ``Ensemble.to_hdf5`` writes,
+    are parsed as second-resolution ``datetime64[s]``, the standard index
+    dtype of generated output (see ``synhydro.core.base.make_output_index``).
+    Second resolution covers dates far outside the nanosecond range (years
+    beyond 2262, e.g. multi-millennial annual runs).
+
+    Parameters
+    ----------
+    dates_ds : h5py.Dataset
+        The ``date`` dataset.
+
+    Returns
+    -------
+    pd.DatetimeIndex
+        Parsed index named ``"datetime"``.
+    """
+    if dates_ds.dtype.kind == "i":
+        dt_index = pd.DatetimeIndex(dates_ds[:].astype("datetime64[ns]"))
+    else:
+        dates_raw = dates_ds[:]
+        if dates_raw.dtype.kind == "S" or dates_raw.dtype.kind == "O":
+            dates_raw = dates_raw.astype(str)
+        try:
+            dt_index = pd.DatetimeIndex(
+                np.asarray(dates_raw, dtype=str).astype("datetime64[s]")
+            )
+        except ValueError:
+            # Non-ISO date strings: fall back to pandas' flexible parser
+            logger.debug("Dates are not ISO formatted; parsing with pd.to_datetime")
+            dt_index = pd.to_datetime(dates_raw).as_unit("s")
+    dt_index.name = "datetime"
+    return dt_index
+
+
 @dataclass
 class EnsembleMetadata:
     """
@@ -77,11 +135,11 @@ class Ensemble:
 
     The Ensemble class stores synthetic timeseries data in two complementary formats:
 
-    1. **By Realization**: `{realization_id: DataFrame[sites × time]}`
+    1. **By Realization**: `{realization_id: DataFrame[sites x time]}`
        - Keys are realization numbers (int)
        - Values are DataFrames with sites as columns
 
-    2. **By Site**: `{site_name: DataFrame[realizations × time]}`
+    2. **By Site**: `{site_name: DataFrame[realizations x time]}`
        - Keys are site names (str)
        - Values are DataFrames with realizations as columns
 
@@ -447,17 +505,8 @@ class Ensemble:
                 first_node = f[keys[0]]
                 column_labels = first_node.attrs["column_labels"]
 
-                # Parse dates once — reuse across all realizations
-                dates_ds = first_node["date"]
-                if dates_ds.dtype.kind == "i":
-                    # Int64 nanosecond timestamps (fast path)
-                    dt_index = pd.DatetimeIndex(dates_ds[:].astype("datetime64[ns]"))
-                else:
-                    dates_raw = dates_ds[:]
-                    if dates_raw.dtype.kind == "S" or dates_raw.dtype.kind == "O":
-                        dates_raw = dates_raw.astype(str)
-                    dt_index = pd.to_datetime(dates_raw)
-                dt_index.name = "datetime"
+                # Parse dates once and reuse across all realizations
+                dt_index = _parse_date_dataset(first_node["date"])
 
                 # Determine which realizations to load
                 if realization_subset is not None:
@@ -507,23 +556,10 @@ class Ensemble:
 
                     # Parse dates once for the first realization, reuse if lengths match
                     if shared_dt_index is None:
-                        dates_ds = realization_group["date"]
-                        if dates_ds.dtype.kind == "i":
-                            shared_dt_index = pd.DatetimeIndex(
-                                dates_ds[:].astype("datetime64[ns]")
-                            )
-                        else:
-                            dates_raw = dates_ds[:]
-                            if (
-                                dates_raw.dtype.kind == "S"
-                                or dates_raw.dtype.kind == "O"
-                            ):
-                                dates_raw = dates_raw.astype(str)
-                            shared_dt_index = pd.to_datetime(dates_raw)
-                        shared_dt_index.name = "datetime"
-                        dt_index = shared_dt_index
-                    else:
-                        dt_index = shared_dt_index
+                        shared_dt_index = _parse_date_dataset(
+                            realization_group["date"]
+                        )
+                    dt_index = shared_dt_index
 
                     # Bulk read into numpy array
                     n_times = len(dt_index)
@@ -764,9 +800,9 @@ class Ensemble:
             for real_id in data:
                 df = data[real_id]
                 if start_date is not None:
-                    df = df[df.index >= pd.to_datetime(start_date)]
+                    df = df[df.index >= _parse_timestamp(start_date)]
                 if end_date is not None:
-                    df = df[df.index <= pd.to_datetime(end_date)]
+                    df = df[df.index <= _parse_timestamp(end_date)]
                 data[real_id] = df
 
         # Filter by sites

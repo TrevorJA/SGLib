@@ -10,7 +10,7 @@ from datetime import datetime
 import tempfile
 import pickle
 
-from synhydro.core.base import Generator, GeneratorState
+from synhydro.core.base import Generator, GeneratorState, make_output_index
 from synhydro.core.ensemble import Ensemble
 
 
@@ -333,3 +333,55 @@ class TestGenerator:
 
         assert gen.state.is_fitted is True
         assert gen.state.fit_timestamp is not None
+
+
+class TestMakeOutputIndex:
+    """Tests for the shared second-resolution output index helper."""
+
+    @pytest.mark.parametrize("freq", ["YS", "MS", "W-SUN", "W", "D"])
+    @pytest.mark.parametrize(
+        "start", ["1950-01-01", "1950-03-15", "2000-12-31", pd.Timestamp("1987-06-01")]
+    )
+    def test_matches_date_range_values(self, freq, start):
+        idx = make_output_index(start, 25, freq)
+        ref = pd.date_range(start, periods=25, freq=freq)
+        assert idx.dtype == np.dtype("datetime64[s]")
+        assert (idx.values == ref.values).all()
+
+    @pytest.mark.parametrize("freq", ["YS", "MS"])
+    def test_keeps_freq_attribute(self, freq):
+        idx = make_output_index("2000-01-01", 12, freq)
+        assert idx.freq is not None
+        assert idx.freq == pd.tseries.frequencies.to_offset(freq)
+
+    def test_annual_beyond_nanosecond_range(self):
+        idx = make_output_index("1940-01-01", 5000, "YS")
+        assert len(idx) == 5000
+        assert idx[-1].year == 1940 + 4999
+        assert idx.dtype == np.dtype("datetime64[s]")
+
+    def test_monthly_beyond_nanosecond_range(self):
+        idx = make_output_index("1940-01-01", 12 * 5000, "MS")
+        assert idx[-1].year == 1940 + 4999
+        assert idx[-1].month == 12
+
+    def test_daily_beyond_nanosecond_range(self):
+        idx = make_output_index("1940-01-01", 365 * 1000, "D")
+        assert idx[-1].year > 2262
+        assert idx.dtype == np.dtype("datetime64[s]")
+
+    def test_zero_periods(self):
+        idx = make_output_index("2000-01-01", 0, "YS")
+        assert len(idx) == 0
+        assert idx.dtype == np.dtype("datetime64[s]")
+
+    def test_negative_periods_raises(self):
+        with pytest.raises(ValueError):
+            make_output_index("2000-01-01", -1, "YS")
+
+    def test_create_output_index_uses_second_resolution(self):
+        gen = MockGenerator()
+        idx = gen._create_output_index(10, freq="D", start_date=pd.Timestamp("2000-01-01"))
+        assert idx.dtype == np.dtype("datetime64[s]")
+        assert idx[0] == pd.Timestamp("2000-01-01")
+        assert len(idx) == 10

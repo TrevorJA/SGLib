@@ -205,6 +205,49 @@ class TestNowakDisaggregatorFit:
         assert len(disagg.coarse_totals[1]) == expected
         assert disagg.flow_profiles[1].shape == (expected, 31)
 
+    def test_shifted_pool_windows_wrap_around_record_ends(self):
+        """Shifted windows past the record ends use values from the other end."""
+        dates = pd.date_range("2000-01-01", "2002-12-31", freq="D")
+        rng = np.random.default_rng(7)
+        obs = pd.DataFrame(
+            {"a": rng.lognormal(2.0, 0.5, len(dates)),
+             "b": rng.lognormal(1.5, 0.5, len(dates))},
+            index=dates,
+        )
+        shift = 3
+        disagg = NowakDisaggregator(max_knn_pool_shift_timesteps=shift)
+        disagg.fit(obs)
+        index_gauge = obs.sum(axis=1)
+        width = 2 * shift + 1
+
+        # First year, January, shift -3: Dec 29-31 of the last year + Jan 1-28
+        first = disagg.coarse_totals[1][0 * width + 0]
+        expected_first = (
+            index_gauge.iloc[-shift:].sum()
+            + index_gauge.loc["2000-01-01":"2000-01-28"].sum()
+        )
+        assert np.isclose(first, expected_first)
+
+        # Last year, December, shift +3: Dec 4-31 + Jan 1-3 of the first year
+        last_year = disagg.n_historic_years - 1
+        last = disagg.coarse_totals[12][last_year * width + (width - 1)]
+        expected_last = (
+            index_gauge.loc["2002-12-04":"2002-12-31"].sum()
+            + index_gauge.iloc[:shift].sum()
+        )
+        assert np.isclose(last, expected_last)
+
+        # The unshifted final-period window must use the actual last observation
+        unshifted = disagg.coarse_totals[12][last_year * width + shift]
+        assert np.isclose(unshifted, index_gauge.loc["2002-12"].sum())
+
+        # Per-site profiles in the padded region are the wrapped values, not constants
+        profile = disagg.flow_profiles[1][0, :shift, 0]
+        expected_profile = obs["a"].iloc[-shift:].values / (
+            obs["a"].iloc[-shift:].sum() + obs["a"].loc["2000-01-01":"2000-01-28"].sum()
+        )
+        np.testing.assert_allclose(profile, expected_profile)
+
 
 class TestNowakDisaggregatorKNNSearch:
     """Tests for KNN search functionality."""
@@ -649,3 +692,45 @@ class TestFittedPoolImmutability:
             fine_batch.data_by_realization[target],
             fine_alone.data_by_realization[target],
         )
+
+
+class TestNowakDisaggregatorInputValidation:
+    """Input-ensemble validation beyond basic frequency matching."""
+
+    def test_water_year_annual_input_raises(self, sample_monthly_dataframe):
+        """Non-January-anchored annual input (e.g. 'YS-OCT') is rejected."""
+        disagg = NowakDisaggregator(input_timestep="annual", output_timestep="monthly")
+        disagg.fit(sample_monthly_dataframe)
+
+        coarse = sample_monthly_dataframe.resample("YS-OCT").sum().iloc[1:3]
+        ensemble = _make_ensemble(coarse, "YS-OCT")
+
+        with pytest.raises(ValueError, match="January-anchored"):
+            disagg.disaggregate(ensemble, seed=0)
+
+    def test_lall_sharma_weights(self, sample_daily_series):
+        """'lall_and_sharma_1996' sampling uses the rank-based kernel
+        w_i = (1/i) / sum_j (1/j), passed to rng.choice as ``p``."""
+        disagg = NowakDisaggregator()
+        disagg.fit(sample_daily_series)
+
+        captured = []
+
+        class _Rng:
+            def choice(self, a, p=None):
+                captured.append(np.asarray(p))
+                return a[0]
+
+        k = 4
+        disagg.sample_knn_flows(
+            np.array([[100.0]]),
+            label=1,
+            n_neighbors=k,
+            sample_method="lall_and_sharma_1996",
+            rng=_Rng(),
+        )
+
+        expected = 1.0 / np.arange(1, k + 1)
+        expected = expected / expected.sum()
+        assert len(captured) == 1
+        np.testing.assert_allclose(captured[0], expected)

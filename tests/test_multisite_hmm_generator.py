@@ -2,11 +2,12 @@
 Tests for Multi-Site Hidden Markov Model (HMM) Generator.
 
 Based on Gold et al. (2024) methodology for multi-site streamflow generation
-using Gaussian Mixture Model HMM.
+using a Gaussian HMM (one multivariate Gaussian emission per state).
 """
 
 import pytest
 import pickle
+import warnings
 import numpy as np
 import pandas as pd
 
@@ -336,6 +337,20 @@ class TestMultiSiteHMMGeneration:
         assert isinstance(result, Ensemble)
         assert result.metadata.n_realizations == 5
 
+    def test_ensemble_metadata(self, sample_annual_dataframe):
+        """Ensemble carries the metadata needed for pipeline chaining."""
+        gen = MultiSiteHMMGenerator()
+        gen.preprocessing(sample_annual_dataframe)
+        gen.fit(random_state=42)
+
+        result = gen.generate(n_realizations=2, n_years=10, seed=42)
+
+        assert result.frequency == "YS"
+        assert result.metadata.time_resolution == "YS"
+        assert result.metadata.generator_class == "MultiSiteHMMGenerator"
+        assert result.metadata.n_sites == 3
+        assert result.metadata.time_period is not None
+
     def test_generate_shape(self, sample_annual_dataframe):
         """Test generated data has correct shape."""
         gen = MultiSiteHMMGenerator()
@@ -638,9 +653,9 @@ class TestMultiSiteHMMOutputFrequency:
         gen.preprocessing(sample_annual_dataframe)
 
         freq = gen.output_frequency
-        # Annual frequencies can have various formats (YS, AS, AS-JAN, etc.)
-        assert freq is not None
-        assert "A" in freq or "Y" in freq  # Should be some form of annual
+        # Anchored annual aliases (YS-JAN, AS-JAN, ...) are normalized to "YS"
+        # so the generator can be chained into an annual disaggregator.
+        assert freq == "YS"
 
     def test_output_frequency_before_preprocessing(self, sample_annual_dataframe):
         """Test output frequency returns default before preprocessing."""
@@ -648,3 +663,155 @@ class TestMultiSiteHMMOutputFrequency:
 
         freq = gen.output_frequency
         assert freq == "YS"  # Default
+
+
+def _simulate_hmm(n_years, A, mu, Sigma, seed):
+    """Simulate log-space flows from a known Gaussian HMM and return a DataFrame."""
+    rng = np.random.default_rng(seed)
+    n_states = A.shape[0]
+    evals, evecs = np.linalg.eig(A.T)
+    pi = np.real(evecs[:, np.argmin(np.abs(evals - 1.0))])
+    pi = pi / pi.sum()
+    states = np.empty(n_years, dtype=int)
+    states[0] = rng.choice(n_states, p=pi)
+    for t in range(1, n_years):
+        states[t] = rng.choice(n_states, p=A[states[t - 1]])
+    Y = np.array([rng.multivariate_normal(mu[k], Sigma[k]) for k in states])
+    dates = pd.date_range("1700-01-01", periods=n_years, freq="YS")
+    # offset=1.0 in the generator, so Q = exp(Y) - 1 makes log(Q + 1) == Y
+    return pd.DataFrame(np.exp(Y) - 1.0, index=dates, columns=["a", "b", "c"]), Y
+
+
+class TestMultiSiteHMMConvergence:
+    """Tests for EM convergence reporting and multi-restart fitting."""
+
+    def test_non_convergence_warning(self, sample_annual_dataframe):
+        """A single EM iteration cannot converge and must emit a warning."""
+        gen = MultiSiteHMMGenerator(max_iterations=1)
+        gen.preprocessing(sample_annual_dataframe)
+        with pytest.warns(UserWarning, match="did not converge"):
+            gen.fit(random_state=42)
+        assert gen.converged_ is False
+
+    def test_converged_fit_no_warning(self, sample_annual_dataframe):
+        """A fully converged single fit emits no warnings."""
+        gen = MultiSiteHMMGenerator(max_iterations=1000)
+        gen.preprocessing(sample_annual_dataframe)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            gen.fit(random_state=42)
+        assert gen.converged_ is True
+        assert np.isfinite(gen.log_likelihood_)
+        assert len(gen.log_likelihoods_) == 1
+
+    def test_n_init_keeps_best_log_likelihood(self, sample_annual_dataframe):
+        """With restarts, the retained fit has the maximum log-likelihood."""
+        gen = MultiSiteHMMGenerator(n_init=8)
+        gen.preprocessing(sample_annual_dataframe)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # spread warning may fire
+            gen.fit(random_state=0)
+        assert len(gen.log_likelihoods_) == 8
+        assert gen.log_likelihood_ == np.nanmax(gen.log_likelihoods_)
+        assert np.isclose(gen._hmm_model.score(gen.Q_log_), gen.log_likelihood_)
+
+    def test_n_init_beats_or_matches_single_fit(self, sample_annual_dataframe):
+        """Best-of-n restarts is never worse than any single restart seed."""
+        gen_multi = MultiSiteHMMGenerator(n_init=5)
+        gen_multi.preprocessing(sample_annual_dataframe)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            gen_multi.fit(random_state=7)
+        assert gen_multi.log_likelihood_ >= max(gen_multi.log_likelihoods_) - 1e-9
+
+    def test_spread_warning_fires_on_disagreeing_restarts(
+        self, sample_annual_dataframe, monkeypatch
+    ):
+        """If restart log-likelihoods differ by more than the tolerance, warn."""
+        gen = MultiSiteHMMGenerator(n_init=3)
+        gen.preprocessing(sample_annual_dataframe)
+        # Force the tolerance to zero so any disagreement triggers the warning
+        monkeypatch.setattr(MultiSiteHMMGenerator, "_LOGLIK_SPREAD_TOL", -1.0)
+        with pytest.warns(UserWarning, match="local optima"):
+            gen.fit(random_state=3)
+
+    def test_fit_reproducible_with_restarts(self, sample_annual_dataframe):
+        """Same random_state and n_init gives identical fits."""
+        fits = []
+        for _ in range(2):
+            gen = MultiSiteHMMGenerator(n_init=4)
+            gen.preprocessing(sample_annual_dataframe)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                gen.fit(random_state=123)
+            fits.append(gen)
+        np.testing.assert_array_equal(fits[0].means_, fits[1].means_)
+        np.testing.assert_array_equal(fits[0].covariances_, fits[1].covariances_)
+        np.testing.assert_array_equal(
+            fits[0].transition_matrix_, fits[1].transition_matrix_
+        )
+        assert fits[0].log_likelihoods_ == fits[1].log_likelihoods_
+
+    def test_invalid_n_init(self):
+        """n_init must be at least 1."""
+        with pytest.raises(ValueError, match="n_init"):
+            MultiSiteHMMGenerator(n_init=0)
+
+
+class TestMultiSiteHMMParameterCount:
+    """n_parameters_ must reflect covariance_type."""
+
+    @pytest.mark.parametrize(
+        "cov_type, n_cov",
+        [("full", 2 * 6), ("diag", 2 * 3), ("spherical", 2), ("tied", 6)],
+    )
+    def test_n_parameters_by_covariance_type(
+        self, sample_annual_dataframe, cov_type, n_cov
+    ):
+        gen = MultiSiteHMMGenerator(n_states=2, covariance_type=cov_type)
+        gen.preprocessing(sample_annual_dataframe)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            gen.fit(random_state=42)
+        expected = 2 * 3 + n_cov + 2 * 1
+        assert gen.fitted_params_.n_parameters_ == expected
+        assert gen.covariances_.shape == (2, 3, 3)
+
+
+class TestMultiSiteHMMParameterRecovery:
+    """Recover known parameters from a simulated 2-state, 3-site HMM."""
+
+    A_TRUE = np.array([[0.8, 0.2], [0.3, 0.7]])
+    MU_TRUE = np.array([[4.0, 4.5, 3.5], [5.5, 6.0, 5.0]])
+    SIGMA_TRUE = np.array(
+        [
+            [[0.10, 0.07, 0.05], [0.07, 0.12, 0.06], [0.05, 0.06, 0.09]],
+            [[0.08, 0.05, 0.03], [0.05, 0.10, 0.04], [0.03, 0.04, 0.07]],
+        ]
+    )
+
+    def test_recovers_known_parameters(self):
+        n_years = 300
+        Q, Y_true = _simulate_hmm(
+            n_years, self.A_TRUE, self.MU_TRUE, self.SIGMA_TRUE, seed=2024
+        )
+
+        gen = MultiSiteHMMGenerator(n_states=2, n_init=5)
+        gen.preprocessing(Q)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            gen.fit(random_state=1)
+
+        # States are ordered dry -> wet, matching the truth ordering
+        np.testing.assert_allclose(gen.means_, self.MU_TRUE, atol=0.1)
+        np.testing.assert_allclose(gen.transition_matrix_, self.A_TRUE, atol=0.1)
+        assert gen.converged_
+
+        # Cross-site correlation of generated flows matches the simulated truth
+        ens = gen.generate(n_realizations=50, n_years=n_years, seed=5)
+        Q_syn = pd.concat(
+            [ens.data_by_realization[r] for r in range(50)], axis=0
+        )
+        true_corr = np.corrcoef(np.exp(Y_true).T - 1.0)
+        syn_corr = Q_syn.corr().values
+        assert np.all(np.abs(true_corr - syn_corr) < 0.1)

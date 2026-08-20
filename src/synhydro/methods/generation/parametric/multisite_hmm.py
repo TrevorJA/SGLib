@@ -1,18 +1,24 @@
 """
 Multi-Site Hidden Markov Model Generator (Gold et al. 2024)
 
-Implements a Gaussian Mixture Model HMM for generating synthetic multi-site
-streamflow that preserves both temporal dependencies (via hidden states) and
-spatial correlations (via multivariate emissions with full covariance matrices).
+Implements a Gaussian HMM (one multivariate Gaussian emission per state,
+i.e. n_mix = 1) for generating synthetic multi-site streamflow that preserves
+both temporal dependencies (via hidden states) and spatial correlations (via
+multivariate emissions with full covariance matrices).
+
+Only the annual multi-site HMM of Gold et al. (2024) is implemented. The
+paper's subsequent KNN spatial and annual-to-monthly disaggregation step is
+out of scope for this generator; use NowakDisaggregator for temporal
+disaggregation of the annual output.
 
 Based on the methodology from:
-Gold, D.F., Reed, P.M., and Gupta, R.S. (2024). Exploring the spatially
+Gold, D.F., Gupta, R.S., and Reed, P.M. (2024). Exploring the spatially
 compounding multi-sectoral drought vulnerabilities in Colorado's West Slope
 river basins. Earth's Future. https://doi.org/10.1029/2024EF004841
 
 References
 ----------
-Gold, D.F., Reed, P.M., and Gupta, R.S. (2024). Exploring the spatially
+Gold, D.F., Gupta, R.S., and Reed, P.M. (2024). Exploring the spatially
 compounding multi-sectoral drought vulnerabilities in Colorado's West Slope
 river basins. Earth's Future. https://doi.org/10.1029/2024EF004841
 """
@@ -25,8 +31,8 @@ import numpy as np
 import pandas as pd
 from hmmlearn import hmm
 
-from synhydro.core.base import Generator, FittedParams
-from synhydro.core.ensemble import Ensemble
+from synhydro.core.base import Generator, FittedParams, make_output_index
+from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +41,8 @@ class MultiSiteHMMGenerator(Generator):
     """
     Multi-site Hidden Markov Model generator for synthetic streamflow.
 
-    Generates synthetic streamflow using a Gaussian Mixture Model HMM that
-    models temporal dependencies through hidden states and spatial correlations
+    Generates synthetic streamflow using a Gaussian HMM (a single multivariate
+    Gaussian emission per state) that models temporal dependencies through hidden states and spatial correlations
     through multivariate Gaussian emissions with state-specific covariance matrices.
 
     The method is particularly suited for capturing drought dynamics across
@@ -50,12 +56,20 @@ class MultiSiteHMMGenerator(Generator):
         Small value added before log transformation to handle zeros.
         Recommended: 1.0 for flows in standard units.
     max_iterations : int, default=1000
-        Maximum iterations for HMM fitting convergence.
+        Maximum EM iterations per HMM fit. If EM has not converged when this
+        limit is reached a ``UserWarning`` is emitted.
+    n_init : int, default=1
+        Number of random EM restarts. Each restart fits the HMM from a
+        different random initialization and the fit with the highest
+        log-likelihood is retained. The default of 1 preserves the original
+        single-fit behaviour; values of 5-10 are recommended in practice
+        because EM frequently converges to local optima.
     covariance_type : str, default='full'
         Type of covariance matrix:
-        - 'full': Full covariance matrix (captures all correlations)
-        - 'diag': Diagonal covariance (independent sites)
-        - 'spherical': Single variance for all dimensions
+        - 'full': Full covariance matrix per state (captures all correlations)
+        - 'diag': Diagonal covariance per state (independent sites)
+        - 'spherical': Single variance per state for all dimensions
+        - 'tied': One full covariance matrix shared by all states
     name : str, optional
         Name identifier for this generator instance.
     debug : bool, default=False
@@ -73,6 +87,13 @@ class MultiSiteHMMGenerator(Generator):
         Stationary distribution of states. Shape: (n_states,).
     Q_log_ : np.ndarray
         Log-transformed observed flows used for fitting.
+    log_likelihood_ : float
+        Log-likelihood of the retained (best) fit.
+    log_likelihoods_ : list of float
+        Log-likelihood of every restart, in restart order. Failed restarts
+        are recorded as ``nan``.
+    converged_ : bool
+        Whether EM converged for the retained fit within ``max_iterations``.
 
     Examples
     --------
@@ -83,23 +104,31 @@ class MultiSiteHMMGenerator(Generator):
     >>> Q_annual = pd.read_csv('annual_flows.csv', index_col=0, parse_dates=True)
     >>>
     >>> # Initialize generator
-    >>> gen = MultiSiteHMMGenerator(n_states=2)
+    >>> gen = MultiSiteHMMGenerator(n_states=2, n_init=10)
     >>> gen.preprocessing(Q_annual)
-    >>> gen.fit()
+    >>> gen.fit(random_state=42)
     >>>
     >>> # Generate 100 realizations of 50 years each
     >>> ensemble = gen.generate(n_realizations=100, n_years=50, seed=42)
 
     Notes
     -----
-    - Designed for annual timestep data (can handle other frequencies)
+    - Annual timestep data only (``supported_frequencies = ("YS",)``)
     - Log transformation ensures positive emissions
     - Full covariance preserves spatial correlations between sites
     - State ordering: states sorted by mean (low mean = dry state)
+    - EM can converge to local optima; use ``n_init > 1`` and inspect
+      ``log_likelihoods_`` to check that restarts agree
     """
 
     supports_multisite = True
     supported_frequencies = ("YS",)
+
+    _COVARIANCE_TYPES = ("full", "diag", "spherical", "tied")
+
+    # Restarts whose log-likelihoods differ by more than this many nats are
+    # treated as distinct local optima.
+    _LOGLIK_SPREAD_TOL = 1.0
 
     def __init__(
         self,
@@ -107,6 +136,7 @@ class MultiSiteHMMGenerator(Generator):
         n_states: int = 2,
         offset: float = 1.0,
         max_iterations: int = 1000,
+        n_init: int = 1,
         covariance_type: str = "full",
         name: Optional[str] = None,
         debug: bool = False,
@@ -122,15 +152,22 @@ class MultiSiteHMMGenerator(Generator):
         if offset <= 0:
             raise ValueError(f"offset must be positive, got {offset}")
 
-        if covariance_type not in ("full", "diag", "spherical"):
+        if max_iterations < 1:
+            raise ValueError(f"max_iterations must be >= 1, got {max_iterations}")
+
+        if n_init < 1:
+            raise ValueError(f"n_init must be >= 1, got {n_init}")
+
+        if covariance_type not in self._COVARIANCE_TYPES:
             raise ValueError(
-                f"covariance_type must be 'full', 'diag', or 'spherical', "
+                f"covariance_type must be one of {self._COVARIANCE_TYPES}, "
                 f"got '{covariance_type}'"
             )
 
         self.n_states = n_states
         self.offset = offset
         self.max_iterations = max_iterations
+        self.n_init = n_init
         self.covariance_type = covariance_type
 
         # Store initialization parameters
@@ -139,6 +176,7 @@ class MultiSiteHMMGenerator(Generator):
             "n_states": n_states,
             "offset": offset,
             "max_iterations": max_iterations,
+            "n_init": n_init,
             "covariance_type": covariance_type,
         }
 
@@ -148,6 +186,9 @@ class MultiSiteHMMGenerator(Generator):
         self.transition_matrix_ = None
         self.stationary_distribution_ = None
         self.Q_log_ = None
+        self.log_likelihood_ = None
+        self.log_likelihoods_ = None
+        self.converged_ = None
         self._hmm_model = None
 
     @property
@@ -155,11 +196,21 @@ class MultiSiteHMMGenerator(Generator):
         """
         Output frequency matches input frequency.
 
-        Typically used for annual data ('YS' or 'AS'), but flexible.
+        Typically used for annual data ('YS'), but flexible. Anchored
+        annual aliases inferred by pandas (e.g. 'YS-JAN', 'AS-JAN') are
+        normalized to 'YS' and monthly aliases to 'MS' so that the value
+        matches the canonical ``input_frequency`` of disaggregators.
         """
         if hasattr(self, "_Q_obs") and self._Q_obs is not None:
             # Infer from preprocessed data
-            return pd.infer_freq(self._Q_obs.index) or "YS"
+            freq = pd.infer_freq(self._Q_obs.index)
+            if freq is None:
+                return "YS"
+            if freq[0] in ("Y", "A"):
+                return "YS"
+            if freq[0] == "M":
+                return "MS"
+            return freq
         return "YS"  # Default to annual start
 
     def preprocessing(
@@ -220,8 +271,14 @@ class MultiSiteHMMGenerator(Generator):
         """
         Fit the multi-site HMM to observed data.
 
-        Estimates hidden states, transition probabilities, state-specific means,
-        and covariance matrices using the GMMHMM algorithm.
+        Estimates transition probabilities, state-specific means, and
+        covariance matrices with the Baum-Welch (EM) algorithm via hmmlearn's
+        ``GaussianHMM``.
+
+        Runs ``n_init`` EM restarts from different random initializations and
+        retains the fit with the highest log-likelihood. Restart seeds are
+        derived deterministically from ``random_state`` so that the same
+        ``random_state`` always yields the same fit.
 
         Parameters
         ----------
@@ -231,8 +288,20 @@ class MultiSiteHMMGenerator(Generator):
         sites : list of str, optional
             Sites to use (only when Q_obs is provided).
         **kwargs : dict
-            Additional fitting parameters. May include ``random_state`` for
-            reproducible fitting.
+            Additional fitting parameters. May include ``random_state`` (int
+            or None) for reproducible fitting.
+
+        Warns
+        -----
+        UserWarning
+            If EM did not converge within ``max_iterations`` for the retained
+            fit, or if the restarts converged to different local optima
+            (log-likelihood spread greater than 1 nat).
+
+        Raises
+        ------
+        RuntimeError
+            If every restart fails.
 
         Notes
         -----
@@ -247,47 +316,75 @@ class MultiSiteHMMGenerator(Generator):
         random_state = kwargs.pop("random_state", None)
 
         self.logger.debug(
-            f"Fitting GMMHMM with {self.n_states} states, "
-            f"covariance_type='{self.covariance_type}'"
+            f"Fitting GaussianHMM with {self.n_states} states, "
+            f"covariance_type='{self.covariance_type}', n_init={self.n_init}"
         )
 
-        # Initialize and fit GMMHMM
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress hmmlearn convergence warnings
+        # Derive one hmmlearn seed per restart from the user-supplied seed
+        seed_rng = np.random.default_rng(random_state)
+        restart_seeds = seed_rng.integers(0, 2**31 - 1, size=self.n_init)
 
-            self._hmm_model = hmm.GMMHMM(
+        best_model = None
+        best_score = -np.inf
+        log_likelihoods = []
+
+        for i, restart_seed in enumerate(restart_seeds):
+            model = hmm.GaussianHMM(
                 n_components=self.n_states,
                 n_iter=self.max_iterations,
                 covariance_type=self.covariance_type,
-                random_state=random_state,
+                random_state=int(restart_seed),
+            )
+            try:
+                model.fit(self.Q_log_)
+                score = float(model.score(self.Q_log_))
+            except (ValueError, np.linalg.LinAlgError) as e:
+                self.logger.debug(f"HMM restart {i} failed: {e}")
+                log_likelihoods.append(np.nan)
+                continue
+
+            log_likelihoods.append(score)
+            if score > best_score:
+                best_score = score
+                best_model = model
+
+        if best_model is None:
+            raise RuntimeError(
+                "All HMM restarts failed. "
+                "Try reducing n_states or increasing the record length."
             )
 
-            self._hmm_model.fit(self.Q_log_)
+        self._hmm_model = best_model
+        self.log_likelihood_ = best_score
+        self.log_likelihoods_ = log_likelihoods
+        self.converged_ = self._em_converged(best_model.monitor_)
+
+        if not self.converged_:
+            warnings.warn(
+                f"HMM EM did not converge within max_iterations="
+                f"{self.max_iterations} (final log-likelihood {best_score:.3f}). "
+                "Consider increasing max_iterations.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        finite_ll = [ll for ll in log_likelihoods if np.isfinite(ll)]
+        if len(finite_ll) > 1:
+            spread = max(finite_ll) - min(finite_ll)
+            if spread > self._LOGLIK_SPREAD_TOL:
+                warnings.warn(
+                    f"HMM EM restarts converged to different local optima "
+                    f"(log-likelihood range {min(finite_ll):.3f} to "
+                    f"{max(finite_ll):.3f}). The best fit was retained; "
+                    f"consider increasing n_init (currently {self.n_init}).",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
         # Extract parameters
-        means = np.array(self._hmm_model.means_)  # Shape: (n_states, 1, n_sites)
-        transition_matrix = np.array(self._hmm_model.transmat_)
-        covariances_raw = self._hmm_model.covars_
-
-        # Reshape means (remove middle dimension from GMMHMM output)
-        means = means.squeeze(axis=1)  # Shape: (n_states, n_sites)
-
-        # Reshape covariances
-        # GMMHMM returns covars with shape (n_states, n_mix, ...) where n_mix=1
-        # Need to squeeze the n_mix dimension and handle different covariance types
-        n_sites = len(self._sites)
-
-        if self.covariance_type == "full":
-            # Shape: (n_states, 1, n_sites, n_sites) -> (n_states, n_sites, n_sites)
-            covariances = covariances_raw.squeeze(axis=1)
-        elif self.covariance_type == "diag":
-            # Shape: (n_states, 1, n_sites) -> (n_states, n_sites, n_sites)
-            diag_covs = covariances_raw.squeeze(axis=1)  # (n_states, n_sites)
-            covariances = np.array([np.diag(cov) for cov in diag_covs])
-        else:  # spherical
-            # Shape: (n_states, 1) -> (n_states, n_sites, n_sites)
-            spherical_covs = covariances_raw.squeeze(axis=1)  # (n_states,)
-            covariances = np.array([cov * np.eye(n_sites) for cov in spherical_covs])
+        means = np.array(best_model.means_)  # Shape: (n_states, n_sites)
+        transition_matrix = np.array(best_model.transmat_)
+        covariances = self._expand_covariances(best_model.covars_)
 
         # Order states by mean of first site (dry to wet)
         mean_order = np.argsort(means[:, 0])
@@ -309,6 +406,55 @@ class MultiSiteHMMGenerator(Generator):
 
         # Update state
         self.update_state(fitted=True)
+
+    @staticmethod
+    def _em_converged(monitor) -> bool:
+        """
+        Whether EM converged by the log-likelihood tolerance criterion.
+
+        hmmlearn's ``ConvergenceMonitor.converged`` also returns True when
+        the iteration budget is exhausted, so it cannot distinguish genuine
+        convergence from hitting ``n_iter``. This checks the tolerance
+        criterion only.
+        """
+        history = list(monitor.history)
+        return len(history) >= 2 and (history[-1] - history[-2]) < monitor.tol
+
+    def _expand_covariances(self, covars_raw) -> np.ndarray:
+        """
+        Expand hmmlearn covariances to full (n_states, n_sites, n_sites) arrays.
+
+        hmmlearn's ``GaussianHMM.covars_`` property returns full matrices for
+        every covariance type, but the compact shapes are handled explicitly
+        as a safeguard against version differences.
+        """
+        n_sites = len(self._sites)
+        covars_raw = np.asarray(covars_raw)
+
+        if covars_raw.shape == (self.n_states, n_sites, n_sites):
+            return covars_raw.copy()
+        if self.covariance_type == "diag":  # (n_states, n_sites)
+            return np.array([np.diag(c) for c in covars_raw])
+        if self.covariance_type == "spherical":  # (n_states,)
+            return np.array([c * np.eye(n_sites) for c in covars_raw])
+        if self.covariance_type == "tied":  # (n_sites, n_sites)
+            return np.array([covars_raw.copy() for _ in range(self.n_states)])
+        raise ValueError(
+            f"Unexpected covariance shape {covars_raw.shape} for "
+            f"covariance_type='{self.covariance_type}'"
+        )
+
+    def _count_covariance_parameters(self) -> int:
+        """Number of free covariance parameters for the chosen covariance_type."""
+        S = len(self._sites)
+        K = self.n_states
+        if self.covariance_type == "full":
+            return K * S * (S + 1) // 2
+        if self.covariance_type == "diag":
+            return K * S
+        if self.covariance_type == "spherical":
+            return K
+        return S * (S + 1) // 2  # tied: one full matrix shared by all states
 
     def _compute_stationary_distribution(self) -> np.ndarray:
         """
@@ -405,15 +551,21 @@ class MultiSiteHMMGenerator(Generator):
 
             # Create DataFrame with appropriate index
             start_date = self._Q_obs.index[0]
-            dates = pd.date_range(
-                start=start_date, periods=n_steps, freq=self.output_frequency
-            )
+            dates = make_output_index(start_date, n_steps, self.output_frequency)
 
             realizations[r] = pd.DataFrame(Q_syn, index=dates, columns=self._sites)
 
         self.logger.info(f"Generated {n_realizations} realizations")
 
-        return Ensemble(realizations)
+        first = realizations[0]
+        metadata = EnsembleMetadata(
+            generator_class=self.__class__.__name__,
+            n_realizations=n_realizations,
+            n_sites=len(self._sites),
+            time_resolution=self.output_frequency,
+            time_period=(str(first.index[0].date()), str(first.index[-1].date())),
+        )
+        return Ensemble(realizations, metadata=metadata)
 
     def _generate_state_trajectory(
         self, n_timesteps: int, *, rng: np.random.Generator
@@ -447,14 +599,11 @@ class MultiSiteHMMGenerator(Generator):
 
     def _compute_fitted_params(self) -> FittedParams:
         """Extract and package fitted parameters."""
-        # Count parameters
+        # Count free parameters: means + covariances + transition rows
         n_params = (
-            self.n_states * len(self._sites)  # Means
-            + self.n_states
-            * len(self._sites)
-            * (len(self._sites) + 1)
-            // 2  # Covariances (triangular)
-            + self.n_states * (self.n_states - 1)  # Transition matrix (non-diagonal)
+            self.n_states * len(self._sites)
+            + self._count_covariance_parameters()
+            + self.n_states * (self.n_states - 1)
         )
 
         training_period = (

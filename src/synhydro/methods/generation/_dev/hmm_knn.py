@@ -21,12 +21,23 @@ combines two independent developments:
   annual scale by Gold et al. (2024).
 
 The HMM substitutes for Prairie's NHM as the upper-layer regime sequencer; the
-lower-layer KNN bootstrap follows Prairie (2008) directly, with the rank-based
-kernel weights of Lall and Sharma (1996).
+lower-layer KNN bootstrap follows Prairie (2008) in structure (two-step
+category-conditioned resampling with the rank-based kernel weights of Lall and
+Sharma, 1996) but departs in two ways: the neighbor count is
+k = ceil(sqrt(n_c)) per category pool rather than Prairie's K_j = n_j (all pool
+members), and the feature vector and resampled value are the full multisite
+log-flow vector rather than a single-site scalar. Akintug and Rasmussen (2005)
+is cited only as the general precedent for HMM regime states in annual
+hydrology; no element of their Markov-switching estimator is used here.
+
+Category pools are built from the hard Viterbi state sequence, while the
+transition matrix is the Baum-Welch (EM posterior) estimate. The two are not
+identical, so the stationary dry-state probability can differ slightly from the
+Viterbi dry fraction; this produces a small low bias in the synthetic mean.
 
 References
 ----------
-Prairie, J., Rajagopalan, B., Lall, U., and Fulp, T. (2008). A stochastic
+Prairie, J., Nowak, K., Rajagopalan, B., Lall, U., and Fulp, T. (2008). A stochastic
 nonparametric approach for streamflow generation combining observational and
 paleoreconstructed data. Water Resources Research, 44, W06423.
 https://doi.org/10.1029/2007WR006684
@@ -39,7 +50,7 @@ Akintug, B., and Rasmussen, P.F. (2005). A Markov switching model for annual
 hydrologic time series. Water Resources Research, 41(9).
 https://doi.org/10.1029/2004WR003605
 
-Gold, D.F., Reed, P.M., and Gupta, R.S. (2024). Exploring the spatially
+Gold, D.F., Gupta, R.S., and Reed, P.M. (2024). Exploring the spatially
 compounding multi-sectoral drought vulnerabilities in Colorado's West Slope
 river basins. Earth's Future. https://doi.org/10.1029/2024EF004841
 """
@@ -53,8 +64,8 @@ import numpy as np
 import pandas as pd
 from hmmlearn import hmm
 
-from synhydro.core.base import FittedParams, Generator
-from synhydro.core.ensemble import Ensemble
+from synhydro.core.base import FittedParams, Generator, make_output_index
+from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -465,7 +476,16 @@ class HMMKNNGenerator(Generator):
             realizations[r] = self._generate_single_realization(n_steps, rng=rng)
 
         self.logger.info("Generated %d realizations.", n_realizations)
-        return Ensemble(realizations)
+
+        first = realizations[0]
+        metadata = EnsembleMetadata(
+            generator_class=self.__class__.__name__,
+            n_realizations=n_realizations,
+            n_sites=self._n_sites,
+            time_resolution=self.output_frequency,
+            time_period=(str(first.index[0].date()), str(first.index[-1].date())),
+        )
+        return Ensemble(realizations, metadata=metadata)
 
     def _generate_single_realization(
         self, n_timesteps: int, rng: Optional[np.random.Generator] = None
@@ -577,7 +597,7 @@ class HMMKNNGenerator(Generator):
         Q_syn = np.maximum(Q_syn, 0.0)
 
         start_date = self._Q_obs.index[0]
-        dates = pd.date_range(start=start_date, periods=n_timesteps, freq="YS")
+        dates = make_output_index(start_date, n_timesteps, "YS")
 
         return pd.DataFrame(Q_syn, index=dates, columns=self._sites)
 
@@ -596,8 +616,16 @@ class HMMKNNGenerator(Generator):
             str(self._Q_obs.index[-1].date()),
         )
 
-        # Parameter count: transition matrix (off-diagonal) + means + state sequence
-        n_params = self.n_states * (self.n_states - 1) + self.n_states * self._n_sites
+        # Parameter count: transition matrix (off-diagonal) + emission means
+        # + emission covariances (depends on covariance_type)
+        S = self._n_sites
+        if self.covariance_type == "full":
+            n_cov = self.n_states * S * (S + 1) // 2
+        elif self.covariance_type == "diag":
+            n_cov = self.n_states * S
+        else:  # spherical
+            n_cov = self.n_states
+        n_params = self.n_states * (self.n_states - 1) + self.n_states * S + n_cov
 
         return FittedParams(
             correlations_={

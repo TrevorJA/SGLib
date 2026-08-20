@@ -25,12 +25,19 @@ import pandas as pd
 from scipy.stats import gamma as gamma_dist
 from scipy.stats import lognorm, norm
 
-from synhydro.core.base import FittedParams, Generator
+from synhydro.core.base import FittedParams, Generator, make_output_index
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 from synhydro.core.nataf import nataf_inverse
-from synhydro.core.statistics import repair_correlation_matrix
+from synhydro.core.statistics import (
+    repair_correlation_matrix,
+    repair_covariance_matrix,
+)
 
 logger = logging.getLogger(__name__)
+
+# Flows at or below this floor are treated as zero. Preprocessing clips the
+# stored monthly record to this value; marginal fitting excludes such values.
+_FLOW_FLOOR = 1e-6
 
 
 def _bic(n: int, neg_loglik: float, k: int) -> float:
@@ -52,13 +59,16 @@ class SPARTAGenerator(Generator):
     nataf_n_eval : int
         Number of support points for Nataf polynomial fitting (default 9).
     nataf_poly_deg : int
-        Polynomial degree for Nataf approximation (default 6).
+        Polynomial degree for Nataf approximation (default 8, identical
+        to SMARTA and to ``nataf_inverse``).
     nataf_gh_nodes : int
         Gauss-Hermite quadrature nodes (default 21).
     marginal_method : str
         Marginal fitting: ``"parametric"`` (default, gamma/lognorm BIC).
     matrix_repair_method : str
-        Method for repairing non-PD matrices (default ``"spectral"``).
+        Method for repairing non-positive-definite innovation covariances
+        (default ``"spectral"``, i.e. eigenvalue clipping). The diagonal of
+        ``G_s`` is preserved for every method.
     name : str, optional
         Generator name.
     debug : bool
@@ -73,7 +83,7 @@ class SPARTAGenerator(Generator):
         *,
         nataf_method: str = "GH",
         nataf_n_eval: int = 9,
-        nataf_poly_deg: int = 6,
+        nataf_poly_deg: int = 8,
         nataf_gh_nodes: int = 21,
         marginal_method: str = "parametric",
         matrix_repair_method: str = "spectral",
@@ -139,7 +149,10 @@ class SPARTAGenerator(Generator):
             self.logger.info("Resampling from %s to monthly (sum)", inferred)
             Q = Q.resample("MS").sum()
 
-        Q = Q.clip(lower=1e-6)
+        # Clip to a small positive floor so the stored record is strictly
+        # positive; zeros (values at or below the floor) are excluded from
+        # marginal fitting in ``_fit_marginal``.
+        Q = Q.clip(lower=_FLOW_FLOOR)
         self._Q_monthly = Q
 
         self.logger.info(
@@ -193,13 +206,13 @@ class SPARTAGenerator(Generator):
                 self._icdfs[(m, s_idx)] = icdf
 
         # Step 2: Compute empirical lag-1 season-to-season correlations
+        # on a (n_years, 12) calendar matrix (column 0 = January) so the
+        # month pairs are correct regardless of the record's start month.
         self.logger.info("Step 2: Computing season-to-season correlations...")
-        n_years = len(Q) // 12
+        year_matrix = self._calendar_year_matrix(Q)
         target_auto = np.zeros((n_sites, 12))
         for s_idx, site in enumerate(self._sites):
-            # Reshape to (n_years, 12)
-            vals = Q[site].values[: n_years * 12].reshape(n_years, 12)
-            target_auto[s_idx] = self._season_to_season_corr(vals)
+            target_auto[s_idx] = self._season_to_season_corr(year_matrix[site])
 
         # Step 3: Compute lag-0 cross-correlations per season (multisite)
         target_cross: Dict[int, np.ndarray] = {}
@@ -288,12 +301,12 @@ class SPARTAGenerator(Generator):
                     B_s = np.linalg.cholesky(G_s)
                 except np.linalg.LinAlgError:
                     self.logger.warning(
-                        "G_s for month %d is not positive-definite. Repairing...",
+                        "G_s for month %d is not positive-definite "
+                        "(min eigenvalue %.2e). Repairing...",
                         m,
+                        np.linalg.eigvalsh(G_s).min(),
                     )
-                    G_repaired = repair_correlation_matrix(
-                        G_s, method=self.matrix_repair_method
-                    )
+                    G_repaired = self._repair_innovation_covariance(G_s)
                     try:
                         B_s = np.linalg.cholesky(G_repaired)
                     except np.linalg.LinAlgError:
@@ -401,10 +414,9 @@ class SPARTAGenerator(Generator):
             u_col = np.clip(U[:, j], 1e-10, 1.0 - 1e-10)
             X[:, j] = self._icdfs[(m, 0)](u_col)
 
-        # Reshape to long format
+        # Reshape to long format; position 0 is January
         X_long = X.reshape(-1)
-        start_date = self._Q_monthly.index[0]
-        dates = pd.date_range(start=start_date, periods=n_years * 12, freq="MS")
+        dates = make_output_index(self._output_start_date(), n_years * 12, "MS")
         return pd.DataFrame(X_long, index=dates, columns=[self._sites[0]])
 
     def _generate_one_multivariate(
@@ -437,8 +449,8 @@ class SPARTAGenerator(Generator):
                 u_val = np.clip(U[t, s_idx], 1e-10, 1.0 - 1e-10)
                 X[t, s_idx] = self._icdfs[(m, s_idx)](np.atleast_1d(u_val))[0]
 
-        start_date = self._Q_monthly.index[0]
-        dates = pd.date_range(start=start_date, periods=total_steps, freq="MS")
+        # Position 0 is January
+        dates = make_output_index(self._output_start_date(), total_steps, "MS")
         return pd.DataFrame(X, index=dates, columns=list(self._sites))
 
     # ------------------------------------------------------------------
@@ -471,9 +483,18 @@ class SPARTAGenerator(Generator):
     def _fit_marginal(
         self, values: np.ndarray, month: int, site_idx: int
     ) -> Tuple[Dict[str, Any], Any]:
-        """Fit a marginal distribution via BIC selection (gamma vs lognorm)."""
+        """Fit a marginal distribution via BIC selection (gamma vs lognorm).
+
+        Values at or below ``_FLOW_FLOOR`` (true zeros, and zeros clipped
+        to the floor in preprocessing) are excluded from the fit so that
+        they do not distort the gamma/lognormal MLE. The BIC sample size
+        counts all values, which does not affect the selection because
+        both candidates have two parameters. Zero-inflated months are
+        not explicitly modeled: the fitted marginal is strictly positive,
+        so the generator never produces zeros.
+        """
         n = len(values)
-        vals = values[values > 0]
+        vals = values[values > _FLOW_FLOOR]
         if len(vals) < 5:
             # Fallback for sparse data
             mean_val = np.mean(values) if np.mean(values) > 0 else 1.0
@@ -529,6 +550,71 @@ class SPARTAGenerator(Generator):
             )
 
         return best_params, best_icdf
+
+    def _output_start_date(self) -> pd.Timestamp:
+        """January 1 of the first observed year (generation starts in January)."""
+        return pd.Timestamp(year=self._Q_monthly.index[0].year, month=1, day=1)
+
+    def _calendar_year_matrix(self, Q: pd.DataFrame) -> Dict[str, np.ndarray]:
+        """Arrange monthly data as (n_years, 12) matrices with column 0 = January.
+
+        Only complete calendar years are kept; partial years at either end
+        of the record are trimmed with a warning.
+
+        Parameters
+        ----------
+        Q : pd.DataFrame
+            Monthly data with a DatetimeIndex.
+
+        Returns
+        -------
+        dict of str to np.ndarray
+            Site name to ``(n_years, 12)`` array of complete calendar years.
+        """
+        years = Q.index.year
+        months = Q.index.month
+        counts = pd.Series(1, index=Q.index).groupby(years).sum()
+        complete = counts.index[counts == 12]
+        n_partial = len(counts) - len(complete)
+        if n_partial > 0:
+            self.logger.warning(
+                "Trimming %d partial calendar year(s) (%s) before computing "
+                "season-to-season correlations; record spans %s to %s",
+                n_partial,
+                ", ".join(str(y) for y in counts.index[counts != 12]),
+                Q.index[0].date(),
+                Q.index[-1].date(),
+            )
+        if len(complete) < 2:
+            raise ValueError(
+                "SPARTA requires at least 2 complete calendar years "
+                f"(January to December); found {len(complete)}."
+            )
+        keep = np.isin(years, complete)
+        Q_full = Q.loc[keep]
+        order = np.lexsort((months[keep], years[keep]))
+        n_years = len(complete)
+        return {
+            site: Q_full[site].values[order].reshape(n_years, 12)
+            for site in Q.columns
+        }
+
+    def _repair_innovation_covariance(self, G_s: np.ndarray) -> np.ndarray:
+        """Make the innovation covariance ``G_s`` positive definite.
+
+        ``G_s = C_s - A_s C_{s-1} A_s^T`` is a covariance whose diagonal
+        ``1 - r_s^2`` sets the innovation variance, so it must not be
+        rescaled to unit diagonal. With ``matrix_repair_method="spectral"``
+        the eigenvalues are clipped directly; other methods repair the
+        correlation form of ``G_s`` and restore its original diagonal.
+        """
+        if self.matrix_repair_method == "spectral":
+            return repair_covariance_matrix(G_s)
+        d = np.sqrt(np.diag(G_s))
+        R = repair_correlation_matrix(
+            G_s / np.outer(d, d), method=self.matrix_repair_method
+        )
+        return R * np.outer(d, d)
 
     @staticmethod
     def _season_to_season_corr(data: np.ndarray) -> np.ndarray:

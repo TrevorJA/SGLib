@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
 
-from synhydro.core.base import Generator, FittedParams
+from synhydro.core.base import Generator, FittedParams, make_output_index
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 from synhydro.core.statistics import compute_monthly_statistics
 from synhydro.transformations import SteddingerTransform
@@ -234,7 +234,7 @@ class ThomasFieringGenerator(Generator):
         FittedParams
             Dataclass containing all fitted parameters from Thomas-Fiering model.
         """
-        # Count parameters: 12 months × (1 mean + 1 std + 1 correlation)
+        # Count parameters: 12 months x (1 mean + 1 std + 1 correlation)
         n_params = 12 * 3
 
         # Get training period
@@ -319,9 +319,7 @@ class ThomasFieringGenerator(Generator):
         syn_start_date = f"{syn_start_year}-01-01"
         x_syn_df = pd.DataFrame(
             self.x_syn,
-            index=pd.date_range(
-                start=syn_start_date, periods=len(self.x_syn), freq="MS"
-            ),
+            index=make_output_index(syn_start_date, len(self.x_syn), "MS"),
         )
 
         # Replace negative values in normalized space

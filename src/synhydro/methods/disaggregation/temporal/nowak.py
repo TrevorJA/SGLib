@@ -296,6 +296,54 @@ class NowakDisaggregator(Disaggregator):
             return pd.DateOffset(weeks=k)
         return pd.DateOffset(months=k)
 
+    def _wrap_around(
+        self, data: Union[pd.Series, pd.DataFrame], n_pad: int
+    ) -> Union[pd.Series, pd.DataFrame]:
+        """
+        Pad a timeseries at both ends with values wrapped from the other end.
+
+        The ``n_pad`` timesteps before the first observation are filled with
+        the last ``n_pad`` observed values and the ``n_pad`` timesteps after
+        the last observation with the first ``n_pad`` observed values. The
+        padded index is extended by whole output timesteps.
+
+        Parameters
+        ----------
+        data : pd.Series or pd.DataFrame
+            Observed data at the output timestep.
+        n_pad : int
+            Number of output timesteps to pad on each side.
+
+        Returns
+        -------
+        pd.Series or pd.DataFrame
+            Padded copy of ``data`` with ``len(data) + 2 * n_pad`` rows.
+        """
+        if n_pad <= 0:
+            return data.astype(float).copy()
+        if n_pad > len(data):
+            raise ValueError(
+                f"max_knn_pool_shift_timesteps ({n_pad}) exceeds the number of "
+                f"observed timesteps ({len(data)})."
+            )
+
+        start_date = data.index[0]
+        end_date = data.index[-1]
+        head_index = pd.DatetimeIndex(
+            [start_date - self._shift_offset(k) for k in range(n_pad, 0, -1)]
+        )
+        tail_index = pd.DatetimeIndex(
+            [end_date + self._shift_offset(k) for k in range(1, n_pad + 1)]
+        )
+        wrap_index = head_index.append(data.index).append(tail_index)
+
+        values = np.asarray(data.values, dtype=float)
+        wrap_values = np.concatenate([values[-n_pad:], values, values[:n_pad]], axis=0)
+
+        if isinstance(data, pd.DataFrame):
+            return pd.DataFrame(wrap_values, index=wrap_index, columns=data.columns)
+        return pd.Series(wrap_values, index=wrap_index, name=data.name)
+
     def _coarse_labels(self, index: pd.DatetimeIndex) -> np.ndarray:
         """
         Map coarse-timestep timestamps to within-year period labels.
@@ -461,7 +509,7 @@ class NowakDisaggregator(Disaggregator):
                 for year in coarse_index.year
                 for week in range(1, 53)
             ]
-            return pd.DatetimeIndex(dates)
+            return pd.DatetimeIndex(np.array(dates, dtype="datetime64[s]"))
         # ("annual", "daily")
         return pd.date_range(
             start=coarse_index[0],
@@ -866,58 +914,19 @@ class NowakDisaggregator(Disaggregator):
         flow_profiles = {}
 
         max_shift = self.max_knn_pool_shift_timesteps
-        pad = self._shift_offset(max_shift)
 
-        # Make a copy of data with wrap-around datetime to account for
-        # +/- max_shift timestep shifts
-        start_date = self.Qh_index.index[0]
-        end_date = self.Qh_index.index[-1]
-        wrap_start_date = start_date - pad
-        wrap_end_date = end_date + pad
+        # Build wrap-around copies of the index gauge and site data so that
+        # windows shifted by up to +/- max_shift timesteps beyond the record
+        # ends are filled with values from the opposite end of the record
+        # (the last max_shift steps precede the first observation and the
+        # first max_shift steps follow the last observation). Values are
+        # assigned positionally: label-based assignment of a slice taken
+        # from the other end of the record would not align and would leave
+        # NaN in the padding.
+        Qh_index_wrap = self._wrap_around(self.Qh_index, max_shift)
 
-        # Create wrapped index gauge
-        Qh_index_wrap = pd.Series(
-            index=pd.date_range(
-                start=wrap_start_date, end=wrap_end_date, freq=self._config.output_freq
-            )
-        )
-        Qh_index_wrap = Qh_index_wrap.astype(float)
-
-        Qh_index_wrap.loc[wrap_start_date:start_date] = self.Qh_index.loc[
-            end_date - pad : end_date
-        ]
-        Qh_index_wrap.loc[start_date:end_date] = self.Qh_index.loc[start_date:end_date]
-        Qh_index_wrap.loc[end_date:wrap_end_date] = self.Qh_index.loc[
-            start_date : start_date + pad
-        ]
-
-        # forward and backward fill the NaN values
-        Qh_index_wrap = Qh_index_wrap.ffill().bfill()
-
-        # Create wrapped data for all sites
         if self.is_multisite:
-            Qh_fine_wrap = pd.DataFrame(
-                index=pd.date_range(
-                    start=wrap_start_date,
-                    end=wrap_end_date,
-                    freq=self._config.output_freq,
-                ),
-                columns=self.site_names,
-            )
-            Qh_fine_wrap = Qh_fine_wrap.astype(float)
-
-            Qh_fine_wrap.loc[wrap_start_date:start_date] = self.Qh_fine.loc[
-                end_date - pad : end_date
-            ]
-            Qh_fine_wrap.loc[start_date:end_date] = self.Qh_fine.loc[
-                start_date:end_date
-            ]
-            Qh_fine_wrap.loc[end_date:wrap_end_date] = self.Qh_fine.loc[
-                start_date : start_date + pad
-            ]
-
-            # forward and backward fill the NaN values
-            Qh_fine_wrap = Qh_fine_wrap.ffill().bfill()
+            Qh_fine_wrap = self._wrap_around(self.Qh_fine, max_shift)
         else:
             Qh_fine_wrap = Qh_index_wrap.copy()
 
@@ -1263,6 +1272,24 @@ class NowakDisaggregator(Disaggregator):
                 f"{self.name} expects input frequency '{self.input_frequency}', "
                 f"but got '{ensemble.frequency}'"
             )
+
+        # Annual input must be calendar-year (January-anchored). Water-year
+        # aliases such as 'YS-OCT' normalize to 'YS' above but are not
+        # supported by the period-window logic.
+        if self.input_timestep == "annual":
+            freq = ensemble.frequency or ""
+            anchored = "-" in freq and not freq.upper().endswith("-JAN")
+            index = next(iter(ensemble.data_by_realization.values())).index
+            non_january = bool(
+                len(index) > 0 and ((index.month != 1).any() or (index.day != 1).any())
+            )
+            if anchored or non_january:
+                raise ValueError(
+                    f"{self.name} requires calendar-year (January-anchored, "
+                    f"'YS') annual input; got frequency '{ensemble.frequency}'. "
+                    f"Water-year or otherwise anchored annual input (e.g. "
+                    f"'YS-OCT') is not supported."
+                )
 
         # Check site consistency (if disaggregator has been fitted)
         if self.is_fitted and hasattr(self, "_sites"):

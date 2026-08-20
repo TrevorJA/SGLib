@@ -34,6 +34,21 @@ def monthly_multisite():
 
 
 @pytest.fixture
+def ar1_two_site():
+    """150 years of a 2-site lognormal AR(1) process with rho = 0.7."""
+    rng = np.random.default_rng(7)
+    rho = 0.7
+    n = 150 * 12
+    L = np.linalg.cholesky(np.array([[1.0, 0.5], [0.5, 1.0]]))
+    z = np.zeros((n, 2))
+    z[0] = L @ rng.standard_normal(2)
+    for t in range(1, n):
+        z[t] = rho * z[t - 1] + np.sqrt(1.0 - rho**2) * (L @ rng.standard_normal(2))
+    dates = pd.date_range("1850-01-01", periods=n, freq="MS")
+    return pd.DataFrame(np.exp(0.5 * z + 3.0), index=dates, columns=["a", "b"])
+
+
+@pytest.fixture
 def monthly_single_site(monthly_multisite):
     """Single site for degenerate (Thomas-Fiering-equivalent) tests."""
     return monthly_multisite[["A"]]
@@ -64,6 +79,18 @@ class TestMatalasInit:
     def test_stores_algorithm_params(self, monthly_multisite):
         gen = MatalasGenerator()
         assert gen.init_params.algorithm_params["method"] == "Matalas MAR(1)"
+        assert gen.init_params.algorithm_params["burn_in"] == 120
+
+    def test_burn_in_default_and_rounding(self):
+        assert MatalasGenerator().burn_in == 120
+        assert MatalasGenerator(burn_in=0).burn_in == 0
+        # Rounded up to whole years so output still starts in January
+        assert MatalasGenerator(burn_in=13).burn_in == 24
+        assert MatalasGenerator(burn_in=24).burn_in == 24
+
+    def test_negative_burn_in_raises(self):
+        with pytest.raises(ValueError, match="burn_in"):
+            MatalasGenerator(burn_in=-1)
 
     def test_accepts_series_via_fit(self, monthly_multisite):
         gen = MatalasGenerator()
@@ -210,6 +237,17 @@ class TestMatalasGenerate:
         result = gen.generate(n_years=5, n_realizations=7, seed=0)
         assert result.metadata.n_realizations == 7
 
+    def test_ensemble_metadata(self, monthly_multisite):
+        """Ensemble carries the metadata needed for pipeline chaining."""
+        gen = MatalasGenerator()
+        gen.fit(monthly_multisite)
+        result = gen.generate(n_years=5, n_realizations=2, seed=0)
+        assert result.frequency == "MS"
+        assert result.metadata.time_resolution == "MS"
+        assert result.metadata.generator_class == "MatalasGenerator"
+        assert result.metadata.n_sites == 3
+        assert result.metadata.time_period is not None
+
     def test_shape_multisite(self, monthly_multisite):
         gen = MatalasGenerator()
         gen.fit(monthly_multisite)
@@ -302,12 +340,87 @@ class TestMatalasStatistics:
         syn_means = all_dfs.groupby(all_dfs.index.month).mean()
         obs_means = gen.Q_obs_monthly.groupby(gen.Q_obs_monthly.index.month).mean()
 
-        # Monthly means should be within 30% (wide tolerance for small ensemble)
+        # Log-space estimation reproduces real-space means only approximately
+        # (no bias correction), so allow 20-25% per month.
         for col in gen._sites:
             ratio = syn_means[col] / obs_means[col]
-            assert (ratio > 0.5).all() and (
-                ratio < 2.0
+            assert (ratio > 0.8).all() and (
+                ratio < 1.25
             ).all(), f"Site {col}: monthly mean ratio out of range\n{ratio}"
+
+    def test_lag1_and_cross_correlation_reproduced(self, ar1_two_site):
+        """Long-run log-space lag-1 and lag-0 correlations match fitted targets."""
+        gen = MatalasGenerator()
+        gen.fit(ar1_two_site)
+        result = gen.generate(n_years=500, n_realizations=4, seed=3)
+        log_obs = np.log(gen.Q_obs_monthly + 1.0)
+
+        def standardize(df):
+            z = df.copy()
+            for m in range(1, 13):
+                mask = z.index.month == m
+                z.loc[mask] = (z.loc[mask] - gen._mu.loc[m].values) / gen._sigma.loc[
+                    m
+                ].values
+            return z
+
+        def lag1(z):
+            return np.array(
+                [
+                    np.corrcoef(z.iloc[1:, j].values, z.iloc[:-1, j].values)[0, 1]
+                    for j in range(z.shape[1])
+                ]
+            )
+
+        z_obs = standardize(log_obs)
+        z_syn = pd.concat(
+            [standardize(np.log(result.data_by_realization[i] + 1.0)) for i in range(4)]
+        )
+        # Lag-1 targets: pooled across all month transitions
+        assert np.allclose(lag1(z_syn), lag1(z_obs), atol=0.05), (
+            lag1(z_syn),
+            lag1(z_obs),
+        )
+        # Lag-0 cross-site target
+        r_obs = z_obs.corr().iloc[0, 1]
+        r_syn = z_syn.corr().iloc[0, 1]
+        assert abs(r_syn - r_obs) < 0.05, (r_syn, r_obs)
+
+    def test_first_month_cross_correlation_after_burn_in(self, ar1_two_site):
+        """With burn-in, the first output month carries the fitted spatial
+        correlation instead of the N(0, I) starting state."""
+        gen = MatalasGenerator()
+        gen.fit(ar1_two_site)
+        result = gen.generate(n_years=1, n_realizations=400, seed=11)
+        first = np.array(
+            [
+                np.log(result.data_by_realization[i].iloc[0].values + 1.0)
+                for i in range(400)
+            ]
+        )
+        r_syn = np.corrcoef(first[:, 0], first[:, 1])[0, 1]
+        log_obs = np.log(gen.Q_obs_monthly + 1.0)
+        jan = log_obs[log_obs.index.month == 1]
+        r_obs = jan.corr().iloc[0, 1]
+        assert abs(r_syn - r_obs) < 0.1, (r_syn, r_obs)
+
+    def test_burn_in_zero_first_month_uncorrelated(self, ar1_two_site):
+        """burn_in=0 retains the original N(0, I) start, so the first month
+        has near-zero cross-site correlation."""
+        gen = MatalasGenerator(burn_in=0)
+        gen.fit(ar1_two_site)
+        assert gen.burn_in == 0
+        result = gen.generate(n_years=1, n_realizations=400, seed=11)
+        first = np.array(
+            [
+                np.log(result.data_by_realization[i].iloc[0].values + 1.0)
+                for i in range(400)
+            ]
+        )
+        r_syn = np.corrcoef(first[:, 0], first[:, 1])[0, 1]
+        assert abs(r_syn) < 0.15, r_syn
+        assert result.data_by_realization[0].shape == (12, 2)
+        assert result.data_by_realization[0].index[0].month == 1
 
     def test_spatial_correlation_sign_preserved(self, monthly_multisite):
         """Contemporaneous cross-site correlation sign should be preserved."""
@@ -325,6 +438,54 @@ class TestMatalasStatistics:
                     assert np.sign(syn_corr.loc[si, sj]) == np.sign(
                         obs_corr.loc[si, sj]
                     ), f"Correlation sign mismatch between {si} and {sj}"
+
+    def test_innovation_covariance_not_rescaled(self, ar1_two_site):
+        """diag(B B^T) must equal 1 - rho^2 (Matalas Eq. 17), not 1."""
+        gen = MatalasGenerator()
+        gen.fit(ar1_two_site)
+        diag = np.array([np.diag(B @ B.T) for B in gen._B])
+        # rho = 0.7 -> innovation variance ~ 0.51 per month; the old
+        # unit-diagonal rescaling gave exactly 1.0 for every month.
+        assert 0.4 < diag.mean() < 0.6, diag
+        assert (diag < 0.75).all(), diag
+
+    def test_monthly_std_preserved(self, ar1_two_site):
+        """Synthetic monthly log-std must match observed within 10%."""
+        gen = MatalasGenerator()
+        gen.fit(ar1_two_site)
+        result = gen.generate(n_years=150, n_realizations=5, seed=0)
+        syn = pd.concat([result.data_by_realization[i] for i in range(5)])
+        log_syn = np.log(syn + 1.0)
+        log_obs = np.log(gen.Q_obs_monthly + 1.0)
+        ratio = (
+            log_syn.groupby(log_syn.index.month).std()
+            / log_obs.groupby(log_obs.index.month).std()
+        ).mean()
+        assert ((ratio > 0.9) & (ratio < 1.1)).all(), ratio
+
+
+class TestRepairCovarianceMatrix:
+    def test_preserves_matrix_when_already_pd(self):
+        from synhydro.core.statistics import repair_covariance_matrix
+
+        cov = np.array([[0.5, 0.2], [0.2, 0.4]])
+        assert np.allclose(repair_covariance_matrix(cov), cov)
+
+    def test_clips_without_rescaling(self):
+        from synhydro.core.statistics import (
+            repair_correlation_matrix,
+            repair_covariance_matrix,
+        )
+
+        # Indefinite matrix with diagonal 0.5
+        cov = np.array([[0.5, 0.6], [0.6, 0.5]])
+        assert np.linalg.eigvalsh(cov).min() < 0
+        rep = repair_covariance_matrix(cov)
+        assert np.linalg.eigvalsh(rep).min() > 0
+        np.linalg.cholesky(rep)
+        assert np.allclose(np.diag(rep), 0.5, atol=0.11)
+        # Correlation repair (existing behaviour) rescales to unit diagonal
+        assert np.allclose(np.diag(repair_correlation_matrix(cov)), 1.0)
 
 
 # ---------------------------------------------------------------------------

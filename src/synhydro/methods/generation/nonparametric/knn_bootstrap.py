@@ -1,5 +1,5 @@
 """
-KNN Bootstrap Generator (Lall and Sharma 1996; Prairie et al. 2006, 2008)
+KNN Bootstrap Generator (Lall and Sharma 1996)
 
 Generates synthetic streamflow by conditional resampling using K-Nearest Neighbors.
 At each timestep, the current flow determines a neighborhood of K similar historical
@@ -11,12 +11,11 @@ For multisite applications, all sites are resampled jointly using the same selec
 neighbor index, preserving spatial correlation by construction.
 
 This generator targets monthly and annual streamflow, the only timescales established
-in the primary streamflow literature. Lall and Sharma (1996) and Prairie et al. (2006)
-apply the method to monthly streamflow; Prairie et al. (2008) extends it to annual
-streamflow. Daily KNN bootstrap appears in the literature only for weather variables
-(Rajagopalan and Lall, 1999) or as part of an annual-to-daily disaggregation pipeline
-(Nowak et al., 2010), neither of which justifies a standalone daily streamflow
-generator.
+in the primary streamflow literature. Lall and Sharma (1996) apply the method to
+monthly streamflow; Prairie et al. (2008) extends KNN to annual streamflow. Daily KNN
+bootstrap appears in the literature only for weather variables (Rajagopalan and Lall,
+1999) or as part of an annual-to-daily disaggregation pipeline (Nowak et al., 2010),
+neither of which justifies a standalone daily streamflow generator.
 
 References
 ----------
@@ -24,14 +23,21 @@ Lall, U., and Sharma, A. (1996). A nearest neighbor bootstrap for resampling hyd
 time series. Water Resources Research, 32(3), 679-693.
 https://doi.org/10.1029/95WR02966
 
+See Also
+--------
 Prairie, J., Rajagopalan, B., Fulp, T., and Zagona, E. (2006). Modified K-NN model
 for stochastic streamflow simulation. Journal of Hydrologic Engineering, 11(4), 371-378.
 https://doi.org/10.1061/(ASCE)1084-0699(2006)11:4(371)
+    The "modified KNN" (local-polynomial conditional mean plus kernel-weighted
+    residual resampling, which can produce values outside the observed range) is
+    NOT implemented here. This module implements only the traditional
+    Lall-Sharma KNN bootstrap.
 
 Prairie, J., Nowak, K., Rajagopalan, B., Lall, U., and Fulp, T. (2008). A stochastic
 nonparametric approach for streamflow generation combining observational and
 paleoreconstructed data. Water Resources Research, 44, W06423.
 https://doi.org/10.1029/2007WR006684
+    Annual KNN with paleo-state conditioning; the conditioning is not implemented.
 """
 
 import logging
@@ -41,7 +47,7 @@ from typing import Optional, List, Dict, Any
 
 from sklearn.neighbors import NearestNeighbors
 
-from synhydro.core.base import Generator, GeneratorParams, FittedParams
+from synhydro.core.base import Generator, GeneratorParams, FittedParams, make_output_index
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 
 
@@ -60,13 +66,12 @@ class KNNBootstrapGenerator(Generator):
     Lall, U., and Sharma, A. (1996). A nearest neighbor bootstrap for resampling
     hydrologic time series. Water Resources Research, 32(3), 679-693.
 
+    See Also
+    --------
     Prairie, J., Rajagopalan, B., Fulp, T., and Zagona, E. (2006). Modified K-NN
     model for stochastic streamflow simulation. Journal of Hydrologic Engineering,
-    11(4), 371-378.
-
-    Prairie, J., Nowak, K., Rajagopalan, B., Lall, U., and Fulp, T. (2008). A
-    stochastic nonparametric approach for streamflow generation combining
-    observational and paleoreconstructed data. Water Resources Research, 44, W06423.
+    11(4), 371-378. The modified KNN (local-polynomial conditional mean plus
+    residual resampling) is not implemented; only the Lall-Sharma bootstrap is.
     """
 
     supports_multisite = True
@@ -90,7 +95,10 @@ class KNNBootstrapGenerator(Generator):
         ----------
         n_neighbors : int, optional
             Number of neighbors K. If None, uses ceil(sqrt(n)) where n is the
-            number of historical timesteps.
+            size of the searched sample (Lall and Sharma, 1996): for monthly
+            data, n is the number of feature-successor pairs in each calendar
+            month's pool, so K varies by month; for annual data, n is the
+            number of feature-successor pairs (N - 1 for block_size=1).
         feature_cols : list, optional
             Column names to use as features for KNN search. If None, uses all columns.
         index_site : str, optional
@@ -185,19 +193,21 @@ class KNNBootstrapGenerator(Generator):
                 f"index_site '{self.index_site}' not found in data columns {self._sites}"
             )
 
-        # Determine number of neighbors
+        # Determine number of neighbors. The searched pool holds
+        # n_pairs = N - block_size feature-successor pairs, not N timesteps.
         n_historical = len(self._Q_obs)
+        n_pairs = max(1, n_historical - self.block_size)
         if self.n_neighbors is None:
-            self._n_neighbors = max(1, int(np.ceil(np.sqrt(n_historical))))
+            self._n_neighbors = max(1, int(np.ceil(np.sqrt(n_pairs))))
         else:
             self._n_neighbors = self.n_neighbors
 
-        if self._n_neighbors >= n_historical:
+        if self._n_neighbors >= n_pairs:
             self.logger.warning(
-                f"n_neighbors ({self._n_neighbors}) >= number of historical timesteps ({n_historical}). "
-                f"Setting n_neighbors to {n_historical - 1}."
+                f"n_neighbors ({self._n_neighbors}) >= number of feature-successor "
+                f"pairs ({n_pairs}). Setting n_neighbors to {max(1, n_pairs - 1)}."
             )
-            self._n_neighbors = n_historical - 1
+            self._n_neighbors = max(1, n_pairs - 1)
 
         # Build feature vectors and successor pairs
         self._build_feature_successor_pairs()
@@ -219,10 +229,11 @@ class KNNBootstrapGenerator(Generator):
         ------
         ValueError
             If the median spacing between timestamps is below 10 days,
-            indicating sub-monthly (daily or weekly) input. The KNN bootstrap
-            in this library targets monthly and annual streamflow only; for
-            daily streamflow, use NowakDisaggregator to disaggregate an
-            annual KNN realization.
+            indicating sub-monthly (daily or weekly) input, or if the median
+            spacing is neither monthly (28-31 days) nor annual (365-366
+            days). The KNN bootstrap in this library targets monthly and
+            annual streamflow only; for daily streamflow, use
+            NowakDisaggregator to disaggregate an annual KNN realization.
         """
         if len(self._Q_obs) < 2:
             self._frequency = "MS"  # Default
@@ -236,14 +247,20 @@ class KNNBootstrapGenerator(Generator):
             raise ValueError(
                 f"Sub-monthly input (median spacing {median_diff} days) is not "
                 "supported. KNNBootstrapGenerator targets monthly and annual "
-                "streamflow per Lall & Sharma (1996), Prairie et al. (2006, "
-                "2008). For daily streamflow, use NowakDisaggregator to "
+                "streamflow per Lall & Sharma (1996) and Prairie et al. "
+                "(2008). For daily streamflow, use NowakDisaggregator to "
                 "disaggregate an annual KNN realization."
             )
-        elif median_diff < 200:  # Monthly
+        elif 28 <= median_diff <= 31:  # Monthly
             self._frequency = "MS"
-        else:  # Annual
+        elif 365 <= median_diff <= 366:  # Annual
             self._frequency = "YS"
+        else:
+            raise ValueError(
+                f"Unsupported input spacing (median {median_diff} days). "
+                "KNNBootstrapGenerator supports monthly (28-31 day) or annual "
+                "(365-366 day) spacing only."
+            )
 
         self.logger.debug(
             f"Detected frequency: {self._frequency} (median diff: {median_diff} days)"
@@ -255,7 +272,7 @@ class KNNBootstrapGenerator(Generator):
 
         For monthly data, pairs are grouped by calendar month so that the
         neighbor search at generation time is conditioned on the current
-        month (Lall & Sharma 1996; Prairie et al. 2006). For each month m,
+        month (Lall & Sharma 1996). For each month m,
         the feature vector is the flow at month m and the successor is the
         flow at month m+1.
 
@@ -264,7 +281,9 @@ class KNNBootstrapGenerator(Generator):
         successors.  When ``block_size`` > 1, successors are stored as
         consecutive blocks of length ``block_size`` for block resampling.
 
-        For annual data, a single global pool is used (Prairie et al. 2008).
+        For annual data, a single global pool is used (Lall and Sharma 1996
+        applied to annual flows; the Prairie et al. 2008 paleo-state
+        conditioning is not implemented).
         """
         # Determine which columns drive the KNN distance
         if self.index_site is not None:
@@ -273,6 +292,10 @@ class KNNBootstrapGenerator(Generator):
             knn_cols = self._feature_cols
 
         self._knn_cols = knn_cols
+        # Column positions of the KNN feature columns within self._sites, so
+        # that generation-time queries are built from the same columns as the
+        # training features.
+        self._knn_col_idx = [self._sites.index(c) for c in knn_cols]
 
         bs = self.block_size
         n = len(self._Q_obs)
@@ -335,8 +358,10 @@ class KNNBootstrapGenerator(Generator):
 
         For monthly data, fits 12 separate KNN models, one per calendar
         month, so that the neighbor search is conditioned on month (Lall &
-        Sharma 1996; Prairie et al. 2006). For annual data, fits a single
-        global model (Prairie et al. 2008).
+        Sharma 1996). When ``n_neighbors`` is None, each
+        monthly model uses K_m = ceil(sqrt(n_m)) with n_m the size of that
+        month's pool, following the Lall-Sharma heuristic applied to the
+        searched sample. For annual data, fits a single global model.
 
         Also computes Lall-Sharma kernel weights for neighbor selection.
 
@@ -358,9 +383,21 @@ class KNNBootstrapGenerator(Generator):
             # Per-month KNN models
             self._monthly_knn = {}
             self._monthly_weights = {}
+            self._monthly_k = {}
             for m in range(1, 13):
                 n_m = len(self._monthly_features[m])
-                k_m = min(self._n_neighbors, n_m - 1) if n_m > 1 else 1
+                if n_m == 0:
+                    raise ValueError(
+                        f"No feature-successor pairs for calendar month {m} "
+                        f"({pd.Timestamp(2000, m, 1).month_name()}). The "
+                        "observed record must contain every calendar month."
+                    )
+                if self.n_neighbors is None:
+                    k_req = max(1, int(np.ceil(np.sqrt(n_m))))
+                else:
+                    k_req = self._n_neighbors
+                k_m = min(k_req, n_m - 1) if n_m > 1 else 1
+                self._monthly_k[m] = k_m
                 knn = NearestNeighbors(
                     n_neighbors=k_m, algorithm="auto", metric="euclidean"
                 )
@@ -368,8 +405,8 @@ class KNNBootstrapGenerator(Generator):
                 self._monthly_knn[m] = knn
                 self._monthly_weights[m] = self._make_kernel_weights(k_m)
             self.logger.info(
-                "Fitting complete: 12 month-conditioned KNN models, K=%d",
-                self._n_neighbors,
+                "Fitting complete: 12 month-conditioned KNN models, K by month=%s",
+                [self._monthly_k[m] for m in range(1, 13)],
             )
         else:
             # Global KNN model
@@ -503,8 +540,8 @@ class KNNBootstrapGenerator(Generator):
         Generate a single synthetic realization.
 
         For monthly data, the neighbor search at each step is conditioned on
-        the calendar month of the *current* timestep (Lall & Sharma 1996;
-        Prairie et al. 2006). The successor of the selected neighbor provides
+        the calendar month of the *current* timestep (Lall & Sharma 1996).
+        The successor of the selected neighbor provides
         the value for the *next* timestep, naturally advancing month-to-month.
 
         When ``block_size`` > 1, each KNN selection copies a block of
@@ -528,17 +565,20 @@ class KNNBootstrapGenerator(Generator):
         freq = self._frequency  # 'MS' or 'YS'
         offset = pd.DateOffset(months=1) if freq == "MS" else pd.DateOffset(years=1)
         start_date = self._Q_obs.index[-1] + offset
-        date_index = pd.date_range(start=start_date, periods=n_timesteps, freq=freq)
+        date_index = make_output_index(start_date, n_timesteps, freq)
 
         Q_syn = np.zeros((n_timesteps, len(self._sites)))
-        n_knn_features = len(self._knn_cols)
+        col_idx = self._knn_col_idx
         bs = self.block_size
 
         if self._is_monthly_conditioned:
-            # Month-conditioned generation
+            # Month-conditioned generation. _monthly_successors[m] holds the
+            # flows of month m+1, so the initial block for a timestep in month
+            # m0 is drawn from the pool keyed by the preceding month.
             m0 = date_index[0].month
-            init_idx = rng.integers(0, len(self._monthly_successors[m0]))
-            block = self._monthly_successors[m0][init_idx]  # (bs, n_sites)
+            m_prev = 12 if m0 == 1 else m0 - 1
+            init_idx = rng.integers(0, len(self._monthly_successors[m_prev]))
+            block = self._monthly_successors[m_prev][init_idx]  # (bs, n_sites)
             copy_len = min(bs, n_timesteps)
             Q_syn[:copy_len, :] = block[:copy_len]
 
@@ -546,7 +586,7 @@ class KNNBootstrapGenerator(Generator):
             while t < n_timesteps:
                 # Use the last generated value's month for KNN lookup
                 m = date_index[t - 1].month
-                current_feature = Q_syn[t - 1, :n_knn_features].reshape(1, -1)
+                current_feature = Q_syn[t - 1, col_idx].reshape(1, -1)
 
                 knn = self._monthly_knn[m]
                 weights = self._monthly_weights[m]
@@ -568,7 +608,7 @@ class KNNBootstrapGenerator(Generator):
 
             t = copy_len
             while t < n_timesteps:
-                current_feature = Q_syn[t - 1, :n_knn_features].reshape(1, -1)
+                current_feature = Q_syn[t - 1, col_idx].reshape(1, -1)
 
                 _, neighbor_indices = self._knn_model.kneighbors(
                     current_feature, n_neighbors=self._n_neighbors

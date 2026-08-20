@@ -14,11 +14,14 @@ with parameter matrices
 
 estimated from historical data. ``B`` is computed by rank-aware spectral
 factorization (rank at most ``N - 1`` per the paper, where ``N`` is the
-number of fitted years), which preserves the paper's exact-additivity
-identities ``C A = I`` and ``C B = 0`` to floating-point precision. This
-guarantees ``C Y = X`` for any draw when no nonlinear transformation is
-applied. With a log or Box-Cox transform, additivity is restored by a
-per-site proportional rescale.
+number of fitted years). With ``transform='none'`` the factorization is
+carried out in the null space of the aggregation operator ``C``, which
+preserves the paper's exact-additivity identities ``C A = I`` and
+``C B = 0`` to floating-point precision and guarantees ``C Y = X`` for
+any draw. With a log or Box-Cox transform those identities do not hold
+in the fitted space, so the full conditional covariance is factored and
+additivity is restored by a per-site proportional rescale (Grygier and
+Stedinger, 1988, Eq. 14).
 
 Within a year the sub-period vector ``Y`` is ordered site-major, matching
 paper Equation (3): the first ``n_subperiods`` entries are site 1, then
@@ -135,10 +138,12 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
         (n_subperiods * n_sites, n_sites).
     B_ : np.ndarray
         Rank-aware factor with ``B B^T = S_yy - S_yx S_xx^{-1} S_xy``,
-        shape (n_subperiods * n_sites, r) with
-        ``r <= min(n_years - 1, (n_subperiods - 1) * n_sites)`` (the
-        null-space-of-C constraint tightens the paper's
-        ``N - 1`` rank bound).
+        shape (n_subperiods * n_sites, r). With ``transform='none'``
+        ``B`` is factored in the null space of ``C`` so that ``C B = 0``
+        and ``r <= min(n_years - 1, (n_subperiods - 1) * n_sites)`` (the
+        null-space constraint tightens the paper's ``N - 1`` rank bound).
+        With a nonlinear transform the full conditional covariance is
+        factored and ``r <= min(n_years - 1, n_subperiods * n_sites)``.
     """
 
     def __init__(
@@ -314,13 +319,19 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
             ]
             edges = starts + [year_end]
 
+            # Observed data is monthly, so a complete year has exactly
+            # 12 / n_subperiods observations in every sub-period. Requiring
+            # the exact count (not just mask.any()) prevents partial leading
+            # or trailing years from biasing the moments when
+            # n_subperiods < 12.
+            expected_per_subperiod = 12 // self.n_subperiods
             rows = []
             complete = True
             for i in range(self.n_subperiods):
                 mask = (self.Q_obs.index >= edges[i]) & (
                     self.Q_obs.index < edges[i + 1]
                 )
-                if not mask.any():
+                if mask.sum() != expected_per_subperiod:
                     complete = False
                     break
                 rows.append(self.Q_obs.loc[mask].sum().values)
@@ -422,16 +433,27 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
     def _compute_noise_factor(self) -> None:
         """
         Construct the noise factor ``B`` such that
-        ``B B^T = S_yy - S_yx S_xx^{-1} S_xy`` (paper Eq. 19) **and**
-        ``C B = 0`` exactly (paper Eqs. 39-40), where ``C`` is the
-        per-site aggregation operator.
+        ``B B^T = S_yy - S_yx S_xx^{-1} S_xy`` (paper Eq. 19).
 
-        We factor in an orthonormal basis ``N`` of the null space of
-        ``C``: any vector ``B v`` then lies in that null space by
-        construction, so ``C B = 0`` to floating-point precision and the
-        paper's exact-additivity identity ``C Y = X`` holds for any draw.
-        The retained rank is at most ``min((n_subperiods - 1) * n_sites,
-        n_years - 1)`` per the paper's rank bound (p.584).
+        Two factorization paths are used:
+
+        * ``transform='none'``: the paper's identities ``C A = I`` and
+          ``C B = 0`` hold (Eqs. 39-40, ``C`` the per-site aggregation
+          operator), so ``BB^T`` lives entirely in the null space of
+          ``C``. We factor in an orthonormal basis ``N`` of that null
+          space: any vector ``B v`` then lies in the null space by
+          construction, ``C B = 0`` to floating-point precision, and the
+          exact-additivity identity ``C Y = X`` holds for any draw. The
+          retained rank is at most ``min((n_subperiods - 1) * n_sites,
+          n_years - 1)`` per the paper's rank bound (p.584).
+        * ``transform='log'`` or ``'boxcox'``: ``X`` is the original-scale
+          aggregate while ``Y`` is transformed, so ``C BB^T != 0`` and a
+          null-space projection would discard real conditional variance
+          (about 2-5 percent of the trace on typical monthly data). The
+          full symmetric ``BB^T`` is therefore factored directly after
+          clipping numerically non-positive eigenvalues; additivity is
+          restored afterwards by the proportional rescale in
+          ``disaggregate``.
         """
         from scipy.linalg import null_space
 
@@ -439,17 +461,23 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
         n_sites = self.n_sites
         n = n_sub * n_sites
 
-        ones_row = np.ones((1, n_sub))
-        block_basis = null_space(ones_row)  # (n_sub, n_sub - 1)
-        N = np.zeros((n, (n_sub - 1) * n_sites))
-        for s in range(n_sites):
-            N[s * n_sub : (s + 1) * n_sub, s * (n_sub - 1) : (s + 1) * (n_sub - 1)] = (
-                block_basis
-            )
-
         S_xx_inv = np.linalg.pinv(self.S_xx_)
         BBt = self.S_yy_ - self.S_yx_ @ S_xx_inv @ self.S_yx_.T
-        M2 = N.T @ BBt @ N
+
+        if self.transform == "none":
+            ones_row = np.ones((1, n_sub))
+            block_basis = null_space(ones_row)  # (n_sub, n_sub - 1)
+            N = np.zeros((n, (n_sub - 1) * n_sites))
+            for s in range(n_sites):
+                N[
+                    s * n_sub : (s + 1) * n_sub, s * (n_sub - 1) : (s + 1) * (n_sub - 1)
+                ] = block_basis
+            M2 = N.T @ BBt @ N
+            rank_max = (n_sub - 1) * n_sites
+        else:
+            N = np.eye(n)
+            M2 = BBt
+            rank_max = n
         M2 = 0.5 * (M2 + M2.T)
 
         eigvals, eigvecs = np.linalg.eigh(M2)
@@ -472,7 +500,7 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
 
         self.logger.debug(
             f"Noise factor B: shape={self.B_.shape}, "
-            f"rank={self.B_.shape[1]}/{(n_sub - 1) * n_sites} max, tol={tol:.2e}"
+            f"rank={self.B_.shape[1]}/{rank_max} max, tol={tol:.2e}"
         )
 
     def _compute_fitted_params(self) -> FittedParams:
@@ -621,5 +649,7 @@ class ValenciaSchaakeDisaggregator(Disaggregator):
                 out_dates.append(pd.Timestamp(year=year, month=month, day=1))
 
         return pd.DataFrame(
-            out_rows, index=pd.DatetimeIndex(out_dates), columns=self._sites
+            out_rows,
+            index=pd.DatetimeIndex(np.array(out_dates, dtype="datetime64[s]")),
+            columns=self._sites,
         )

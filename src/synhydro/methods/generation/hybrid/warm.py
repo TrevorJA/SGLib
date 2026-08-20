@@ -4,7 +4,8 @@ Wavelet Auto-Regressive Method (WARM) for streamflow generation.
 Implements the enhanced WARM methodology of Nowak et al. (2011) for univariate
 synthetic annual streamflow simulation that preserves non-stationary spectral
 features. Significance of spectral peaks is assessed using the chi-squared
-red-noise / white-noise background framework of Torrence and Compo (1998).
+white-noise (default) or red-noise background framework of Torrence and Compo
+(1998).
 """
 
 import logging
@@ -16,7 +17,7 @@ import pywt
 from numpy.typing import NDArray
 from scipy import stats
 
-from synhydro.core.base import Generator, FittedParams
+from synhydro.core.base import Generator, FittedParams, make_output_index
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,15 @@ logger = logging.getLogger(__name__)
 #
 # The Nowak et al. (2011) algorithm is derived for the complex Morlet with
 # omega_0 = 6 (T&C convention). In PyWavelets this corresponds most closely
-# to 'cmor1.5-1.0' (center frequency = 1.0 -> omega_0 = 2*pi ~= 6.28).
+# to 'cmor1.5-1.0'. Note that the PyWavelets cmor envelope is exp(-t^2/B)
+# rather than T&C's exp(-eta^2/2), so the T&C-equivalent dimensionless
+# frequency is omega_0 = 2*pi*C*sqrt(B/2) = 2*pi*sqrt(0.75) ~= 5.44, not
+# 2*pi*C = 6.28. The gamma value below is T&C's tabulated omega_0 = 6 value
+# and is used as an approximation for omega_0 = 5.44. Fourier periods are
+# taken from pywt.scale2frequency (period = scale / C) rather than the
+# T&C Table 1 relation lambda = 4*pi*s/(omega_0 + sqrt(2 + omega_0^2)),
+# which for omega_0 = 5.44 gives period ~= 0.98 * scale; the ~2% difference
+# is well inside one voice spacing (2^(1/8) ~= 9%).
 _WAVELET_CONSTANTS: Dict[str, Dict[str, float]] = {
     "cmor1.5-1.0": {
         "C_delta": 0.5587,
@@ -64,23 +73,40 @@ class WARMGenerator(Generator):
     structure as the historic record.
 
     Significance of spectral peaks is assessed using the chi-squared
-    background spectrum framework of Torrence and Compo (1998), with either a
-    white-noise or AR(1) red-noise background.
+    background spectrum framework of Torrence and Compo (1998), against a
+    white-noise background by default (as in Nowak et al., 2011) or an
+    optional AR(1) red-noise background.
 
     Notes
     -----
-    The WARMGenerator is univariate. For multi-site simulation as described in
-    Nowak et al. (2011, Section 2.4), apply this generator to an aggregate
-    gauge time series and then disaggregate spatially using the proportional
-    KNN method of Nowak et al. (2010), available in SynHydro as
-    ``synhydro.methods.disaggregation.spatial.NowakDisaggregator``.
+    The WARMGenerator is univariate. Nowak et al. (2011, Section 2.4) obtain
+    multi-site traces by applying WARM to an aggregate gauge and then
+    disaggregating the result spatially with the proportion (KNN analog)
+    method of Nowak et al. (2010). That spatial proportion disaggregation is
+    not implemented in SynHydro. The related
+    ``synhydro.methods.disaggregation.temporal.nowak.NowakDisaggregator``
+    implements only the temporal (annual to daily) KNN disaggregation of
+    Nowak et al. (2010) and does not perform the Section 2.4 spatial step.
+
+    The autoregressive model of each band must be able to carry a spectral
+    peak. An AR(1) process has a monotone spectrum and cannot, so the default
+    order selection is AIC over ``[1, n_ar_max]`` (``ar_select='aic'``),
+    which in practice picks an order of at least 2 for a quasi-periodic band.
+    Passing ``ar_order`` explicitly without ``ar_select`` switches to a fixed
+    order; ``ar_order=1`` reduces the band component to red noise and the
+    observed spectral peak will not be reproduced.
+
+    AR coefficients are estimated with Burg's recursion by default
+    (``ar_method='burg'``). Yule-Walker estimates (``ar_method='yule_walker'``)
+    are strongly biased toward damped poles for the narrow-band series
+    produced by the band reconstruction and under-reproduce peak power.
 
     Examples
     --------
     >>> import pandas as pd
     >>> from synhydro.methods.generation.hybrid.warm import WARMGenerator
     >>> Q_annual = pd.read_csv('annual_flows.csv', index_col=0, parse_dates=True)
-    >>> warm = WARMGenerator(background_spectrum='red')
+    >>> warm = WARMGenerator()
     >>> warm.fit(Q_annual.iloc[:, [0]])
     >>> ensemble = warm.generate(n_years=100, n_realizations=50, seed=42)
 
@@ -92,6 +118,9 @@ class WARMGenerator(Generator):
 
     Torrence, C., and Compo, G.P. (1998). A practical guide to wavelet analysis.
     Bulletin of the American Meteorological Society, 79(1), 61-78.
+
+    Kay, S.M., and Marple, S.L. (1981). Spectrum analysis: A modern
+    perspective. Proceedings of the IEEE, 69(11), 1380-1419.
     """
 
     supports_multisite: bool = False
@@ -105,11 +134,13 @@ class WARMGenerator(Generator):
         n_octaves: Optional[float] = None,
         n_voices: int = 8,
         s0: Optional[float] = None,
-        ar_order: int = 1,
+        ar_order: Optional[int] = None,
         n_ar_max: int = 5,
-        ar_select: str = "fixed",
+        ar_select: Optional[str] = None,
+        ar_method: str = "burg",
+        sawp_resampling: str = "historical",
         bands: Optional[List[Tuple[float, float]]] = None,
-        background_spectrum: str = "red",
+        background_spectrum: str = "white",
         significance_level: float = 0.95,
         min_band_scales: int = 1,
         noise_model: str = "ar_bootstrap",
@@ -125,9 +156,11 @@ class WARMGenerator(Generator):
         ----------
         wavelet : str, default='cmor1.5-1.0'
             Wavelet type for the continuous wavelet transform. The default
-            complex Morlet (bandwidth=1.5, center frequency=1.0, equivalent to
-            omega_0 = 2*pi ~= 6.28) matches the Nowak et al. (2011) and
-            Torrence and Compo (1998) convention. Other PyWavelets continuous
+            complex Morlet (bandwidth B=1.5, center frequency C=1.0; in the
+            Torrence and Compo dimensionless convention omega_0 =
+            2*pi*C*sqrt(B/2) ~= 5.44) is a close approximation to the
+            omega_0 = 6 Morlet of Nowak et al. (2011) and Torrence and Compo
+            (1998). Other PyWavelets continuous
             wavelets are accepted but use the cmor1.5-1.0 reconstruction
             constants and may produce slightly biased amplitudes.
         scales : array-like of float, optional
@@ -146,28 +179,53 @@ class WARMGenerator(Generator):
         s0 : float, optional
             Smallest scale, in units of the sampling period. Defaults to 2,
             corresponding to a Fourier period of approximately ``2 * dt``.
-        ar_order : int, default=1
+        ar_order : int, optional
             Order of the autoregressive model fitted to each band's
-            stationary component when ``ar_select='fixed'``. Per Nowak et al.
-            (2011), low-order AR models are usually adequate for the smooth
-            band reconstructions.
+            stationary component and to the noise residual when
+            ``ar_select='fixed'``. If given and ``ar_select`` is ``None``,
+            ``ar_select`` defaults to ``'fixed'``. Note that an AR(1) has a
+            monotone spectrum and cannot reproduce a spectral peak; use an
+            order of at least 2 for quasi-periodic bands.
         n_ar_max : int, default=5
             Maximum AR order considered when ``ar_select='aic'``.
-        ar_select : {'fixed', 'aic'}, default='fixed'
+        ar_select : {'fixed', 'aic'}, optional
             Strategy for choosing AR order. ``'fixed'`` uses ``ar_order`` for
-            every band. ``'aic'`` selects the order in ``[1, n_ar_max]``
-            minimizing Akaike's information criterion.
+            every component. ``'aic'`` selects the order in ``[1, n_ar_max]``
+            minimizing Akaike's information criterion. When ``None``
+            (default), ``'fixed'`` is used if ``ar_order`` was given and
+            ``'aic'`` otherwise.
+        ar_method : {'burg', 'yule_walker'}, default='burg'
+            Estimator for the AR coefficients. ``'burg'`` uses Burg's
+            recursion, which is guaranteed stable and much less biased than
+            Yule-Walker for the narrow-band series produced by the band
+            reconstruction; the innovation variance is then set so the
+            model's stationary variance equals the sample variance.
+            ``'yule_walker'`` reproduces the earlier behaviour.
+        sawp_resampling : {'historical', 'random_offset'}, default='historical'
+            How the historical SAWP envelope is re-applied at synthesis.
+            ``'historical'`` (default) applies the historical SAWP in its
+            observed order (cyclically extended if ``n_years`` exceeds the
+            record), matching step (iii) of Nowak et al. (2011), so the
+            ensemble reproduces the observed epoch timing of spectral power
+            (their Fig. 7). ``'random_offset'`` reads the historical SAWP
+            cyclically from a uniformly random starting year, so the timing
+            of high- and low-power epochs is randomized across realizations
+            and the ensemble-average local spectrum is stationary; use it
+            when you do not want to condition on the historical epoch
+            timing.
         bands : list of (period_low, period_high) tuples, optional
             Explicit Fourier-period bands (in years) to model. Each tuple
             specifies the inclusive low and high period bounds of a band. If
             ``None`` (default), bands are auto-detected from contiguous
             significant peaks in the global wavelet spectrum at the chosen
             ``significance_level`` against the chosen ``background_spectrum``.
-        background_spectrum : {'red', 'white'}, default='red'
+        background_spectrum : {'white', 'red'}, default='white'
             Background spectrum for the chi-squared significance test of
-            Torrence and Compo (1998). ``'red'`` uses a theoretical AR(1)
-            spectrum with lag-1 coefficient estimated from the record;
-            ``'white'`` uses a flat spectrum.
+            Torrence and Compo (1998). ``'white'`` (default) uses a flat
+            spectrum, matching the 95% white-noise test of Nowak et al.
+            (2011); ``'red'`` uses a theoretical AR(1) spectrum with lag-1
+            coefficient estimated from the record, a more conservative test
+            for persistent records that may flag no band at all.
         significance_level : float, default=0.95
             Confidence level (0 < level < 1) used to threshold the global
             wavelet spectrum for band detection.
@@ -195,18 +253,39 @@ class WARMGenerator(Generator):
         ------
         ValueError
             If ``ar_order`` < 1, ``n_ar_max`` < 1, ``ar_select`` not in
-            {'fixed', 'aic'}, ``background_spectrum`` not in {'red', 'white'},
+            {'fixed', 'aic'}, ``ar_method`` not in {'burg', 'yule_walker'},
+            ``sawp_resampling`` not in {'random_offset', 'historical'},
+            ``background_spectrum`` not in {'red', 'white'},
             ``significance_level`` not in (0, 1), or ``wavelet`` not a
             recognized continuous wavelet.
         """
         super().__init__(name=name, debug=debug)
 
+        if ar_select is None:
+            ar_select = "fixed" if ar_order is not None else "aic"
+        if ar_order is None:
+            ar_order = 1
         if ar_order < 1:
             raise ValueError(f"ar_order must be >= 1, got {ar_order}")
         if n_ar_max < 1:
             raise ValueError(f"n_ar_max must be >= 1, got {n_ar_max}")
         if ar_select not in ("fixed", "aic"):
             raise ValueError(f"ar_select must be 'fixed' or 'aic', got {ar_select!r}")
+        if ar_method not in ("burg", "yule_walker"):
+            raise ValueError(
+                f"ar_method must be 'burg' or 'yule_walker', got {ar_method!r}"
+            )
+        if sawp_resampling not in ("random_offset", "historical"):
+            raise ValueError(
+                "sawp_resampling must be 'random_offset' or 'historical', "
+                f"got {sawp_resampling!r}"
+            )
+        if ar_select == "fixed" and ar_order == 1:
+            logger.warning(
+                "ar_order=1 with ar_select='fixed': an AR(1) has a monotone "
+                "spectrum and cannot reproduce a spectral peak in the band "
+                "component. Use ar_order >= 2 or ar_select='aic'."
+            )
         if background_spectrum not in ("red", "white"):
             raise ValueError(
                 "background_spectrum must be 'red' or 'white', "
@@ -263,6 +342,8 @@ class WARMGenerator(Generator):
         self.ar_order = int(ar_order)
         self.n_ar_max = int(n_ar_max)
         self.ar_select = ar_select
+        self.ar_method = ar_method
+        self.sawp_resampling = sawp_resampling
         self.bands_user = bands
         self.background_spectrum = background_spectrum
         self.significance_level = float(significance_level)
@@ -301,6 +382,8 @@ class WARMGenerator(Generator):
             "ar_order": self.ar_order,
             "n_ar_max": self.n_ar_max,
             "ar_select": self.ar_select,
+            "ar_method": self.ar_method,
+            "sawp_resampling": self.sawp_resampling,
             "bands": self.bands_user,
             "background_spectrum": self.background_spectrum,
             "significance_level": self.significance_level,
@@ -401,6 +484,11 @@ class WARMGenerator(Generator):
            obtain a stationary series and fit an AR(p) model.
         6. Form the noise residual as the observed series minus the sum of all
            band reconstructions, and fit an AR model to it.
+        7. Compute a per-band amplitude factor so that each re-enveloped
+           synthetic band reproduces the variance of its observed
+           reconstruction, and a total variance correction factor that
+           restores the cross-covariance between components lost under
+           independent simulation (Nowak et al. 2011, Eqs. 6-7).
 
         Parameters
         ----------
@@ -485,31 +573,38 @@ class WARMGenerator(Generator):
         self.noise_residual_ = Q_centered - total_band_signal
         self.noise_ar_params_ = self._fit_ar_model(self.noise_residual_)
 
-        # Variance correction factor (Nowak et al. 2011 Eq. 7). When the band
-        # and noise components are simulated independently, the total simulated
-        # variance can deviate from the observed variance for two reasons:
-        # (i) the weak cross-correlations between observed components are lost
-        # under independent simulation, and (ii) within a band, the synthetic
-        # variance is E[stat^2] * E[SAWP] (stat_syn and SAWP_syn drawn
-        # independently in synthesis) rather than the in-sample
-        # var(stat * sqrt(SAWP)) of the observed band reconstruction (where
-        # stat and SAWP are structurally coupled).
-        #
-        # The denominator below is the expected simulated total variance,
-        # so vf = sqrt(observed_var / expected_simulated_var) yields an
-        # ensemble whose variance matches the observed variance.
-        observed_var = float(np.var(Q_centered, ddof=0))
-        expected_simulated_var = float(
-            sum(
-                np.var(band["stationary"], ddof=0) * float(np.mean(band["sawp"]))
-                for band in self.bands_
+        # Per-band amplitude factor. In synthesis the stationary AR series
+        # and the SAWP envelope are drawn independently, so the synthetic
+        # band variance is var(stat) * mean(SAWP). In the observed record
+        # the two are coupled (the ratio recon^2 / SAWP is larger where a
+        # coherent oscillation dominates the band than where band-limited
+        # noise does), so var(recon) differs from that product. The factor
+        # below makes each synthetic band reproduce var(recon), which is
+        # what the paper's component-wise AR simulation assumes (Section
+        # 2.1: "the band passed components add up to the original data").
+        for band in self.bands_:
+            expected = float(np.var(band["stationary"], ddof=0)) * float(
+                np.mean(band["sawp"])
             )
+            observed = float(np.var(band["reconstruction"], ddof=0))
+            band["amplitude_factor"] = (
+                float(np.sqrt(observed / expected)) if expected > 0.0 else 1.0
+            )
+
+        # Total variance correction factor. Nowak et al. (2011) Eqs. 6-7
+        # note that the observed components carry weak cross-covariance, so
+        # the sum of independently simulated components is slightly
+        # under-dispersed. The paper states vf = 1 + 2 sigma_xy /
+        # sigma^2_{x+y}; here the equivalent ratio form
+        # sqrt(var(Q) / sum_b var(S_b) + var(eta)) is applied to the centered
+        # synthetic series so that the ensemble variance matches var(Q).
+        observed_var = float(np.var(Q_centered, ddof=0))
+        component_var = float(
+            sum(np.var(band["reconstruction"], ddof=0) for band in self.bands_)
             + np.var(self.noise_residual_, ddof=0)
         )
-        if expected_simulated_var > 0.0:
-            self.variance_correction_ = float(
-                np.sqrt(observed_var / expected_simulated_var)
-            )
+        if component_var > 0.0:
+            self.variance_correction_ = float(np.sqrt(observed_var / component_var))
         else:
             self.variance_correction_ = 1.0
 
@@ -659,7 +754,9 @@ class WARMGenerator(Generator):
         Estimate the lag-1 autocorrelation of a centered series.
 
         Returns the Pearson correlation between ``x[1:]`` and ``x[:-1]``,
-        clipped to [0, 0.999) to avoid degenerate red-noise spectra.
+        clipped to [0, 0.999): negative lag-1 autocorrelation is set to zero
+        (white background), and values near one are capped to avoid
+        degenerate red-noise spectra.
 
         Parameters
         ----------
@@ -857,7 +954,11 @@ class WARMGenerator(Generator):
         Compute the band-restricted Scale-Averaged Wavelet Power.
 
         Implements Nowak et al. (2011) Eq. 5 with summation limits j1..j2
-        equal to ``scale_indices`` (Torrence and Compo 1998, Eq. 24).
+        equal to ``scale_indices`` (Torrence and Compo 1998, Eq. 24). The
+        coefficient power is divided by ``kappa`` so that the SAWP is in
+        variance units (the whole-spectrum SAWP averages to the series
+        variance, T&C Eq. 14) despite the non-unit-energy PyWavelets
+        normalization of the mother wavelet.
 
         Parameters
         ----------
@@ -875,9 +976,10 @@ class WARMGenerator(Generator):
         """
         constants = self._wavelet_constants()
         C_delta = constants["C_delta"]
+        kappa = constants.get("kappa", 1.0)
         sub_coefs = coefficients[scale_indices, :]
         sub_scales = scales[scale_indices].astype(float)
-        power = np.abs(sub_coefs) ** 2
+        power = np.abs(sub_coefs) ** 2 / kappa
         weighted = power / sub_scales[:, np.newaxis]
         sawp = (self.delta_j_ * self.delta_t_ / C_delta) * np.sum(weighted, axis=0)
         # Numerical safety: SAWP is a power and must be non-negative.
@@ -957,7 +1059,7 @@ class WARMGenerator(Generator):
 
     def _fit_ar_model(self, data: NDArray) -> Dict[str, Any]:
         """
-        Fit an AR(p) model to a 1-D series via Yule-Walker.
+        Fit an AR(p) model to a 1-D series (Burg or Yule-Walker).
 
         When ``ar_select == 'fixed'``, ``ar_order`` is used. When ``ar_select
         == 'aic'``, the order minimizing AIC over ``[1, n_ar_max]`` is
@@ -996,6 +1098,134 @@ class WARMGenerator(Generator):
         return best
 
     def _fit_ar_fixed(self, data: NDArray, order: int) -> Dict[str, Any]:
+        """
+        Fit an AR(p) model of fixed order with the configured estimator.
+
+        Dispatches to :meth:`_fit_ar_burg` or :meth:`_fit_ar_yule_walker`
+        according to ``ar_method``.
+
+        Parameters
+        ----------
+        data : NDArray
+            Time series to fit.
+        order : int
+            AR order ``p >= 1``.
+
+        Returns
+        -------
+        dict
+            See :meth:`_fit_ar_yule_walker`.
+        """
+        if self.ar_method == "burg":
+            return self._fit_ar_burg(data, order)
+        return self._fit_ar_yule_walker(data, order)
+
+    def _fit_ar_burg(self, data: NDArray, order: int) -> Dict[str, Any]:
+        """
+        Fit an AR(p) model of fixed order with Burg's recursion.
+
+        Burg's method minimizes the sum of forward and backward prediction
+        errors under the Levinson recursion, which guarantees a stable model
+        and is far less biased than Yule-Walker for narrow-band series
+        (Kay and Marple 1981). Because Burg does not constrain the model's
+        lag-0 autocovariance, the innovation variance is rescaled so that
+        the implied stationary variance equals the sample variance.
+
+        Parameters
+        ----------
+        data : NDArray
+            Time series to fit.
+        order : int
+            AR order ``p >= 1``.
+
+        Returns
+        -------
+        dict
+            Same keys as :meth:`_fit_ar_yule_walker`.
+        """
+        mean = float(np.mean(data))
+        x = np.asarray(data, dtype=float) - mean
+        n = len(x)
+
+        if n <= order + 1:
+            return self._fit_ar_yule_walker(data, order)
+
+        gamma_0 = float(np.dot(x, x)) / n
+        if gamma_0 <= 0:
+            return self._fit_ar_yule_walker(data, order)
+
+        f = x.copy()
+        b = x.copy()
+        a = np.array([1.0])
+        for m in range(1, order + 1):
+            ff = f[m:]
+            bb = b[m - 1 : n - 1]
+            den = float(np.dot(ff, ff) + np.dot(bb, bb))
+            k = -2.0 * float(np.dot(ff, bb)) / den if den > 0.0 else 0.0
+            a = np.concatenate([a, [0.0]]) + k * np.concatenate([[0.0], a[::-1]])
+            f_new = ff + k * bb
+            b_new = bb + k * ff
+            f[m:] = f_new
+            b[m:] = b_new
+        phi = -a[1:]
+
+        # Rescale the innovation variance so the AR process has stationary
+        # variance gamma_0: sigma^2 = gamma_0 * (1 - phi . rho), where rho
+        # is the model's own autocorrelation at lags 1..p.
+        rho = self._ar_autocorrelation(phi)
+        ratio = 1.0 - float(np.dot(phi, rho))
+        if not np.isfinite(ratio) or ratio <= 0.0:
+            return self._fit_ar_yule_walker(data, order)
+        sigma = float(np.sqrt(max(gamma_0 * ratio, 1e-12)))
+
+        residuals = np.empty(n - order)
+        for t in range(order, n):
+            ar_term = float(np.dot(phi, x[t - order : t][::-1]))
+            residuals[t - order] = x[t] - ar_term
+        std_resid = residuals / sigma
+
+        return {
+            "order": order,
+            "coeffs": phi,
+            "sigma": sigma,
+            "mean": mean,
+            "std_residuals": std_resid,
+        }
+
+    @staticmethod
+    def _ar_autocorrelation(phi: NDArray) -> NDArray:
+        """
+        Theoretical autocorrelation at lags 1..p of a stationary AR(p).
+
+        Solves the Yule-Walker equations ``rho_k = sum_j phi_j rho_|k-j|``
+        for the unknown ``rho_1, ..., rho_p`` given the coefficients.
+
+        Parameters
+        ----------
+        phi : NDArray
+            AR coefficients of length ``p``.
+
+        Returns
+        -------
+        NDArray
+            Autocorrelation at lags 1..p.
+        """
+        p = len(phi)
+        A = -np.eye(p)
+        rhs = np.zeros(p)
+        for k in range(1, p + 1):
+            for j in range(1, p + 1):
+                lag = abs(k - j)
+                if lag == 0:
+                    rhs[k - 1] += phi[j - 1]
+                else:
+                    A[k - 1, lag - 1] += phi[j - 1]
+        try:
+            return np.linalg.solve(A, -rhs)
+        except np.linalg.LinAlgError:
+            return np.full(p, np.nan)
+
+    def _fit_ar_yule_walker(self, data: NDArray, order: int) -> Dict[str, Any]:
         """
         Fit an AR(p) model of fixed order via Yule-Walker equations.
 
@@ -1103,8 +1333,11 @@ class WARMGenerator(Generator):
         rng : np.random.Generator
             Random number generator.
         burn_in : int, default=100
-            Number of leading samples to discard so the simulation reaches
-            stationarity.
+            Minimum number of leading samples to discard so the simulation
+            reaches stationarity. The burn-in is lengthened automatically
+            when the largest AR pole radius ``r`` is close to one, to
+            ``log(1e-3) / log(r)`` samples (capped at 10000), so that
+            narrow-band models start from their stationary distribution.
         bootstrap_innovations : bool, default=False
             If True, draw innovations by resampling (with replacement) from
             the standardized empirical residuals stored in ``ar_params``,
@@ -1122,6 +1355,12 @@ class WARMGenerator(Generator):
         sigma = float(ar_params["sigma"])
         mean = float(ar_params["mean"])
 
+        if order > 0 and np.any(coeffs != 0.0):
+            poles = np.abs(np.roots(np.concatenate([[1.0], -coeffs])))
+            r_max = float(np.max(poles)) if poles.size else 0.0
+            if 0.0 < r_max < 1.0:
+                needed = int(np.ceil(np.log(1e-3) / np.log(r_max)))
+                burn_in = int(min(max(burn_in, needed), 10000))
         total = n + burn_in
         if bootstrap_innovations:
             std_resid = np.asarray(ar_params.get("std_residuals", []), dtype=float)
@@ -1152,13 +1391,16 @@ class WARMGenerator(Generator):
         For each significant band, an AR-simulated stationary series is
         re-multiplied by the square root of the historical SAWP series
         (Nowak et al. 2011, step iii of Section 2.3, Fig. 6) to restore the
-        non-stationary envelope. For trace lengths different from the
-        historical record, the SAWP is wrapped cyclically with a uniformly
-        random starting offset, which preserves the SAWP autocorrelation
-        structure across realizations. The noise component is AR-simulated
-        independently. Combined band+noise signals are scaled by the
-        variance correction factor (Eq. 7) to recover the observed total
-        variance, then the historical mean is added back.
+        non-stationary envelope, and by the band's amplitude factor so the
+        band variance matches the observed reconstruction. With
+        ``sawp_resampling='historical'`` (default) the SAWP is applied in
+        observed order (epoch timing preserved); with ``'random_offset'`` it
+        is read cyclically from a uniformly random starting year (epoch
+        timing randomized). The noise component
+        is AR-simulated independently. Combined band+noise signals are scaled
+        by the total variance correction factor (Eqs. 6-7) to restore the
+        cross-covariance lost under independent simulation, then the
+        historical mean is added back.
 
         Parameters
         ----------
@@ -1176,8 +1418,12 @@ class WARMGenerator(Generator):
 
         for band in self.bands_:
             stationary_syn = self._simulate_ar(band["ar_params"], n_years, rng)
-            sawp_syn = self._resample_sawp(band["sawp"], n_years, rng)
+            if self.sawp_resampling == "historical":
+                sawp_syn = self._resample_sawp(band["sawp"], n_years, rng, offset=0)
+            else:
+                sawp_syn = self._resample_sawp(band["sawp"], n_years, rng)
             band_signal = stationary_syn * np.sqrt(sawp_syn)
+            band_signal = band_signal * float(band.get("amplitude_factor", 1.0))
             Q_syn = Q_syn + band_signal
 
         if self.noise_ar_params_ is not None:
@@ -1189,7 +1435,8 @@ class WARMGenerator(Generator):
             )
             Q_syn = Q_syn + noise_syn
 
-        # Eq. 7 variance correction (centered, before adding the mean back).
+        # Eqs. 6-7 cross-covariance variance correction (centered, before
+        # adding the mean back).
         if self.variance_correction_ is not None:
             Q_syn = Q_syn * self.variance_correction_
 
@@ -1197,19 +1444,25 @@ class WARMGenerator(Generator):
         Q_syn = np.maximum(Q_syn, self.lower_bound)
 
         start_year = self.Q_obs_annual.index[0].year
-        dates = pd.date_range(start=f"{start_year}-01-01", periods=n_years, freq="YS")
+        dates = make_output_index(f"{start_year}-01-01", n_years, "YS")
         return pd.DataFrame(Q_syn, index=dates, columns=[self._sites[0]])
 
     @staticmethod
     def _resample_sawp(
-        sawp_obs: NDArray, n_years: int, rng: np.random.Generator
+        sawp_obs: NDArray,
+        n_years: int,
+        rng: np.random.Generator,
+        offset: Optional[int] = None,
     ) -> NDArray:
         """
-        Resample observed SAWP cyclically with a uniformly random offset.
+        Resample observed SAWP cyclically from a given or random offset.
 
         Preserves the full autocorrelation structure of the historical
         SAWP (and therefore the non-stationary envelope) by reading the
-        observed values in circular order starting from a random position.
+        observed values in circular order starting from ``offset``. A
+        random offset randomizes the timing of high- and low-power epochs
+        across realizations; ``offset=0`` applies the historical envelope
+        in its observed order.
 
         Parameters
         ----------
@@ -1219,6 +1472,9 @@ class WARMGenerator(Generator):
             Length of the synthetic SAWP series to return.
         rng : np.random.Generator
             Random number generator.
+        offset : int, optional
+            Starting index into ``sawp_obs``. Drawn uniformly from
+            ``[0, len(sawp_obs))`` when ``None``.
 
         Returns
         -------
@@ -1227,8 +1483,9 @@ class WARMGenerator(Generator):
             clipped at zero for numerical safety.
         """
         n_obs = len(sawp_obs)
-        offset = int(rng.integers(0, n_obs))
-        idx = (np.arange(n_years) + offset) % n_obs
+        if offset is None:
+            offset = int(rng.integers(0, n_obs))
+        idx = (np.arange(n_years) + int(offset)) % n_obs
         return np.maximum(sawp_obs[idx], 0.0)
 
     # ------------------------------------------------------------------
@@ -1268,6 +1525,7 @@ class WARMGenerator(Generator):
                     "ar_order": int(band["ar_params"]["order"]),
                     "ar_coeffs": np.asarray(band["ar_params"]["coeffs"]),
                     "ar_sigma": float(band["ar_params"]["sigma"]),
+                    "amplitude_factor": float(band.get("amplitude_factor", 1.0)),
                     "auto_detected": bool(band["auto_detected"]),
                 }
             )
@@ -1291,6 +1549,9 @@ class WARMGenerator(Generator):
                 "n_bands": len(self.bands_ or []),
                 "background_spectrum": self.background_spectrum,
                 "significance_level": self.significance_level,
+                "ar_method": self.ar_method,
+                "ar_select": self.ar_select,
+                "sawp_resampling": self.sawp_resampling,
                 "lag1": float(self.lag1_) if self.lag1_ is not None else None,
             },
             transformations_={

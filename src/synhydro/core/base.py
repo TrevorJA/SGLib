@@ -23,6 +23,71 @@ class GeneratorState:
     fit_timestamp: Optional[str] = None
 
 
+def make_output_index(
+    start: Union[str, pd.Timestamp, np.datetime64, datetime],
+    periods: int,
+    freq: str = "MS",
+) -> pd.DatetimeIndex:
+    """Build a second-resolution ``DatetimeIndex`` for generated output.
+
+    pandas' default nanosecond timestamps overflow at year 2262, which makes
+    long synthetic runs (e.g. 1000+ year annual simulations) impossible. All
+    generators and disaggregators therefore build their output index with
+    this helper, which returns ``datetime64[s]`` (range of roughly +/- 2.9e11
+    years). For short runs the calendar values are identical to
+    ``pd.date_range(start, periods=periods, freq=freq)``; only the dtype
+    differs.
+
+    Year-start (``"YS"``) and month-start (``"MS"``) indices are built with
+    numpy ``datetime64[Y]`` / ``datetime64[M]`` arithmetic because pandas'
+    offset arithmetic still fails for very distant years even with
+    ``unit="s"``. Fixed-step frequencies (``"D"``, ``"W"``, ``"W-SUN"``, ...)
+    are delegated to ``pd.date_range(..., unit="s")``.
+
+    Parameters
+    ----------
+    start : str, pd.Timestamp, np.datetime64 or datetime
+        Start date. As with ``pd.date_range``, a start date that does not
+        fall on a period boundary is rolled forward to the next boundary
+        for ``"YS"`` and ``"MS"``.
+    periods : int
+        Number of timesteps.
+    freq : str, default="MS"
+        pandas frequency alias.
+
+    Returns
+    -------
+    pd.DatetimeIndex
+        Index of length ``periods`` with dtype ``datetime64[s]``.
+    """
+    periods = int(periods)
+    if periods < 0:
+        raise ValueError("periods must be non-negative")
+    if isinstance(start, str):
+        start64 = np.datetime64(start, "s")
+    else:
+        start64 = np.datetime64(pd.Timestamp(start).as_unit("s"), "s")
+
+    freq_key = freq.upper()
+    if freq_key in ("YS", "YS-JAN", "AS", "AS-JAN", "MS"):
+        unit = "Y" if freq_key != "MS" else "M"
+        first = start64.astype(f"datetime64[{unit}]")
+        if first.astype("datetime64[s]") != start64:
+            first = first + np.timedelta64(1, unit)
+        values = first + np.arange(periods).astype(f"timedelta64[{unit}]")
+        values = values.astype("datetime64[s]")
+        try:
+            return pd.DatetimeIndex(values, freq=freq)
+        except (ValueError, OverflowError):
+            # freq validation can fail for extremely distant years; the
+            # values are still correct, so return the index without freq
+            return pd.DatetimeIndex(values)
+
+    return pd.date_range(
+        start=pd.Timestamp(start64), periods=periods, freq=freq, unit="s"
+    )
+
+
 @dataclass
 class GeneratorParams:
     """
@@ -198,7 +263,7 @@ class Generator(ABC):
         Initialize the generator with algorithm configuration.
 
         Subclasses add algorithm-specific keyword-only parameters before
-        ``name`` and ``debug``. Data is not passed here — use ``fit(Q_obs)``
+        ``name`` and ``debug``. Data is not passed here -- use ``fit(Q_obs)``
         or ``preprocessing(Q_obs)`` instead.
 
         Parameters
@@ -635,7 +700,7 @@ class Generator(ABC):
         start_date: Optional[pd.Timestamp] = None,
     ) -> pd.DatetimeIndex:
         """
-        Create DatetimeIndex for generated synthetic data.
+        Create a second-resolution DatetimeIndex for generated synthetic data.
 
         Parameters
         ----------
@@ -658,7 +723,7 @@ class Generator(ABC):
             # Default to arbitrary start date
             start_date = pd.Timestamp("2000-01-01")
 
-        return pd.date_range(start=start_date, periods=n_timesteps, freq=freq)
+        return make_output_index(start_date, n_timesteps, freq)
 
     def _format_output(
         self, data: np.ndarray, dates: pd.DatetimeIndex, n_realizations: int = 1
@@ -953,7 +1018,7 @@ class Disaggregator(ABC):
         Initialize the disaggregator with algorithm configuration.
 
         Subclasses add algorithm-specific keyword-only parameters before
-        ``name`` and ``debug``. Data is not passed here — use ``fit(Q_obs)``
+        ``name`` and ``debug``. Data is not passed here -- use ``fit(Q_obs)``
         or ``preprocessing(Q_obs)`` instead.
 
         Parameters

@@ -197,6 +197,51 @@ class TestValenciaSchaakeFit:
         assert d.is_fitted
         assert d.transform_params_.get("type") == "none"
 
+    @staticmethod
+    def _aggregation_operator(d):
+        return np.kron(np.eye(d.n_sites), np.ones((1, d.n_subperiods)))
+
+    def test_no_transform_factors_in_null_space_of_C(self, monthly_multisite):
+        """transform='none': paper Eqs. 39-40 hold (C A = I, C B = 0), B
+        has rank at most (s - 1) m, and B B^T reproduces the conditional
+        covariance (which already lies in null(C))."""
+        d = ValenciaSchaakeDisaggregator(transform="none")
+        d.fit(monthly_multisite)
+        m, s = d.n_sites, d.n_subperiods
+        C = self._aggregation_operator(d)
+        BBt_ref = d.S_yy_ - d.S_yx_ @ np.linalg.pinv(d.S_xx_) @ d.S_yx_.T
+        np.testing.assert_allclose(C @ d.A_, np.eye(m), atol=1e-8)
+        np.testing.assert_allclose(C @ d.B_, 0.0, atol=1e-8)
+        assert d.B_.shape[1] <= (s - 1) * m
+        np.testing.assert_allclose(
+            np.trace(d.B_ @ d.B_.T) / np.trace(BBt_ref), 1.0, rtol=1e-8
+        )
+
+    @pytest.mark.parametrize("transform", ["log", "boxcox"])
+    def test_transformed_fit_factors_full_conditional_covariance(
+        self, monthly_multisite, transform
+    ):
+        """With a nonlinear transform, X stays on the original scale so
+        C BB^T != 0; projecting onto null(C) would discard conditional
+        variance. The factor must reproduce the full PSD-clipped BB^T."""
+        d = ValenciaSchaakeDisaggregator(transform=transform)
+        d.fit(monthly_multisite)
+        m, s = d.n_sites, d.n_subperiods
+        C = self._aggregation_operator(d)
+        BBt_ref = d.S_yy_ - d.S_yx_ @ np.linalg.pinv(d.S_xx_) @ d.S_yx_.T
+        BBt_ref = 0.5 * (BBt_ref + BBt_ref.T)
+        eigvals = np.linalg.eigvalsh(BBt_ref)
+        trace_psd = eigvals[eigvals > 0].sum()
+        # The conditional covariance genuinely has a component outside null(C).
+        assert np.abs(C @ BBt_ref).max() > 1e-6
+        np.testing.assert_allclose(
+            np.trace(d.B_ @ d.B_.T) / trace_psd, 1.0, rtol=1e-6
+        )
+        np.testing.assert_allclose(
+            d.B_ @ d.B_.T, BBt_ref, atol=1e-8 * max(1.0, np.abs(BBt_ref).max())
+        )
+        assert d.B_.shape[1] <= min(s * m, 30 - 1)
+
     def test_fitted_params_object(self, monthly_single_site):
         d = ValenciaSchaakeDisaggregator(transform="none")
         d.fit(monthly_single_site)

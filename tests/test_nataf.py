@@ -10,6 +10,7 @@ from synhydro.core.nataf import (
     fit_cas,
     hurst_acf,
     nataf_forward_gh,
+    nataf_forward_int,
     nataf_forward_mc,
     nataf_inverse,
     sma_weights_fft,
@@ -37,6 +38,22 @@ def lognorm_icdf():
 def normal_icdf():
     """Standard normal quantile function."""
     return lambda p: norm.ppf(p)
+
+
+@pytest.fixture
+def heavy_lognorm_icdf():
+    """Log-normal(s=1, scale=1) quantile function (heavy-tailed)."""
+    return lambda p: lognorm.ppf(p, s=1.0, scale=1)
+
+
+def lognorm_unit_sigma_closed_form(rho_z):
+    """Exact Nataf forward map for two log-normal(0, 1) marginals.
+
+    For X = exp(Z1), Y = exp(Z2) with corr(Z1, Z2) = rho_z,
+    corr(X, Y) = (exp(rho_z) - 1) / (e - 1).
+    """
+    rho_z = np.asarray(rho_z, dtype=float)
+    return (np.exp(rho_z) - 1.0) / (np.e - 1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -85,6 +102,43 @@ class TestNatafForwardGH:
 # ---------------------------------------------------------------------------
 
 
+    def test_heavy_tailed_closed_form(self, heavy_lognorm_icdf):
+        """GH must not truncate the upper tail (anySim only replaces u == 1).
+
+        Before the fix, u was clipped to 1 - 1e-3, giving errors up to
+        0.036 for log-normal(sigma = 1).
+        """
+        rho_z = np.array([0.3, 0.6, 0.9, -0.9])
+        rho_gh = nataf_forward_gh(rho_z, heavy_lognorm_icdf, heavy_lognorm_icdf)
+        np.testing.assert_allclose(
+            rho_gh, lognorm_unit_sigma_closed_form(rho_z), atol=1e-6
+        )
+
+    def test_gamma_half_round_trip(self):
+        """Gamma(0.5) has an ICDF singular at u = 0; GH must remain finite."""
+        icdf = lambda p: gamma_dist.ppf(p, a=0.5)  # noqa: E731
+        targets = np.array([0.3, 0.7, -0.4])
+        equiv, _ = nataf_inverse(targets, icdf, icdf, method="GH")
+        recovered = nataf_forward_gh(equiv, icdf, icdf)
+        assert np.all(np.isfinite(recovered))
+        np.testing.assert_allclose(recovered, targets, atol=1e-3)
+
+
+class TestNatafInverseDegenerate:
+    def test_all_zero_targets_return_zeros(self, gamma_icdf):
+        """All-zero targets must not reach np.polyfit on a collapsed grid
+        (rmin = rmax = 0); Lemma 2 gives rho_z = 0 directly."""
+        targets = np.zeros(4)
+        equiv, df_nataf = nataf_inverse(targets, gamma_icdf, gamma_icdf)
+        np.testing.assert_array_equal(equiv, np.zeros(4))
+        assert df_nataf.shape[1] == 2
+        assert np.all(np.isfinite(df_nataf))
+
+    def test_scalar_zero_target(self, gamma_icdf):
+        equiv, _ = nataf_inverse(0.0, gamma_icdf, gamma_icdf)
+        np.testing.assert_array_equal(equiv, np.zeros(1))
+
+
 class TestNatafForwardMC:
     def test_agreement_with_gh(self, gamma_icdf):
         rho_z = np.array([0.3, 0.6, 0.9])
@@ -101,6 +155,35 @@ class TestNatafForwardMC:
     def test_zero_returns_zero(self, gamma_icdf):
         rho_mc = nataf_forward_mc(0.0, gamma_icdf, gamma_icdf)
         assert np.isclose(rho_mc[0], 0.0, atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Forward Nataf: numerical integration
+# ---------------------------------------------------------------------------
+
+
+class TestNatafForwardInt:
+    def test_heavy_tailed_closed_form(self, heavy_lognorm_icdf):
+        """method="Int" matches the log-normal closed form (was all-NaN)."""
+        rho_z = np.array([0.6, -0.9])
+        rho_int = nataf_forward_int(rho_z, heavy_lognorm_icdf, heavy_lognorm_icdf)
+        assert np.all(np.isfinite(rho_int))
+        np.testing.assert_allclose(
+            rho_int, lognorm_unit_sigma_closed_form(rho_z), atol=1e-4
+        )
+
+    def test_zero_returns_zero(self, gamma_icdf):
+        rho_int = nataf_forward_int(0.0, gamma_icdf, gamma_icdf)
+        assert rho_int[0] == 0.0
+
+    def test_programming_errors_propagate(self):
+        """A broken ICDF must raise, not be swallowed into NaN."""
+
+        def bad_icdf(p):
+            raise TypeError("broken")
+
+        with pytest.raises(TypeError):
+            nataf_forward_int(0.5, bad_icdf, bad_icdf)
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +220,17 @@ class TestNatafInverse:
         targets = np.array([-0.3])
         equiv, _ = nataf_inverse(targets, gamma_icdf, gamma_icdf, method="GH")
         assert equiv[0] < 0
+
+    def test_below_lower_bound_warns(self, heavy_lognorm_icdf, caplog):
+        """Targets below the Frechet-Hoeffding bound clip to -1 with a warning."""
+        # For log-normal(0, 1) the minimum attainable correlation is
+        # (exp(-1) - 1) / (e - 1) ~ -0.368.
+        with caplog.at_level("WARNING", logger="synhydro.core.nataf"):
+            equiv, _ = nataf_inverse(
+                np.array([-0.9]), heavy_lognorm_icdf, heavy_lognorm_icdf
+            )
+        assert equiv[0] == -1.0
+        assert any("Frechet-Hoeffding" in r.message for r in caplog.records)
 
     def test_equiv_greater_than_target(self, gamma_icdf):
         """Lemma 3: |equiv| >= |target| for non-normal marginals."""

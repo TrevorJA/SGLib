@@ -4,6 +4,13 @@ All notable changes to SynHydro are documented in this file.
 
 ## [Unreleased]
 
+### Removed
+- `HMMKNNGenerator` moved from `synhydro.methods.generation.hybrid` to the
+  unexported `synhydro.methods.generation._dev` module and removed from the
+  public API, README, and documentation. The regime-conditioned HMM + KNN
+  combination is an experimental prototype that has not been verified
+  against a published method.
+
 ### Added
 - Verification suite (`synhydro.verification`) for statistical property
   preservation, following the Stedinger and Taylor (1982) terminology:

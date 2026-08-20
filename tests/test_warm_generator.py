@@ -79,9 +79,14 @@ class TestWARMInitialization:
         assert gen.debug is False
         assert gen.wavelet == "cmor1.5-1.0"
         assert gen.scales == 64
-        assert gen.ar_order == 1
+        assert gen.ar_select == "aic"
+        assert gen.ar_method == "burg"
+        # Default follows Nowak et al. (2011) step (iii): SAWP in observed order.
+        assert gen.sawp_resampling == "historical"
         assert gen.noise_model == "ar_bootstrap"
         assert gen.lower_bound == 0.0
+        # Nowak et al. (2011) use the 95% white-noise test of Torrence and Compo.
+        assert gen.background_spectrum == "white"
 
     def test_initialization_custom_params(self, sample_annual_series):
         """Test initialization with custom parameters."""
@@ -90,6 +95,8 @@ class TestWARMInitialization:
         assert gen.wavelet == "cmor1.0-0.5"
         assert gen.scales == 32
         assert gen.ar_order == 2
+        # An explicit ar_order without ar_select implies a fixed order.
+        assert gen.ar_select == "fixed"
         assert gen.debug is True
 
     def test_initialization_invalid_scales(self, sample_annual_series):
@@ -115,7 +122,8 @@ class TestWARMInitialization:
         params = gen.init_params.algorithm_params
         assert params["wavelet"] == "cmor1.5-1.0"
         assert params["scales"] == 64
-        assert params["ar_order"] == 1
+        assert params["ar_select"] == "aic"
+        assert params["ar_method"] == "burg"
         assert params["noise_model"] == "ar_bootstrap"
         assert params["lower_bound"] == 0.0
 
@@ -562,6 +570,21 @@ class TestWARMBandIdentification:
         with pytest.raises(ValueError, match="ar_select"):
             WARMGenerator(ar_select="bic")
 
+    def test_invalid_ar_method(self):
+        """ar_method must be 'burg' or 'yule_walker'."""
+        with pytest.raises(ValueError, match="ar_method"):
+            WARMGenerator(ar_method="ols")
+
+    def test_invalid_sawp_resampling(self):
+        """sawp_resampling must be 'random_offset' or 'historical'."""
+        with pytest.raises(ValueError, match="sawp_resampling"):
+            WARMGenerator(sawp_resampling="iid")
+
+    def test_explicit_ar_select_overrides_ar_order_default(self):
+        """ar_select='aic' with ar_order given still selects by AIC."""
+        gen = WARMGenerator(ar_order=1, ar_select="aic")
+        assert gen.ar_select == "aic"
+
     def test_auto_band_detection_attributes(self, sample_annual_series):
         """Auto-detected bands populate the bands_ attribute."""
         gen = WARMGenerator(background_spectrum="white")
@@ -809,3 +832,131 @@ class TestWARMEnsembleMetadata:
         assert ensemble.metadata.generator_class == "WARMGenerator"
         assert ensemble.metadata.n_realizations == 2
         assert ensemble.metadata.n_sites == 1
+
+
+class TestWARMSpectralReproduction:
+    """Tests for AR estimation and spectral-peak reproduction."""
+
+    @staticmethod
+    def _sinusoid_plus_noise(seed: int = 1, n: int = 101) -> pd.DataFrame:
+        rng = np.random.default_rng(seed)
+        t = np.arange(n)
+        amp = np.where(t < 50, 1.0, 0.2)
+        x = amp * np.sin(2 * np.pi * t / 25.0) + rng.normal(0.0, 1.0, n)
+        idx = pd.date_range("1900-01-01", periods=n, freq="YS")
+        return pd.DataFrame({"Q": x + 10.0}, index=idx)
+
+    @staticmethod
+    def _gws_at_period(x, scales, wavelet, period):
+        import pywt
+
+        c, f = pywt.cwt(
+            np.asarray(x, float) - np.mean(x), scales, wavelet, sampling_period=1.0
+        )
+        G = np.mean(np.abs(c) ** 2, axis=1)
+        i = int(np.argmin(np.abs(1.0 / f - period)))
+        return float(G[i])
+
+    def test_burg_recovers_known_ar2(self):
+        """Burg estimates of a long AR(2) realization match the truth."""
+        rng = np.random.default_rng(0)
+        x = np.zeros(5000)
+        for t in range(2, len(x)):
+            x[t] = 1.5 * x[t - 1] - 0.8 * x[t - 2] + rng.normal()
+        gen = WARMGenerator()
+        params = gen._fit_ar_burg(x, 2)
+        assert np.allclose(params["coeffs"], [1.5, -0.8], atol=0.03)
+        assert abs(params["sigma"] - 1.0) < 0.05
+        # Stationary variance implied by (phi, sigma) equals the sample
+        # variance by construction.
+        rho = gen._ar_autocorrelation(params["coeffs"])
+        implied = params["sigma"] ** 2 / (1.0 - np.dot(params["coeffs"], rho))
+        assert np.isclose(implied, np.var(x), rtol=1e-6)
+
+    def test_sawp_in_variance_units(self):
+        """Whole-spectrum SAWP averages to the series variance (T&C Eq. 14)."""
+        df = self._sinusoid_plus_noise()
+        gen = WARMGenerator(background_spectrum="white")
+        gen.fit(df)
+        all_idx = np.arange(len(gen.scales_used_))
+        sawp_all = gen._band_sawp(gen.wavelet_coeffs_, gen.scales_used_, all_idx)
+        var_obs = float(np.var(df["Q"].values))
+        assert 0.8 < float(np.mean(sawp_all)) / var_obs < 1.2
+
+    def test_default_reproduces_spectral_peak(self):
+        """Synthetic peak power at 25 yr lies within a reasonable band of observed.
+
+        A sinusoid of period 25 yr with a non-stationary amplitude plus
+        N(0, 1) noise is the Nowak et al. (2011) Section 2 test case. With
+        the defaults (AIC order selection, Burg estimation) the ensemble
+        median global wavelet power at the dominant period must be a large
+        fraction of the observed power; the old AR(1) Yule-Walker default
+        gave roughly 0.1-0.2 of it.
+        """
+        df = self._sinusoid_plus_noise(seed=1)
+        gen = WARMGenerator(background_spectrum="white")
+        gen.fit(df)
+        assert len(gen.bands_) >= 1
+        assert all(b["ar_params"]["order"] >= 2 for b in gen.bands_)
+        scales = gen.scales_used_
+        obs_pk = self._gws_at_period(df["Q"].values, scales, gen.wavelet, 25.0)
+        ens = gen.generate(n_years=101, n_realizations=100, seed=3)
+        X = ens.data_by_site["Q"].values
+        syn = [
+            self._gws_at_period(X[:, r], scales, gen.wavelet, 25.0)
+            for r in range(X.shape[1])
+        ]
+        ratio = float(np.median(syn)) / obs_pk
+        assert 0.4 < ratio < 1.6, f"peak power ratio {ratio:.2f}"
+
+    def test_ar1_fixed_under_reproduces_peak(self):
+        """A fixed AR(1) band model cannot carry the spectral peak."""
+        df = self._sinusoid_plus_noise(seed=1)
+        gen = WARMGenerator(background_spectrum="white", ar_order=1)
+        gen.fit(df)
+        scales = gen.scales_used_
+        obs_pk = self._gws_at_period(df["Q"].values, scales, gen.wavelet, 25.0)
+        ens = gen.generate(n_years=101, n_realizations=60, seed=3)
+        X = ens.data_by_site["Q"].values
+        syn = [
+            self._gws_at_period(X[:, r], scales, gen.wavelet, 25.0)
+            for r in range(X.shape[1])
+        ]
+        assert float(np.median(syn)) / obs_pk < 0.5
+
+    def test_historical_sawp_preserves_epoch_timing(self):
+        """sawp_resampling='historical' keeps high power in the first half."""
+        df = self._sinusoid_plus_noise(seed=1)
+        gen = WARMGenerator(background_spectrum="white", sawp_resampling="historical")
+        gen.fit(df)
+        ens = gen.generate(n_years=101, n_realizations=40, seed=5)
+        X = ens.data_by_site["Q"].values
+        first = np.mean(np.var(X[:50], axis=0))
+        second = np.mean(np.var(X[50:], axis=0))
+        assert first > 1.2 * second
+
+    def test_random_offset_sawp_randomizes_epoch_timing(self):
+        """sawp_resampling='random_offset' spreads power over the record.
+
+        The ensemble-mean envelope is stationary, so the first-half to
+        second-half variance ratio is much smaller than with 'historical'.
+        """
+        df = self._sinusoid_plus_noise(seed=1)
+        gen = WARMGenerator(
+            background_spectrum="white", sawp_resampling="random_offset"
+        )
+        gen.fit(df)
+        assert gen.sawp_resampling == "random_offset"
+        ens = gen.generate(n_years=101, n_realizations=60, seed=5)
+        X = ens.data_by_site["Q"].values
+        first = np.mean(np.var(X[:50], axis=0))
+        second = np.mean(np.var(X[50:], axis=0))
+        assert 0.7 < first / second < 1.4
+
+    def test_yule_walker_option_still_available(self):
+        """ar_method='yule_walker' fits and generates."""
+        df = self._sinusoid_plus_noise(seed=1)
+        gen = WARMGenerator(ar_method="yule_walker", ar_order=2)
+        gen.fit(df)
+        ens = gen.generate(n_years=50, n_realizations=2, seed=0)
+        assert ens.data_by_site["Q"].shape == (50, 2)

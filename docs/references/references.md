@@ -8,14 +8,14 @@ Thomas, H.A., and Fiering, M.B. (1962). Mathematical synthesis of streamflow seq
 Matalas, N.C. (1967). Mathematical assessment of synthetic hydrology. *Water Resources Research*, 3(4), 937-945. https://doi.org/10.1029/WR003i004p00937
 
 **Multi-Site Hidden Markov Model**
-Gold, D.F., Reed, P.M., and Gupta, R.S. (2024). Exploring the spatially compounding multi-sectoral drought vulnerabilities in Colorado's West Slope river basins. *Earth's Future*. https://doi.org/10.1029/2024EF004841
+Gold, D.F., Gupta, R.S., and Reed, P.M. (2024). Exploring the spatially compounding multi-sectoral drought vulnerabilities in Colorado's West Slope river basins. *Earth's Future*, 12(11), e2024EF004841. https://doi.org/10.1029/2024EF004841
 
-**HMM-KNN Regime-Conditioned Bootstrap**
-Prairie, J., Rajagopalan, B., Lall, U., and Fulp, T. (2008). A stochastic nonparametric approach for streamflow generation combining observational and paleoreconstructed data. *Water Resources Research*, 44, W06423. https://doi.org/10.1029/2007WR006684
-
-Steinschneider, S., and Brown, C. (2013). A semiparametric multivariate, multisite weather generator with low-frequency variability for use in climate risk assessments. *Water Resources Research*, 49, 7205-7220. https://doi.org/10.1002/wrcr.20528
+**Paleo-conditioned annual KNN** (cited by KNN Bootstrap)
+Prairie, J., Nowak, K., Rajagopalan, B., Lall, U., and Fulp, T. (2008). A stochastic nonparametric approach for streamflow generation combining observational and paleoreconstructed data. *Water Resources Research*, 44, W06423. https://doi.org/10.1029/2007WR006684
 
 **ARFIMA (Autoregressive Fractionally Integrated Moving Average)**
+Hosking, J.R.M. (1981). Fractional differencing. *Biometrika*, 68(1), 165-176. https://doi.org/10.1093/biomet/68.1.165
+
 Hosking, J.R.M. (1984). Modeling persistence in hydrological time series using fractional differencing. *Water Resources Research*, 20(12), 1898-1908. https://doi.org/10.1029/WR020i012p01898
 
 **SMARTA (Symmetric Moving Average neaRly To Anything)**
@@ -34,7 +34,7 @@ Stedinger, J.R., and Taylor, M.R. (1982). Synthetic streamflow generation: 1. Mo
 
 ## Nonparametric Methods
 
-**Kirsch Monthly Bootstrap**
+**Kirsch Bootstrap (mFGN)**
 Kirsch, B.R., Characklis, G.W., and Zeff, H.B. (2013). Evaluating the impact of alternative hydro-climate scenarios on transfer agreements: A practical improvement for generating synthetic streamflows. *Journal of Water Resources Planning and Management*, 139(4), 396-406. https://doi.org/10.1061/(ASCE)WR.1943-5452.0000287
 
 **KNN Bootstrap**
@@ -69,7 +69,9 @@ Grygier, J.C., and Stedinger, J.R. (1988). Condensed disaggregation procedures a
 **WARM (Wavelet Auto-Regressive Method)**
 Erkyihun, S.T., Rajagopalan, B., Zagona, E., Lall, U., and Nowak, K. (2016). Wavelet-based time series bootstrap model for multidecadal streamflow simulation using climate indicators. *Water Resources Research*, 52(5), 4061-4077. https://doi.org/10.1002/2016WR018696
 
-Nowak, K., Rajagopalan, B., and Zagona, E. (2011). A Wavelet Auto-Regressive Method (WARM) for multi-site streamflow simulation of data with non-stationary trends. *Journal of Hydrology*, 410(1-2), 1-12. https://doi.org/10.1016/j.jhydrol.2011.08.049
+Nowak, K., Rajagopalan, B., and Zagona, E. (2011). A Wavelet Auto-Regressive Method (WARM) for multi-site streamflow simulation of data with non-stationary spectra. *Journal of Hydrology*, 410(1-2), 1-12. https://doi.org/10.1016/j.jhydrol.2011.08.051
+
+Kay, S.M., and Marple, S.L. (1981). Spectrum analysis: A modern perspective. *Proceedings of the IEEE*, 69(11), 1380-1419. https://doi.org/10.1109/PROC.1981.12184
 
 ---
 
@@ -121,6 +123,9 @@ Srinivas, V.V., and Srinivasan, K. (2005). Hybrid moving block bootstrap for sto
 
 ## Methodological Foundations
 
+**Generator classification (parametric / non-parametric / hybrid)**
+Studnicka, S., and Panu, U.S. (2025). Techniques and Developments in Stochastic Streamflow Synthesis: A Comprehensive Review. *Encyclopedia*, 5(4), 198. https://doi.org/10.3390/encyclopedia5040198
+
 **Applied stochastic hydrology**
 Salas, J.D., Delleur, J.W., Yevjevich, V., and Lane, W.L. (1980). *Applied Modeling of Hydrologic Time Series*. Water Resources Publications.
 
@@ -141,6 +146,13 @@ Akintug, B., and Rasmussen, P.F. (2005). A Markov switching model for annual hyd
 
 **Fractional differencing (foundational)**
 Granger, C.W.J., and Joyeux, R. (1980). An introduction to long-memory time series models and fractional differencing. *Journal of Time Series Analysis*, 1(1), 15-29. https://doi.org/10.1111/j.1467-9892.1980.tb00297.x
+
+**ARFIMA estimation and order selection**
+Ansley, C.F. (1979). An algorithm for the exact likelihood of a mixed autoregressive-moving average process. *Biometrika*, 66(1), 59-65. https://doi.org/10.1093/biomet/66.1.59
+
+Box, G.E.P., and Jenkins, G.M. (1976). *Time Series Analysis: Forecasting and Control* (revised ed.). Holden-Day.
+
+Huang, H.-H., Chan, N.H., Chen, K., and Ing, C.-K. (2022). Consistent order selection for ARFIMA processes. *The Annals of Statistics*, 50(3), 1297-1319. https://doi.org/10.1214/21-AOS2149
 
 **GPH log-periodogram regression**
 Geweke, J., and Porter-Hudak, S. (1983). The estimation and application of long memory time series models. *Journal of Time Series Analysis*, 4(4), 221-238. https://doi.org/10.1111/j.1467-9892.1983.tb00371.x
@@ -169,6 +181,9 @@ Koutsoyiannis, D. (2002). The Hurst phenomenon and fractional Gaussian noise mad
 **KNN for weather variables**
 Rajagopalan, B., and Lall, U. (1999). A k-nearest-neighbor simulator for daily precipitation and other weather variables. *Water Resources Research*, 35(10), 3089-3101. https://doi.org/10.1029/1999WR900028
 
+**Modified KNN (local-polynomial mean plus residual resampling)**
+Prairie, J., Rajagopalan, B., Fulp, T., and Zagona, E. (2006). Modified K-NN model for stochastic streamflow simulation. *Journal of Hydrologic Engineering*, 11(4), 371-378. https://doi.org/10.1061/(ASCE)1084-0699(2006)11:4(371)
+
 **Spatial-temporal KNN disaggregation**
 Prairie, J., Rajagopalan, B., Lall, U., and Fulp, T. (2007). A stochastic nonparametric technique for space-time disaggregation of streamflows. *Water Resources Research*, 43, W03432. https://doi.org/10.1029/2005WR004721
 
@@ -176,7 +191,7 @@ Prairie, J., Rajagopalan, B., Lall, U., and Fulp, T. (2007). A stochastic nonpar
 Lall, U. (1995). Recent advances in nonparametric function estimation: Hydrologic applications. *Reviews of Geophysics*, 33(S2), 1093-1102.
 
 **Nonstationary wavelet decomposition**
-Kwon, H.-H., Lall, U., and Khalil, A.F. (2007). Stochastic simulation model for nonstationary time series using an autoregressive wavelet decomposition. *Water Resources Research*, 43(5).
+Kwon, H.-H., Lall, U., and Khalil, A.F. (2007). Stochastic simulation model for nonstationary time series using an autoregressive wavelet decomposition. *Water Resources Research*, 43(5), W05407. https://doi.org/10.1029/2006WR005258
 
 **Wavelet analysis**
 Torrence, C., and Compo, G.P. (1998). A practical guide to wavelet analysis. *Bulletin of the American Meteorological Society*, 79(1), 61-78. https://doi.org/10.1175/1520-0477(1998)079<0061:APGTWA>2.0.CO;2

@@ -70,11 +70,11 @@ Key properties (Lemmas from the paper):
 The relationship $\mathcal{F}(\cdot)$ generally has no closed-form solution (exception: log-normal case, Eq. 18-19 in paper). It is approximated numerically following the procedure of Appendix A in the paper (see also Tsoukalas et al., 2018a):
 
 1. Select $\Omega$ support points $\tilde{\rho}_k$ in $[-1, 1]$ (default $\Omega = 9$).
-2. For each support point, evaluate $\rho_k = \mathcal{F}(\tilde{\rho}_k)$ by Monte Carlo simulation: draw $N$ bivariate normal pairs $(z^i, z^j)$ with correlation $\tilde{\rho}_k$, map through the ICDFs, and compute the sample Pearson correlation. The paper recommends $N = 150{,}000$.
+2. For each support point, evaluate $\rho_k = \mathcal{F}(\tilde{\rho}_k)$. The paper describes Monte Carlo simulation (draw $N$ bivariate normal pairs with correlation $\tilde{\rho}_k$, map through the ICDFs, compute the sample Pearson correlation; recommended $N = 150{,}000$). The implementation's default is two-dimensional Gauss-Hermite quadrature (`nataf_method="GH"`, 21 nodes per axis), which is deterministic and much faster; `nataf_method="MC"` and `nataf_method="Int"` (direct numerical integration with `scipy.integrate.dblquad`) are also available.
 3. Fit a polynomial of degree $d$ (default $d = 8$) through the $(\tilde{\rho}_k, \rho_k)$ pairs.
 4. Invert the polynomial: evaluate it densely over $[-1, 1]$ and interpolate to find $\tilde{\rho}$ for each target $\rho$. (The anySim R package uses `polyval` on a fine grid followed by linear interpolation.)
 
-Alternative integration methods (Gauss-Hermite quadrature, numerical integration) can replace the Monte Carlo step but may be less robust for discrete or mixed-type marginals.
+Gauss-Hermite quadrature assumes smooth integrands and may be less robust than Monte Carlo for discrete or mixed-type marginals; for the continuous gamma/log-normal marginals used here it is accurate. Zero-inflated or discrete marginals should use `nataf_method="MC"` or `nataf_method="Int"` rather than GH.
 
 This procedure is applied a total of $m(m+1)/2$ times:
 - $m$ times for autocorrelation (one per site, each producing the full equivalent ACF vector $\tilde{\rho}_1^i, \ldots, \tilde{\rho}_q^i$)
@@ -92,7 +92,9 @@ Special cases:
 - $\beta > 1$: long-range dependence (approximates HK/fGn behavior). When $\kappa = \kappa_0$ (see Eq. 8 in paper), CAS closely matches the fGn ACF with $H$ related by $\beta = 1/(2 - 2H)$.
 - $\beta = 0$ (via L'Hopital): $\rho_\tau = \exp(-\kappa \tau)$, which is SRD (Markovian/AR(1) type).
 
-Parameters $\kappa$ and $\beta$ are estimated by minimizing MSE between sample and theoretical ACF or climacogram. The paper recommends using the climacogram for parameter identification, especially for LRD processes, because it exhibits less bias and uncertainty in its estimation compared to the ACF (Dimitriadis & Koutsoyiannis, 2015).
+The paper estimates $\kappa$ and $\beta$ by minimizing the MSE between the sample and theoretical ACF or climacogram, and recommends the climacogram for LRD processes because it is less biased than the sample ACF (Dimitriadis & Koutsoyiannis, 2015). **Implementation deviation:** this implementation fits CAS by ACF-MSE only, using the sample ACF up to lag $\min(q, n/3)$; no climacogram-based estimator is provided.
+
+With `acf_model="hurst"` the implementation instead uses the fGn/HK ACF with $H$ derived from the CAS fit as $H = 1 - 1/(2\beta)$. If the CAS fit returns $\beta \leq 1$ (no LRD signal in the sample ACF) this mapping is undefined and the implementation falls back to $H = 0.6$, emitting a logger warning. Use `acf_model="cas"` (the default) when this happens.
 
 ### SMA Model (Auxiliary Gaussian Process)
 
@@ -120,12 +122,12 @@ $$
 \tilde{g}^{i,j} = \frac{\tilde{\rho}_0^{i,j}}{\sum_{\zeta=-q}^{q} \tilde{a}_{|\zeta|}^i \; \tilde{a}_{|\zeta|}^j}
 $$
 
-Form matrix $\tilde{G}$ with $\tilde{G}[i,j] = \tilde{g}^{i,j}$ and ones on the diagonal. Decompose $\tilde{G} = \tilde{B}\tilde{B}^\top$ via Cholesky (if positive definite) or nearest-PD correction. Generate correlated innovations: $\mathbf{v}_t = \tilde{B}\,\mathbf{w}_t$ where $\mathbf{w}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$.
+Form matrix $\tilde{G}$ with $\tilde{G}[i,j] = \tilde{g}^{i,j}$; its diagonal is $1 / \sum_\zeta (\tilde{a}^i_{|\zeta|})^2$, which equals one whenever the equivalent ACF is positive definite (Parseval). $\tilde{G}$ is the covariance of the innovations, not a correlation matrix. Decompose $\tilde{G} = \tilde{B}\tilde{B}^\top$ via Cholesky (if positive definite) or the diagonal-preserving repair described under Implementation Notes. Generate correlated innovations: $\mathbf{v}_t = \tilde{B}\,\mathbf{w}_t$ where $\mathbf{w}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$.
 
 ### Parameter Estimation
 
-1. **Marginal fitting:** Fit a distribution $F_{x^i}$ to each site's data (any distribution with finite variance).
-2. **Autocorrelation fitting:** Fit CAS parameters $(\kappa^i, \beta^i)$ to each site's sample ACF or climacogram.
+1. **Marginal fitting:** The paper allows any distribution with finite variance. The implementation fits a two-parameter gamma and a two-parameter log-normal (both with location fixed at zero) by maximum likelihood and selects between them by BIC, per site.
+2. **Autocorrelation fitting:** Fit CAS parameters $(\kappa^i, \beta^i)$ to each site's sample ACF (ACF-MSE only; see above).
 3. **Equivalent ACF:** For each site, compute $\tilde{\rho}_\tau^i$ for $\tau = 1, \ldots, q$ by inverting $\mathcal{F}$.
 4. **SMA weights:** Compute $\tilde{a}_\zeta^i$ via FFT of the equivalent ACF.
 5. **Equivalent cross-correlations:** For each pair $(i,j)$, compute $\tilde{\rho}_0^{i,j}$ by inverting $\mathcal{F}$.
@@ -167,8 +169,10 @@ The model is capable of reproducing long-range dependence (Hurst-Kolmogorov beha
 
 ## Implementation Notes
 
-- **FFT normalization:** NumPy's `np.fft.fft` uses the same convention as R's `fft()`. When computing weights from the full symmetric ACF of length $2q+1$, no normalization adjustment is needed. Clamp negative power spectrum values to zero before taking the square root.
-- **Positive-definiteness:** After Nataf inversion, the matrix $\tilde{G}$ may not be positive definite. Use nearest-PD correction (e.g., `statsmodels.stats.correlation_tools.cov_nearest_factor_homog` or Higham's algorithm) before Cholesky decomposition.
+- **FFT normalization:** NumPy's `np.fft.fft` uses the same convention as R's `fft()`. When computing weights from the full symmetric ACF of length $2q+1$, no normalization adjustment is needed. The absolute value of the power spectrum is taken before the square root, $S_{\tilde{a}} = \sqrt{|S_{\tilde{\rho}}|}$, exactly as in anySim's `SimSMARTA`; small negative spectral values arising from numerical imprecision or a slightly non-PD equivalent ACF are therefore reflected rather than clamped to zero.
+- **Input resolution:** The generator operates on annual totals. If the observed data are at a finer resolution (e.g. monthly, `"MS"`), `preprocessing` sums them to calendar-year (`"YS"`) totals before fitting. Output is always annual.
+- **Long simulations:** The paper's LRD use case requires simulations of thousands of years. pandas' default nanosecond `DatetimeIndex` cannot represent dates beyond year 2262, so for runs that would pass that year the output index is built as a second-resolution (`datetime64[s]`) year-start `DatetimeIndex` with the same calendar values. Runs that stay within the nanosecond range use the standard `pd.date_range(freq="YS")` index, so default behaviour is unchanged. `Ensemble` construction and `Ensemble.to_hdf5()` accept the long index; note that `Ensemble.from_hdf5()` currently re-parses dates with nanosecond resolution and cannot round-trip files extending beyond 2262. The `Ensemble` date index is further limited to year 9999 (Python `datetime` maximum), so a single run longer than that must be split into multiple realizations.
+- **Positive-definiteness:** After Nataf inversion, the matrix $\tilde{G}$ may not be positive definite. When Cholesky fails, a warning is logged and the matrix is repaired in a diagonal-preserving way: $\tilde{G}$ is split as $D^{1/2} R D^{1/2}$ with $D = \mathrm{diag}(\tilde{G})$, the correlation part $R$ is repaired with `repair_correlation_matrix` using `matrix_repair_method` (`"spectral"` eigenvalue clipping by default, or `"nearest"` Higham / `"hypersphere"`), and the original diagonal is restored. This keeps $\mathrm{diag}(\tilde{B}\tilde{B}^\top) = \mathrm{diag}(\tilde{G})$ exactly, so the variance of the SMA output $Z$ (and therefore the Nataf mapping) is unaffected; only the off-diagonal innovation covariances are perturbed, and the realized lag-0 cross-correlations then deviate from the targets by the size of that perturbation. An earlier version passed $\tilde{G}$ straight to `repair_correlation_matrix`, which rescales the diagonal to one; that is harmless when $\sum_\zeta (\tilde{a}_{|\zeta|})^2 = 1$ but would inflate or deflate the output variance otherwise.
 - **Polynomial accuracy for skewed marginals:** For highly skewed or zero-inflated distributions, the $\mathcal{F}(\cdot)$ relationship is strongly nonlinear. The 8th-degree polynomial may oscillate near the bounds. Validate that interpolated $\tilde{\rho}$ values lie in $[-1, 1]$ and clip if necessary.
 - **Reference R implementation:** The `anySim` R package (https://github.com/itsoukal/anySim) by the paper's authors provides a validated implementation with functions `EstSMARTA()` and `SimSMARTA()`.
 

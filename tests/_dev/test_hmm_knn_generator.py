@@ -1,5 +1,5 @@
 """
-Tests for HMMKNNGenerator (Prairie et al. 2008; Steinschneider and Brown 2013).
+Tests for HMMKNNGenerator (Prairie et al. 2008).
 """
 
 import pickle
@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synhydro.methods.generation.hybrid.hmm_knn import HMMKNNGenerator
+from synhydro.methods.generation._dev.hmm_knn import HMMKNNGenerator
 from synhydro.core.ensemble import Ensemble
 
 
@@ -34,6 +34,31 @@ def annual_multisite():
 def annual_single_site(annual_multisite):
     """Single-site version of the annual fixture."""
     return annual_multisite[["A"]]
+
+
+# ---------------------------------------------------------------------------
+# Import paths
+# ---------------------------------------------------------------------------
+
+
+class TestHMMKNNImportPaths:
+    def test_exported_from_hybrid_package(self):
+        from synhydro.methods.generation import hybrid
+
+        assert hybrid.HMMKNNGenerator is HMMKNNGenerator
+        assert "HMMKNNGenerator" in hybrid.__all__
+
+    def test_exported_from_generation_package(self):
+        from synhydro.methods import generation
+
+        assert generation.HMMKNNGenerator is HMMKNNGenerator
+        assert "HMMKNNGenerator" in generation.__all__
+
+    def test_exported_from_top_level(self):
+        import synhydro
+
+        assert synhydro.HMMKNNGenerator is HMMKNNGenerator
+        assert "HMMKNNGenerator" in synhydro.__all__
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +244,24 @@ class TestHMMKNNFit:
 # ---------------------------------------------------------------------------
 
 
+class TestHMMKNNFittedParams:
+    @pytest.mark.parametrize(
+        "covariance_type,expected",
+        [
+            # 2 states, 3 sites: 2 transition + 6 means + covariances
+            ("full", 2 + 6 + 2 * 3 * 4 // 2),
+            ("diag", 2 + 6 + 2 * 3),
+            ("spherical", 2 + 6 + 2),
+        ],
+    )
+    def test_n_parameters_includes_covariances(
+        self, annual_multisite, covariance_type, expected
+    ):
+        gen = HMMKNNGenerator(n_states=2, covariance_type=covariance_type, n_init=2)
+        gen.fit(annual_multisite)
+        assert gen.fitted_params_.n_parameters_ == expected
+
+
 class TestHMMKNNGenerate:
     def test_returns_ensemble(self, annual_multisite):
         gen = HMMKNNGenerator(n_init=2)
@@ -231,6 +274,17 @@ class TestHMMKNNGenerate:
         gen.fit(annual_multisite)
         result = gen.generate(n_years=10, n_realizations=5, seed=0)
         assert result.metadata.n_realizations == 5
+
+    def test_ensemble_metadata(self, annual_multisite):
+        """Ensemble carries the metadata needed for pipeline chaining."""
+        gen = HMMKNNGenerator(n_init=2)
+        gen.fit(annual_multisite)
+        result = gen.generate(n_years=10, n_realizations=2, seed=0)
+        assert result.frequency == "YS"
+        assert result.metadata.time_resolution == "YS"
+        assert result.metadata.generator_class == "HMMKNNGenerator"
+        assert result.metadata.n_sites == 3
+        assert result.metadata.time_period is not None
 
     def test_shape_multisite(self, annual_multisite):
         gen = HMMKNNGenerator(n_init=2)

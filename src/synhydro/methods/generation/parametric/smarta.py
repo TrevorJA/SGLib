@@ -19,7 +19,7 @@ import pandas as pd
 from scipy.stats import gamma as gamma_dist
 from scipy.stats import lognorm, norm
 
-from synhydro.core.base import FittedParams, Generator
+from synhydro.core.base import FittedParams, Generator, make_output_index
 from synhydro.core.ensemble import Ensemble, EnsembleMetadata
 from synhydro.core.nataf import (
     cas_acf,
@@ -281,9 +281,7 @@ class SMARTAGenerator(Generator):
                 self.logger.warning(
                     "G_tilde matrix is not positive-definite. Attempting repair..."
                 )
-                G_repaired = repair_correlation_matrix(
-                    G_tilde, method=self.matrix_repair_method
-                )
+                G_repaired = self._repair_innovation_covariance(G_tilde)
                 try:
                     self._B_tilde = np.linalg.cholesky(G_repaired)
                 except np.linalg.LinAlgError:
@@ -383,9 +381,36 @@ class SMARTAGenerator(Generator):
             X[:, s_idx] = self._icdfs[s_idx](u_clipped)
 
         # Build DataFrame
-        start_date = self._Q_annual.index[0]
-        dates = pd.date_range(start=start_date, periods=n_years, freq="YS")
+        dates = make_output_index(
+            f"{int(self._Q_annual.index[0].year)}-01-01", n_years, "YS"
+        )
         return pd.DataFrame(X, index=dates, columns=self._sites)
+
+    def _repair_innovation_covariance(self, G: np.ndarray) -> np.ndarray:
+        """Repair a non-PD innovation covariance while preserving its diagonal.
+
+        ``G_tilde`` (Tsoukalas et al., 2018b, Eq. 27) is a covariance matrix
+        whose diagonal ``1 / sum(a_j^2)`` fixes the variance of the SMA output
+        ``Z``. Applying :func:`repair_correlation_matrix` directly would
+        rescale that diagonal to one. Instead the matrix is split as
+        ``G = D^(1/2) R D^(1/2)``, only the correlation part ``R`` is repaired
+        with ``matrix_repair_method``, and the original diagonal ``D`` is
+        restored, so ``diag(B B^T) == diag(G)`` exactly.
+
+        Parameters
+        ----------
+        G : np.ndarray
+            Symmetric innovation covariance matrix that failed Cholesky.
+
+        Returns
+        -------
+        np.ndarray
+            Positive-definite matrix with the same diagonal as ``G``.
+        """
+        d = np.sqrt(np.diag(G))
+        R = G / np.outer(d, d)
+        R_repaired = repair_correlation_matrix(R, method=self.matrix_repair_method)
+        return R_repaired * np.outer(d, d)
 
     # ------------------------------------------------------------------
     # Fitted params
@@ -520,7 +545,15 @@ class SMARTAGenerator(Generator):
             if beta > 1:
                 H = 1.0 - 1.0 / (2.0 * beta)
             else:
-                H = 0.6  # default
+                H = 0.6
+                self.logger.warning(
+                    "Site %d: CAS fit gave beta=%.4f <= 1, which does not map "
+                    "to a valid Hurst coefficient via H = 1 - 1/(2*beta). "
+                    "Falling back to the default H=0.6. Consider "
+                    "acf_model='cas' for this site.",
+                    site_idx,
+                    beta,
+                )
             self._cas_params[site_idx] = (H, 0.0)
             self.logger.debug("Site %d Hurst fit: H=%.4f", site_idx, H)
             return hurst_acf(H, q)

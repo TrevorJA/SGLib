@@ -135,8 +135,12 @@ def repair_correlation_matrix(
     Notes
     -----
     - 'spectral': Eigenvalue truncation (set negative eigenvalues to small positive)
+      followed by rescaling to unit diagonal
     - 'hypersphere': Project onto space of valid correlation matrices
     - 'nearest': Find nearest positive definite matrix (Higham algorithm)
+
+    All methods return a matrix with unit diagonal. For covariance matrices
+    whose diagonal must be preserved, use :func:`repair_covariance_matrix`.
     """
     if method == "spectral":
         # Eigenvalue decomposition
@@ -177,6 +181,41 @@ def repair_correlation_matrix(
 
     else:
         raise ValueError(f"Unknown method: {method}")
+
+
+def repair_covariance_matrix(
+    cov: NDArray[np.float64], min_eigenvalue: float = 1e-8
+) -> NDArray[np.float64]:
+    """
+    Repair a non-positive-definite covariance matrix by eigenvalue clipping.
+
+    Unlike :func:`repair_correlation_matrix`, the result is NOT rescaled to
+    unit diagonal, so the variances (diagonal) of a covariance matrix are
+    preserved up to the perturbation introduced by clipping. Use this for
+    innovation covariances such as ``B B^T = S0 - A S0 A^T`` in multivariate
+    autoregressive models, where rescaling would inflate the generated
+    variance.
+
+    Parameters
+    ----------
+    cov : NDArray
+        Symmetric (or nearly symmetric) covariance matrix.
+    min_eigenvalue : float, default=1e-8
+        Floor applied to the eigenvalues so the result is strictly positive
+        definite and Cholesky-factorizable.
+
+    Returns
+    -------
+    NDArray
+        Symmetric positive definite matrix with the same scale as ``cov``.
+    """
+    cov = 0.5 * (cov + cov.T)
+    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    if eigenvalues.min() >= min_eigenvalue:
+        return cov
+    eigenvalues = np.maximum(eigenvalues, min_eigenvalue)
+    repaired = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
+    return 0.5 * (repaired + repaired.T)
 
 
 def _nearest_correlation_matrix(

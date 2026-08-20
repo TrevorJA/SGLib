@@ -22,7 +22,7 @@ from scipy.optimize import minimize
 from scipy.special import gamma
 from scipy.stats import norm as _norm
 
-from synhydro.core.base import Generator, FittedParams
+from synhydro.core.base import Generator, FittedParams, make_output_index
 from synhydro.core.ensemble import Ensemble
 
 logger = logging.getLogger(__name__)
@@ -575,7 +575,7 @@ class PhaseRandomizationGenerator(Generator):
         """Extract and package fitted parameters."""
         n_params = 0
         if self.marginal == "kappa":
-            # 365 days × 4 parameters
+            # 365 days x 4 parameters
             n_params = 365 * 4
 
         training_period = (
@@ -687,9 +687,7 @@ class PhaseRandomizationGenerator(Generator):
         # Generate enough calendar days to cover n_days after removing leap days.
         # Worst case: ~0.25 % of days are Feb 29, so pad by 1 % plus a fixed buffer.
         n_calendar = n_days + n_days // 365 + 10
-        all_days = pd.date_range(
-            start=f"{start_year}-01-01", periods=n_calendar, freq="D"
-        )
+        all_days = make_output_index(f"{start_year}-01-01", n_calendar, "D")
         noleap = all_days[~((all_days.month == 2) & (all_days.day == 29))]
         return noleap[:n_days]
 

@@ -84,3 +84,8 @@ addopts = [
     "--strict-config",
     "-ra",
 ]
+filterwarnings = [
+    # hmmlearn.utils.normalize uses in-place ``arr.shape = ...`` assignment,
+    # deprecated in NumPy 2.5. Third-party; nothing to fix in SynHydro.
+    "ignore:Setting the shape on a NumPy array:DeprecationWarning",
+]

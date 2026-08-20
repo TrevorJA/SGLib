@@ -699,6 +699,14 @@ class TestMultiSiteHMMConvergence:
         gen.preprocessing(sample_annual_dataframe)
         with warnings.catch_warnings():
             warnings.simplefilter("error")
+            # hmmlearn.utils.normalize assigns ``a_sum.shape = ...``, which
+            # NumPy >= 2.5 deprecates. That is a third-party warning, not
+            # ours, so it must not be escalated to an error here.
+            warnings.filterwarnings(
+                "ignore",
+                message="Setting the shape on a NumPy array",
+                category=DeprecationWarning,
+            )
             gen.fit(random_state=42)
         assert gen.converged_ is True
         assert np.isfinite(gen.log_likelihood_)
